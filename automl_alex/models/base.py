@@ -1,6 +1,3 @@
-from sklearn.preprocessing import Normalizer, RobustScaler, StandardScaler
-from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.metrics import *
 from tqdm import tqdm
@@ -78,7 +75,8 @@ class ModelBase(object):
         # variables
         self._init_variables()
         # dataset
-        if databunch: self._data = databunch
+        if databunch: 
+            self._data = databunch
         else:
             if X_train is not None:
                 self._data = DataBunch(X_train=X_train, 
@@ -93,7 +91,7 @@ class ModelBase(object):
                                     random_state=random_state,)
             else: 
                 raise Exception("no Data?")
-        self._init_dataset(self._data)
+        self._init_dataset()
 
     def _init_wrapper_params(self, wrapper_params=None):
         """
@@ -118,7 +116,7 @@ class ModelBase(object):
         self.study = None
         self.history_trials = []
     
-    def _init_dataset(self, data):
+    def _init_dataset(self,):
         # Y
         self.y_train = self._data.y_train
         self.y_test = self._data.y_test
@@ -588,7 +586,7 @@ class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
         self.best_score = None
 
     def early_stopping_opt_maximize(self, study, trial):
-        if self.best_score == None:
+        if self.best_score is None:
             self.best_score = study.best_value
 
         if study.best_value > self.best_score:
@@ -604,7 +602,7 @@ class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
         return
     
     def early_stopping_opt_minimize(self, study, trial):
-        if self.best_score == None:
+        if self.best_score is None:
             self.best_score = study.best_value
 
         if study.best_value < self.best_score:

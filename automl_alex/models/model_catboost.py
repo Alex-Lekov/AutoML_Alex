@@ -180,7 +180,8 @@ class CatBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
-        assert self.is_possible_predict_proba(), "Model cannot predict probability distribution"
+        if not self.is_possible_predict_proba(): 
+            raise Exception("Model cannot predict probability distribution")
         return self.model.predict_proba(X)[:, 1]
 
 

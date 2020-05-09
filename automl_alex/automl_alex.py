@@ -68,7 +68,8 @@ class AutoMLBase(object):
         # variables
         self._init_variables()
         # dataset
-        if databunch: self._data = databunch
+        if databunch: 
+            self._data = databunch
         else:
             if X_train is not None:
                 self._data = DataBunch(X_train=X_train, 
@@ -514,7 +515,6 @@ class ModelsReview(AutoMLBase):
         
         pbar = tqdm(self.models_names, disable=disable_tqdm)
         for model_name in pbar:
-            start_unixtime = time.time()
             # Model
             model = all_models[model_name](databunch=self._data, 
                                             cv=self._cv,
@@ -640,7 +640,7 @@ class ModelsReview(AutoMLBase):
         return(self.top1_models_cfgs)
     
     
-    def predict(self, best_models_cfgs=None, get_pred_train=True, print_metric=False, verbose=1,):
+    def predict(self, best_models_cfgs=None, print_metric=False, verbose=1,):
         if best_models_cfgs is None:
             if self.top1_models_cfgs is None:
                 raise Exception("No best models")
