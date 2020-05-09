@@ -3,7 +3,6 @@
 from setuptools import setup, find_packages
 import os
 from os.path import join, dirname
-import pypandoc
 
 def load_requirements(filename):
     with open(os.path.join('.', filename), "r") as f:

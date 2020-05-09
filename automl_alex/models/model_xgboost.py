@@ -186,7 +186,8 @@ class XGBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
-        assert self.is_possible_predict_proba(), "Model cannot predict probability distribution"
+        if not self.is_possible_predict_proba(): 
+            raise Exception("Model cannot predict probability distribution")
 
         if self.wrapper_params['early_stopping']:
             predicts = self.model.predict(X, ntree_limit=self.model.best_ntree_limit)
