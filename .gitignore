@@ -1,7 +1,10 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.vscode/
 *.py[cod]
 *$py.class
+.pypirc
+
 
 # C extensions
 *.so
@@ -126,4 +129,11 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
+.vscode/
 .pyre/
+.DS_Store
+*/.DS_Store
+alexautoml/.DS_Store
+.catboost_info
+*.catboost_info/
+catboost_info/*
