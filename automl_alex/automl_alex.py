@@ -115,49 +115,60 @@ class AutoMLBase(object):
 ##################################### BestSingleModel ################################################
 
 
-class BestSingleModel(AutoMLBase):
+class BestSingleModel(XGBoost):
     """
     Trying to find which model work best on our data
     Args:
         params (dict or None): parameters for model.
             If None default params are fetched.
     """
-    def __auto_parameters_calc(self, possible_iters, early_stoping, verbose=1):
-        if verbose > 0: 
-                print('Start Auto calibration parameters')
+    def __remake_encode_databunch(self, encoder_name, target_encoder_name):
+        '''
+        Rebuild DataBunch whis new encoders
+        '''
+        self._data = DataBunch(X_train=self._data.X_train_source, 
+                                y_train=self._data.y_train,
+                                X_test=self._data.X_test_source,
+                                y_test=self._data.y_test,
+                                cat_features=self._data.cat_features,
+                                clean_and_encod_data=True,
+                                cat_encoder_name=encoder_name,
+                                target_encoder_name=target_encoder_name,
+                                clean_nan=True,
+                                random_state=self._random_state,)
+    
+    def __make_model(self, model_name, model_param=None, wrapper_params=None,):
+        '''
+        Make new model
+        '''
+        model = all_models[model_name](
+            databunch=self._data, 
+            cv = self._cv,
+            score_cv_folds = self._score_cv_folds,
+            opt_lvl=self._opt_lvl,
+            metric=self.metric,
+            combined_score_opt=self._combined_score_opt,
+            metric_round=self._metric_round,
+            model_param=model_param, 
+            wrapper_params=wrapper_params,
+            gpu=self._gpu, 
+            random_state=self._random_state,
+            type_of_estimator=self.type_of_estimator
+            )
+        return(model)
 
-        if possible_iters > 100:
-            self._cv = 5
-            self._score_cv_folds = 1
-            self._opt_lvl = 1
-            self._cold_start = possible_iters // 3
+    def _opt_encoders(self, trial):
+        encoder_name = trial.suggest_categorical('cat_encoder_name', self.encoders_names)
+        target_encoder_name = trial.suggest_categorical('target_encoder_name', self.target_encoder_names)
+        self.__remake_encode_databunch(encoder_name, target_encoder_name)
 
-        if possible_iters > 300:
-            self._cv = 10
-            self._score_cv_folds = 2
-            self._cold_start = (possible_iters / self._score_cv_folds) // 5
-            self._opt_lvl = 2
-
-        if possible_iters > 1000:
-            self._opt_lvl = 3
-            self._score_cv_folds = 3
-            self._cold_start = (possible_iters / self._score_cv_folds) // 10
-
-        if possible_iters > 5000:
-            early_stoping = self._cold_start + 25
-        
-        if possible_iters > 10000:
-            self._opt_lvl = 4
-            self._score_cv_folds = 4
-            self._cold_start = (possible_iters / self._score_cv_folds) // 20
-            early_stoping = self._cold_start + 50
-
-        if possible_iters > 25000:
-            self._opt_lvl = 5
-            self._score_cv_folds = 5
-            self._cold_start = (possible_iters / self._score_cv_folds) // 30
-            early_stoping = self._cold_start + 100
-        return(early_stoping)
+    def _opt_model(self, trial):
+        self._opt_encoders(trial)
+        # Model
+        model_name = trial.suggest_categorical('model_name', self.models_names)
+        model = self.__make_model(model_name,)
+        model.get_model_opt_params(model, trial=trial)
+        return(model)
 
     def opt(self, 
         timeout=1000, 
@@ -172,6 +183,7 @@ class BestSingleModel(AutoMLBase):
         models_names=None,
         cat_encoder_names=None,
         target_cat_encoder_names=None,
+        save_to_sqlite=False,
         ):
         if cv is not None:
             self._cv = cv
@@ -200,188 +212,13 @@ class BestSingleModel(AutoMLBase):
         else:
             self.target_encoder_names = target_cat_encoder_names
 
-        # Setup best_score
-        start_model_name = list(self.models_names)[0]
-        model = all_models[start_model_name](databunch=self._data,
-                                            cv=self._cv,
-                                            score_cv_folds=3,
-                                            metric=self.metric,
-                                            metric_round=self._metric_round,
-                                            gpu=self._gpu, 
-                                            random_state=self._random_state,
-                                            type_of_estimator= self.type_of_estimator)
-        # score
-        # time model
-        start_time = time.time()
-        score, score_std = model.cv()
-        iter_time = (time.time() - start_time)/3
-        if verbose > 0: 
-            print(f'One iteration takes ~ {round(iter_time,1)} sec')
-        
-        possible_iters = timeout // iter_time
+        history = self._opt_core(
+            timeout, 
+            early_stoping, 
+            save_to_sqlite,
+            verbose)
 
-        if possible_iters < 100:
-            print("Not enough time to find the optimal parameters. \n \
-                Possible iters < 100. \n \
-                Please, Increase the 'timeout' parameter for normal optimization.")
-            raise Exception('Not enough time to find the optimal parameters')
-
-        # Auto_parameters
-        if self._auto_parameters:
-            early_stoping = self.__auto_parameters_calc(possible_iters, early_stoping, verbose)
-        
-        # _combined_score_opt
-        if self._combined_score_opt:
-            score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
-        else: 
-            score_opt = score
-
-        score_opt = round(score_opt, self._metric_round)
-        self.best_score = score_opt
-        self.best_score_std = score_std
-        self.best_model_name = start_model_name
-        self.best_model_wrapper_params = model.wrapper_params
-        self.best_model_param = model.model_param
-        self.best_cat_encoder = self._data.cat_encoder_name
-        self.best_target_encoder = self._data.target_encoder_name
-
-        if verbose > 0: 
-            print('Start optimization with the parameters:')
-            print('CV = ', self._cv)
-            print('Score_folds = ', self._score_cv_folds)
-            print('Opt_lvl = ', self._opt_lvl)
-            print('Cold_start = ', self._cold_start)
-            print('Early_stoping = ', early_stoping)
-            print('Metric = ', self.metric.__name__)
-            print('Direction = ', self.direction)
-            print(f'Start Model {start_model_name} Score {self.metric.__name__} = {self.best_score}')
-
-
-        def objective(trial, fast_check=True):
-            # Encoders
-            encoder_name = trial.suggest_categorical('cat_encoder_name', self.encoders_names)
-            target_encoder_name = trial.suggest_categorical('target_cat_encoder_name', self.target_encoder_names)
-            
-            self._data = DataBunch(X_train=self._data.X_train_source, 
-                                    y_train=self._data.y_train,
-                                    X_test=self._data.X_test_source,
-                                    y_test=self._data.y_test,
-                                    cat_features=self._data.cat_features,
-                                    clean_and_encod_data=True,
-                                    cat_encoder_name=encoder_name,
-                                    target_encoder_name=target_encoder_name,
-                                    clean_nan=True,
-                                    random_state=self._random_state,)
-
-            # Model
-            model_name = trial.suggest_categorical('model_name', self.models_names)
-            
-            model = all_models[model_name](databunch=self._data, 
-                                            opt_lvl=self._opt_lvl,
-                                            cv=self._cv,
-                                            score_cv_folds = self._score_cv_folds,
-                                            auto_parameters = False,
-                                            metric=self.metric,
-                                            metric_round=self._metric_round,
-                                            gpu=self._gpu, 
-                                            random_state=self._random_state,
-                                            type_of_estimator= self.type_of_estimator)
-            model.get_model_opt_params(model, trial=trial)
-
-            # score
-            score, score_std = model.cv()
-
-            # _combined_score_opt
-            if self._combined_score_opt:
-                score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
-            else: 
-                score_opt = score
-            
-            score_opt = round(score_opt, self._metric_round)
-            
-            # best_score
-            flag_update_best = False
-            if direction == 'maximize':
-                if score_opt > self.best_score:
-                    flag_update_best = True
-            else:
-                if score_opt < self.best_score:
-                    flag_update_best = True
-
-            if flag_update_best:        
-                self.best_score = score_opt
-                self.best_score_std = score_std
-                self.best_model_name = model_name
-                self.best_model_wrapper_params = model.wrapper_params
-                self.best_model_param = model.model_param
-                self.best_cat_encoder = self._data.cat_encoder_name
-                self.best_target_encoder = self._data.target_encoder_name
-
-            # History trials
-            self.history_trials.append({
-                'score_opt': score_opt,
-                'model_score': score,
-                'score_std': score_std,
-                'model_name': model_name,
-                'model_param': model.model_param,
-                'wrapper_params': model.wrapper_params,
-                'cat_encoder': self._data.cat_encoder_name,
-                'target_encoder': self._data.target_encoder_name,
-                                })
-
-            if verbose == 1:
-                if pbar is not None:
-                    message = f'Best Score {self.metric.__name__} = {self.best_score} '
-                    if self._score_cv_folds > 1:
-                        message+=f'+- {self.best_score_std} '
-                    message+=f'Best Model: {self.best_model_name}'
-                    pbar.set_postfix_str(message)
-                    pbar.update(1)
-            return round(score_opt, self._metric_round)
-        
-        sampler=optuna.samplers.TPESampler(consider_prior=True, 
-                                            prior_weight=1.0, 
-                                            consider_magic_clip=True, 
-                                            consider_endpoints=False, 
-                                            n_startup_trials=self._cold_start, 
-                                            n_ei_candidates=50, 
-                                            seed=self._random_state)
-        self.study = optuna.create_study(direction=self.direction, sampler=sampler)
-
-        if verbose < 2:
-            optuna.logging.disable_default_handler()
-        
-        # EarlyStopping
-        es = EarlyStoppingExceeded()
-        es.early_stop = early_stoping
-        es.early_stop_count = 0
-        es.best_score = None
-
-        es_callback = es.early_stopping_opt_minimize
-        if self.direction == 'maximize':
-            es_callback = es.early_stopping_opt_maximize
-
-        # Opt
-        if verbose > 0:
-            disable_tqdm = False
-        else: disable_tqdm = True
-
-        with tqdm(file=sys.stdout, leave=False, disable=disable_tqdm) as pbar:
-            try:
-                self.study.optimize(objective, timeout=timeout, callbacks=[es_callback])
-            except EarlyStoppingExceeded:
-                if verbose == 1:
-                    print(f'\n EarlyStopping Exceeded: Best Score: {self.study.best_value}', self.metric.__name__)
-
-        self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=True)
-        if self.direction == 'maximize':
-            self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=False)
-        
-        #self.wrapper_params = self.best_model_wrapper_params
-        #self.model_param = self.best_model_param
-        self._data.cat_encoder_name = self.best_cat_encoder
-        self._data.target_encoder_name = self.best_target_encoder
-        return(self.history_trials_dataframe)
+        return(history)
 
     def predict(self, 
         model_name=None,
@@ -395,87 +232,24 @@ class BestSingleModel(AutoMLBase):
             if self.best_model_name is None:
                 raise Exception("No best model")
             model_name = self.best_model_name
+
         if cat_encoder_name is None:
             cat_encoder_name = self.best_cat_encoder
         if target_encoder_name is None:
             target_encoder_name = self.best_target_encoder
+        self.__remake_encode_databunch(cat_encoder_name, target_encoder_name)
 
-        self._model_param = model_param
         if model_param is None:
-            self._model_param = self.best_model_param
-
-        self._wrapper_params = wrap_params
+            model_param = self.best_model_param
         if wrap_params is None:
-            self._wrapper_params = self.best_model_wrapper_params 
+            wrap_params = self.best_model_wrapper_params 
 
-        self._data = DataBunch(X_train=self._data.X_train_source, 
-                                    y_train=self._data.y_train,
-                                    X_test=self._data.X_test_source,
-                                    y_test=self._data.y_test,
-                                    cat_features=self._data.cat_features,
-                                    clean_and_encod_data=True,
-                                    cat_encoder_name=cat_encoder_name,
-                                    target_encoder_name=target_encoder_name,
-                                    clean_nan=True,
-                                    random_state=self._random_state,)
+        model = self.__make_model(model_name, model_param=model_param, wrapper_params=wrap_params,)
 
-        model = all_models[model_name](databunch=self._data, 
-                                        cv = self._cv,
-                                        score_cv_folds = self._score_cv_folds,
-                                        metric=self.metric,
-                                        combined_score_opt=self._combined_score_opt,
-                                        metric_round=self._metric_round,
-                                        model_param=self._model_param, 
-                                        wrapper_params=self._wrapper_params, 
-                                        gpu=self._gpu, 
-                                        random_state=self._random_state,
-                                        type_of_estimator=self.type_of_estimator)
-        
         predicts_test, predict_train = model.cv(metric_round=self._metric_round, 
                                                 print_metric=print_metric,
                                                 predict=True,)
         return(predicts_test, predict_train)
-    
-    def plot_opt_history(self, figsize=(15,5)):
-        """
-        Plot optimization history of all trials in a study.
-        """
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        sns.set_style(style="darkgrid")
-        best_score_ls = []
-        opt_df = pd.DataFrame(self.history_trials)
-        for i, score in enumerate(opt_df.score_opt):
-            if i == 0:
-                best_score = score
-                best_score_ls.append(score)
-            else:
-                if self.direction == 'maximize':
-                    if best_score < score:
-                        best_score = score
-                        best_score_ls.append(best_score)
-                    else:
-                        best_score_ls.append(best_score)
-                else:
-                    if best_score > score:
-                        best_score = score
-                        best_score_ls.append(best_score)
-                    else:
-                        best_score_ls.append(best_score)
-
-        opt_df['best_score'] = best_score_ls
-        opt_df['Id'] = list(opt_df.index)
-
-        plt.figure(figsize=figsize) 
-        points = plt.scatter(x=opt_df.Id, y=opt_df.score_opt, label='Iter Score',
-                            c=opt_df.score_opt, s=25, cmap="coolwarm")
-        plt.colorbar(points)
-        plt.plot(opt_df.best_score, color='red', label='Best Score',)
-        plt.xlabel("Iter")
-        plt.ylabel("Score")
-        plt.title('Plot optimization history')
-        plt.legend()
-        return(plt.show())
 
 
 class BestSingleModelClassifier(BestSingleModel):
@@ -710,10 +484,10 @@ class Stacking(ModelsReview):
             cv=None,
             score_cv_folds=None,
             stack_models_names=None,
-            meta_models_names=['MLP', 'XGBoost'],
+            stack_top=15,
+            meta_models_names=['LinearModel','MLP','XGBoost'],
             cat_encoder_names=None,
             target_cat_encoder_names=None,
-            meta_model_cv=12,
             verbose=1,):
 
         if cv is not None:
@@ -728,9 +502,9 @@ class Stacking(ModelsReview):
             print("\n Step1: Opt StackingModels")
             time.sleep(0.2) # clean print 
 
-        if timeout < 600:
+        if timeout < 1000:
             raise Exception(f"opt Stacking in {timeout}sec? it does not work so fast)")
-        select_models_timeout = timeout-300
+        select_models_timeout = timeout-500
 
         if stack_models_names is None:
             self.stack_models_names = all_models.keys()
@@ -770,7 +544,7 @@ class Stacking(ModelsReview):
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-        self.stack_models_trails = history.head(25)
+        self.stack_models_trails = history.head(stack_top)
 
         if verbose > 0:
             print("\n Step2: Get new X_train from StackingModels")
@@ -813,11 +587,11 @@ class Stacking(ModelsReview):
                             random_state=self._random_state,)
         
         # Meta model
-        meta_model = ModelsReview(databunch=meta_data,
-                                opt_lvl=self._opt_lvl,
-                                cv=meta_model_cv,
-                                score_cv_folds = meta_model_cv,
-                                auto_parameters = False,
+        self.meta_model = ModelsReview(databunch=meta_data,
+                                opt_lvl=3,
+                                cv=11,
+                                score_cv_folds = 5,
+                                auto_parameters=False,
                                 metric=self.metric,
                                 direction=self.direction,
                                 metric_round=self._metric_round,
@@ -826,21 +600,21 @@ class Stacking(ModelsReview):
                                 random_state=self._random_state,
                                 type_of_estimator=self.type_of_estimator)
         
-        _ = meta_model.opt(timeout=300,
+        _ = self.meta_model.opt(timeout=300,
                             models_names=self.meta_models_names,
                             auto_parameters=False,
                             verbose= (lambda x: 0 if x <= 1 else 1)(verbose),)
 
-        self.top10_meta_models = meta_model.top10_models_cfgs.sort_values('model_score', ascending=True).head(10)
+        self.top10_meta_models = self.meta_model.top10_models_cfgs.sort_values('model_score', ascending=True).head(10)
         if self.direction == 'maximize':
-            self.top10_meta_models = meta_model.top10_models_cfgs.sort_values('model_score', ascending=False).head(10)
+            self.top10_meta_models = self.meta_model.top10_models_cfgs.sort_values('model_score', ascending=False).head(10)
         
         # Predict
         if verbose > 0:
             print("\n Step4: Predict from MetaModels")
             time.sleep(0.1) # clean print 
 
-        predict_meta_models = meta_model.predict(best_models_cfgs=self.top10_meta_models, verbose=verbose,)
+        predict_meta_models = self.meta_model.predict(best_models_cfgs=self.top10_meta_models, verbose=verbose,)
 
         stacking_y_pred_test = pd.DataFrame(predict_meta_models)['predict_test'].mean()
         stacking_y_pred_train = pd.DataFrame(predict_meta_models)['predict_train'].mean()

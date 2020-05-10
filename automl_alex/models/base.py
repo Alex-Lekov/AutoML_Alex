@@ -41,7 +41,7 @@ class ModelBase(object):
                 direction=None,
                 combined_score_opt=True,
                 metric_round=4, 
-                cold_start=150,
+                cold_start=100,
                 gpu=False, 
                 type_of_estimator=None, # classifier or regression
                 random_state=42):
@@ -197,96 +197,68 @@ class ModelBase(object):
             score_opt = score + score_std
         return(score_opt)
 
-    def opt(self,
-            timeout=100,
-            auto_parameters=None,
-            cv=None,
-            cold_start=None,
-            score_cv_folds=None,
-            opt_lvl=None,
-            direction=None,
-            early_stoping=100,
-            save_to_sqlite=False,
-            verbose=1,):
-        if cv is not None:
-            self._cv = cv
-        if score_cv_folds is not None:
-            self._score_cv_folds = score_cv_folds
-        if cold_start is not None:
-            self._cold_start = cold_start
-        if opt_lvl is not None:
-            self._opt_lvl = opt_lvl
-        if auto_parameters is not None:
-            self._auto_parameters = auto_parameters
-        if direction is not None:
-            self.direction = direction
-        if self.direction is None:
-            raise Exception('Need direction for optimaze!')
+    def __auto_parameters_calc(self, possible_iters, early_stoping, verbose=1):
+        if verbose > 0: 
+                print('Start Auto calibration parameters')
+
+        if possible_iters > 100:
+            self._cv = 5
+            self._score_cv_folds = 1
+            self._opt_lvl = 1
+            self._cold_start = possible_iters // 3
+
+        if possible_iters > 300:
+            self._score_cv_folds = 2
+            self._opt_lvl = 2
+            self._cold_start = (possible_iters / self._score_cv_folds) // 5
+
+        if possible_iters > 600:
+            self._cv = 10
+            self._score_cv_folds = 3
+            self._cold_start = (possible_iters / self._score_cv_folds) // 10
+
+        if possible_iters > 900:
+            self._opt_lvl = 3
+            early_stoping = self._cold_start * 3
+        
+        if possible_iters > 10000:
+            self._opt_lvl = 4
+            self._score_cv_folds = 4
+            self._cold_start = (possible_iters / self._score_cv_folds) // 20
+            early_stoping = self._cold_start * 2
+
+        if possible_iters > 25000:
+            self._opt_lvl = 5
+            self._score_cv_folds = 5
+            self._cold_start = (possible_iters / self._score_cv_folds) // 30
+            early_stoping = self._cold_start * 2
+        return(early_stoping)
+
+    def _opt_model(self, trial):
+        opt_model = self
+        opt_model.get_model_opt_params(opt_model, trial=trial)
+        return(opt_model)
+
+    def _opt_core(self, timeout, early_stoping, save_to_sqlite, verbose=1):
+        # time model
+        start_time = time()
+        score, score_std = self.cv(score_cv_folds=1)
+        iter_time = (time() - start_time)
+
+        if verbose > 0: 
+            print(f'One iteration takes ~ {round(iter_time,1)} sec')
+        
+        possible_iters = timeout // iter_time
+
+        if possible_iters < 100:
+            print("Not enough time to find the optimal parameters. \n \
+                Possible iters < 100. \n \
+                Please, Increase the 'timeout' parameter for normal optimization.")
+            raise Exception('Not enough time to find the optimal parameters')
 
         # Auto_parameters
         if self._auto_parameters:
-            if verbose > 0: 
-                print('Start Auto calibration parameters')
-            
-            # time model
-            start_time = time()
-            self._score_cv_folds = 1
-            score, score_std = self.cv()
-            iter_time = (time() - start_time)/self._score_cv_folds
-
-            if verbose > 0: 
-                print(f'One iteration takes ~ {round(iter_time,1)} sec')
-            
-            possible_iters = timeout // iter_time
-
-            if possible_iters < 100:
-                print("Not enough time to find the optimal parameters. \n \
-                    Possible iters < 100. \n \
-                    Please, Increase the 'timeout' parameter for normal optimization.")
-                raise Exception('Not enough time to find the optimal parameters')
-
-            if possible_iters > 100:
-                self._cv = 5
-                self._score_cv_folds = 1
-                self._opt_lvl = 1
-                self._cold_start = possible_iters // 10
-
-            if possible_iters > 300:
-                self._cv = 10
-                self._score_cv_folds = 2
-                self._cold_start = (possible_iters / self._score_cv_folds) // 20
-                self._opt_lvl = 2
-
-            if possible_iters > 900:
-                self._opt_lvl = 3
-                self._score_cv_folds = 3
-                self._cold_start = (possible_iters / self._score_cv_folds) // 20
-
-            if possible_iters > 5000:
-                self._score_cv_folds = 4
-                self._cold_start = (possible_iters / self._score_cv_folds) // 30
-                early_stoping = self._cold_start + 25
-            
-            if possible_iters > 10000:
-                self._opt_lvl = 4
-                self._score_cv_folds = 5
-                self._cold_start = (possible_iters / self._score_cv_folds) // 30
-                early_stoping = self._cold_start + 50
-
-            if possible_iters > 25000:
-                self._opt_lvl = 5
-                self._score_cv_folds = 10
-                self._cold_start = (possible_iters / self._score_cv_folds) // 40
-                early_stoping = self._cold_start + 50
-
-        if verbose > 0:
-            print('Start optimization with the parameters:')
-            print('Score_folds = ', self._score_cv_folds)
-            print('Opt_lvl = ', self._opt_lvl)
-            print('Cold_start = ', self._cold_start)
-            print('Early_stoping = ', early_stoping)
-            print('Metric = ', self.metric.__name__)
-            print('Direction = ', self.direction)
+            early_stoping = self.__auto_parameters_calc(possible_iters, early_stoping, verbose)
 
         # default model
         score, score_std = self.cv()
@@ -299,19 +271,28 @@ class ModelBase(object):
 
         self.best_score = round(score_opt, self._metric_round)
         self.best_score_std = score_std
+        self.best_model_name = self.__name__
         self.best_model_wrapper_params = self.wrapper_params
         self.best_model_param = self.model_param
+        self.best_cat_encoder = self._data.cat_encoder_name
+        self.best_target_encoder = self._data.target_encoder_name
 
         if verbose > 0: 
+            print('Start optimization with the parameters:')
+            print('Score_folds = ', self._score_cv_folds)
+            print('Opt_lvl = ', self._opt_lvl)
+            print('Cold_start = ', self._cold_start)
+            print('Early_stoping = ', early_stoping)
+            print('Metric = ', self.metric.__name__)
+            print('Direction = ', self.direction)
             print(f'Default model {self.metric.__name__} = {round(self.best_score,4)}')
+            print('#'*40)
         
         # OPTUNA objective
         def objective(trial, fast_check=True):
-            self.get_model_opt_params(self, trial=trial)
-            
+            opt_model = self._opt_model(trial=trial)
             # score
-            score, score_std = self.cv()
-
+            score, score_std = opt_model.cv()
             # _combined_score_opt
             if self._combined_score_opt:
                 score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
@@ -332,17 +313,20 @@ class ModelBase(object):
             if flag_update_best:        
                 self.best_score = score_opt
                 self.best_score_std = score_std
-                self.best_model_wrapper_params = self.wrapper_params
-                self.best_model_param = self.model_param
+                self.best_model_name = opt_model.__name__
+                self.best_model_wrapper_params = opt_model.wrapper_params
+                self.best_model_param = opt_model.model_param
+                self.best_cat_encoder = self._data.cat_encoder_name
+                self.best_target_encoder = self._data.target_encoder_name
 
             # History trials
             self.history_trials.append({
                 'score_opt': score_opt,
                 'model_score': score,
                 'score_std': score_std,
-                'model_name': self.__name__,
-                'model_param': self.model_param,
-                'wrapper_params': self.wrapper_params,
+                'model_name': opt_model.__name__,
+                'model_param': opt_model.model_param,
+                'wrapper_params': opt_model.wrapper_params,
                 'cat_encoder': self._data.cat_encoder_name,
                 'target_encoder': self._data.target_encoder_name,
                                 })
@@ -350,7 +334,7 @@ class ModelBase(object):
             # verbose
             if verbose == 1:
                 if pbar is not None:
-                    message = f'Best Score {self.metric.__name__} = {self.best_score} '
+                    message = f'{self.best_model_name} Best Score {self.metric.__name__} = {self.best_score} '
                     if self._score_cv_folds > 1:
                         message+=f'+- {self.best_score_std}'
                     pbar.set_postfix_str(message)
@@ -414,9 +398,43 @@ class ModelBase(object):
         self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('model_score', ascending=True)
         if self.direction == 'maximize':
             self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('model_score', ascending=False)
+        return(self.history_trials_dataframe)
+
+    def opt(self,
+            timeout=100,
+            auto_parameters=None,
+            cv=None,
+            cold_start=None,
+            score_cv_folds=None,
+            opt_lvl=None,
+            direction=None,
+            early_stoping=100,
+            save_to_sqlite=False,
+            verbose=1,):
+        if cv is not None:
+            self._cv = cv
+        if score_cv_folds is not None:
+            self._score_cv_folds = score_cv_folds
+        if cold_start is not None:
+            self._cold_start = cold_start
+        if opt_lvl is not None:
+            self._opt_lvl = opt_lvl
+        if auto_parameters is not None:
+            self._auto_parameters = auto_parameters
+        if direction is not None:
+            self.direction = direction
+        if self.direction is None:
+            raise Exception('Need direction for optimaze!')
+
+        history = self._opt_core(
+            timeout, 
+            early_stoping, 
+            save_to_sqlite,
+            verbose)
+
         self.wrapper_params = self.best_model_wrapper_params
         self.model_param = self.best_model_param
-        return(self.history_trials_dataframe)
+        return(history)
 
     def plot_opt_history(self, figsize=(15,5)):
         """
@@ -486,7 +504,9 @@ class ModelBase(object):
                                                     name=self.wrapper_params['scaler_name'],)
         return(train_x, val_x, test_x)
 
-    def cv(self, print_metric=False, metric_round=4, predict=False):
+    def cv(self, print_metric=False, metric_round=4, predict=False, score_cv_folds=None):
+        if score_cv_folds is None:
+            score_cv_folds = self._score_cv_folds
         if self.type_of_estimator == 'classifier':
             skf = StratifiedKFold(n_splits=self._cv, shuffle=True, random_state=self._random_state,)
         else:
@@ -501,7 +521,7 @@ class ModelBase(object):
         for train_idx, valid_idx in skf.split(self.X_train, self.y_train):
             count+=1
             if not predict:
-                if count > self._score_cv_folds:
+                if count > score_cv_folds:
                     break
 
             train_x, train_y = self.X_train.iloc[train_idx], self.y_train.iloc[train_idx]
@@ -536,7 +556,7 @@ class ModelBase(object):
             score_model = self.metric(val_y, y_pred)
             folds_scores.append(score_model)
         
-        if self._score_cv_folds > 1 or predict:
+        if score_cv_folds > 1 or predict:
             score = round(np.mean(folds_scores),self._metric_round)
             score_std = round(np.std(folds_scores),self._metric_round+2)
         else:

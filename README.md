@@ -11,9 +11,7 @@
 
 ---
 
-<p align="center"> State-of-the art Automated Machine Learning python library
-    <br> 
-</p>
+<p align="center"> State-of-the art Automated Machine Learning python library for Tabular Data</p>
 
 
 ## Installation
@@ -25,12 +23,22 @@ pip install automl-alex
 
 ## 🚀 Examples
 
+Classifier:
 ```python
 from automl_alex import AutoMLClassifier
 
 model = AutoMLClassifier(X_train, y_train, X_test,)
 predict_test, predict_train = model.fit_predict(timeout=1000,)
 ```
+
+Regression:
+```python
+from automl_alex import AutoMLRegressor
+
+model = AutoMLRegressor(X_train, y_train, X_test,)
+predict_test, predict_train = model.fit_predict(timeout=1000,)
+```
+
 More examples in the folder ./examples
 
 
@@ -41,7 +49,7 @@ More examples in the folder ./examples
 - Target Encoding with cross validation
 - Cross Validation
 - Search for the best solving library 
-- Smart Optimization of Hyperparameters
+- Smart Optimization of Hyperparameters (TPE)
 - Timelimit and EarlyStoping
 - Stacking
 
