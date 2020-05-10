@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 import os
 from os.path import join, dirname
+import pypandoc
 
 def load_requirements(filename):
     with open(os.path.join('.', filename), "r") as f:
@@ -19,16 +20,16 @@ with io.open('README.md', encoding="utf-8") as f:
 setup(
     name='automl_alex',
     version=version,
-    description='State-of-the art Automated Machine Learning python library',
+    description='State-of-the art Automated Machine Learning python library for Tabular Data',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Alex Lekov',
     author_email='itslek@yandex.ru',
-    url='https://github.com/Alex-Lekov/',
     keywords=['machine learning', 'data science', 'automated machine learning', 'automl', 'hyperparameter optimization', 'artificial intelligence', 'ensembling', 'stacking', 'blending', 'deep learning', 'tensorflow', 'deeplearning', 'lightgbm', 'gradient boosting', 'gbm', 'keras', ],
     packages=['automl_alex', 'automl_alex.models'],
     license='MIT',
     classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: Education",
         "Intended Audience :: Science/Research",
@@ -39,12 +40,15 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Scientific/Engineering :: Information Analysis",
         'Topic :: Software Development :: Libraries :: Python Modules',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    python_requires='>=3.5.*',
+    python_requires='>=3.6.*',
     install_requires=load_requirements("requirements.txt"),
     test_suite='nose.collector',
+    project_urls={  # Optional
+        'Bug Reports': 'https://github.com/Alex-Lekov/AutoML_Alex/issues',
+        'Source': 'https://github.com/Alex-Lekov/AutoML_Alex/',
+    },
 )
