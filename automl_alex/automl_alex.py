@@ -502,9 +502,9 @@ class Stacking(ModelsReview):
             print("\n Step1: Opt StackingModels")
             time.sleep(0.2) # clean print 
 
-        if timeout < 1000:
+        if timeout < 1200:
             raise Exception(f"opt Stacking in {timeout}sec? it does not work so fast)")
-        select_models_timeout = timeout-500
+        select_models_timeout = timeout-600
 
         if stack_models_names is None:
             self.stack_models_names = all_models.keys()
@@ -600,7 +600,7 @@ class Stacking(ModelsReview):
                                 random_state=self._random_state,
                                 type_of_estimator=self.type_of_estimator)
         
-        _ = self.meta_model.opt(timeout=300,
+        _ = self.meta_model.opt(timeout=450,
                             models_names=self.meta_models_names,
                             auto_parameters=False,
                             verbose= (lambda x: 0 if x <= 1 else 1)(verbose),)
