@@ -1,7 +1,6 @@
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 from sklearn.metrics import *
 from tqdm import tqdm
-from time import time
 import sklearn
 import optuna
 import pandas as pd
@@ -9,6 +8,8 @@ import numpy as np
 import sys
 import warnings
 from automl_alex.databunch import DataBunch
+from automl_alex.encoders import *
+
 
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
 
@@ -19,6 +20,10 @@ class ModelBase(object):
     i.e. it defines algorithm-specific hyperparameter space and generic methods for model training & inference
     """
     pbar = 0
+    model = None
+    study = None
+    history_trials = []
+    history_trials_dataframe = pd.DataFrame()
 
     def __init__(self,  
                 X_train=None, 
@@ -31,6 +36,9 @@ class ModelBase(object):
                 target_encoder_name='JamesSteinEncoder',
                 clean_nan=True,
                 databunch=None,
+                opt_encoders=False,
+                cat_encoder_names=None,
+                target_cat_encoder_names=None,
                 model_param=None, 
                 wrapper_params=None,
                 auto_parameters=True,
@@ -69,11 +77,26 @@ class ModelBase(object):
         self._score_cv_folds = score_cv_folds
         self._opt_lvl = opt_lvl
         self._combined_score_opt = combined_score_opt
+
+        # Encoders
+        self._opt_encoders_bool = opt_encoders
+        if cat_encoder_names is None:
+            self.encoders_names = encoders_names.keys()
+        else:
+            self.encoders_names = cat_encoder_names
+
+        if target_cat_encoder_names is None:
+            self.target_encoder_names = target_encoders_names.keys()
+        else:
+            self.target_encoder_names = target_cat_encoder_names
+
         
         self._init_wrapper_params(wrapper_params)
         self._init_model_param(model_param)
+        self.history_trials = []
+        self.history_trials_dataframe = pd.DataFrame()
         # variables
-        self._init_variables()
+        #self._init_variables()
         # dataset
         if databunch: 
             self._data = databunch
@@ -91,7 +114,7 @@ class ModelBase(object):
                                     random_state=random_state,)
             else: 
                 raise Exception("no Data?")
-        self._init_dataset()
+        #self._init_dataset()
 
     def _init_wrapper_params(self, wrapper_params=None):
         """
@@ -106,23 +129,6 @@ class ModelBase(object):
             params (dict or None): parameters for model.
         """
         raise NotImplementedError("Pure virtual class.")
-    
-    def _init_variables(self,):
-        self.best_model_wrapper_params = None
-        self.best_model_param = None
-        self.best_score = 0
-        self.best_score_std = 0
-        self.model = None
-        self.study = None
-        self.history_trials = []
-    
-    def _init_dataset(self,):
-        # Y
-        self.y_train = self._data.y_train
-        self.y_test = self._data.y_test
-        # X
-        self.X_train = self._data.X_train
-        self.X_test = self._data.X_test
 
 
     def _fit(self, dataset, weights=None):
@@ -156,7 +162,7 @@ class ModelBase(object):
     def _predict(self, dataset):
         """
         Args:
-            dataset (modelgym.utils.XYCDataset): the input data,
+            dataset : the input data,
                 dataset.y may be None
         Return:
             np.array, shape (n_samples, ): predictions
@@ -205,26 +211,26 @@ class ModelBase(object):
             self._cv = 5
             self._score_cv_folds = 1
             self._opt_lvl = 1
-            self._cold_start = possible_iters // 3
+            self._cold_start = possible_iters // 2
 
         if possible_iters > 300:
             self._score_cv_folds = 2
             self._opt_lvl = 2
-            self._cold_start = (possible_iters / self._score_cv_folds) // 5
+            self._cold_start = (possible_iters / self._score_cv_folds) // 3
 
         if possible_iters > 600:
             self._cv = 10
             self._score_cv_folds = 3
-            self._cold_start = (possible_iters / self._score_cv_folds) // 10
+            self._cold_start = (possible_iters / self._score_cv_folds) // 5
 
         if possible_iters > 900:
             self._opt_lvl = 3
-            early_stoping = self._cold_start * 3
+            early_stoping = self._cold_start * 2
         
         if possible_iters > 10000:
             self._opt_lvl = 4
             self._score_cv_folds = 4
-            self._cold_start = (possible_iters / self._score_cv_folds) // 20
+            self._cold_start = (possible_iters / self._score_cv_folds) // 10
             early_stoping = self._cold_start * 2
 
         if possible_iters > 25000:
@@ -234,6 +240,45 @@ class ModelBase(object):
             early_stoping = self._cold_start * 2
         return(early_stoping)
 
+    def _remake_encode_databunch(self, encoder_name, target_encoder_name):
+        '''
+        Rebuild DataBunch whis new encoders
+        '''
+        data = DataBunch(X_train=self._data.X_train_source, 
+                                y_train=self._data.y_train,
+                                X_test=self._data.X_test_source,
+                                y_test=self._data.y_test,
+                                cat_features=self._data.cat_features,
+                                clean_and_encod_data=True,
+                                cat_encoder_name=encoder_name,
+                                target_encoder_name=target_encoder_name,
+                                clean_nan=True,
+                                random_state=self._random_state,)
+        return (data)
+
+    def _tqdm_opt_print(self, pbar):
+        if pbar is not None:
+            if self.direction == 'maximize':
+                self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=False)
+            else:
+                self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=True)
+            
+            best_trail = self.history_trials_dataframe.head(1)
+            best_model_name = best_trail['model_name'].iloc[0]
+            self.best_score = best_trail['model_score'].iloc[0]
+            self.best_score_std = best_trail['score_std'].iloc[0]
+
+            message = f'{best_model_name} Best Score {self.metric.__name__} = {self.best_score} '
+            if self._score_cv_folds > 1:
+                message+=f'+- {self.best_score_std}'
+            pbar.set_postfix_str(message)
+            pbar.update(1)
+
+    def _opt_encoders(self, trial):
+        encoder_name = trial.suggest_categorical('cat_encoder_name', self.encoders_names)
+        target_encoder_name = trial.suggest_categorical('target_encoder_name', self.target_encoder_names)
+        self._data = self._remake_encode_databunch(encoder_name, target_encoder_name)
+
     def _opt_model(self, trial):
         opt_model = self
         opt_model.get_model_opt_params(opt_model, trial=trial)
@@ -241,14 +286,15 @@ class ModelBase(object):
 
     def _opt_core(self, timeout, early_stoping, save_to_sqlite, verbose=1):
         # time model
-        start_time = time()
+        start_time = time.time()
+        #config = self.fit()
         score, score_std = self.cv(score_cv_folds=1)
-        iter_time = (time() - start_time)
+        iter_time = (time.time() - start_time)
 
         if verbose > 0: 
             print(f'One iteration takes ~ {round(iter_time,1)} sec')
         
-        possible_iters = timeout // iter_time
+        possible_iters = timeout // (iter_time*2)
 
         if possible_iters < 100:
             print("Not enough time to find the optimal parameters. \n \
@@ -259,23 +305,9 @@ class ModelBase(object):
         # Auto_parameters
         if self._auto_parameters:
             early_stoping = self.__auto_parameters_calc(possible_iters, early_stoping, verbose)
-
-        # default model
-        score, score_std = self.cv()
-
-        # _combined_score_opt
-        if self._combined_score_opt:
-            score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
-        else: 
-            score_opt = score
-
-        self.best_score = round(score_opt, self._metric_round)
-        self.best_score_std = score_std
-        self.best_model_name = self.__name__
-        self.best_model_wrapper_params = self.wrapper_params
-        self.best_model_param = self.model_param
-        self.best_cat_encoder = self._data.cat_encoder_name
-        self.best_target_encoder = self._data.target_encoder_name
+        
+        config = self.fit()
+        self.best_score = config['model_score'].iloc[0]
 
         if verbose > 0: 
             print('Start optimization with the parameters:')
@@ -290,6 +322,8 @@ class ModelBase(object):
         
         # OPTUNA objective
         def objective(trial, fast_check=True):
+            if self._opt_encoders_bool:
+                self._opt_encoders(trial)
             opt_model = self._opt_model(trial=trial)
             # score
             score, score_std = opt_model.cv()
@@ -298,26 +332,7 @@ class ModelBase(object):
                 score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
             else: 
                 score_opt = score
-            
             score_opt = round(score_opt, self._metric_round)
-            
-            # best_score
-            flag_update_best = False
-            if self.direction == 'maximize':
-                if score_opt > self.best_score:
-                    flag_update_best = True
-            else:
-                if score_opt < self.best_score:
-                    flag_update_best = True
-
-            if flag_update_best:        
-                self.best_score = score_opt
-                self.best_score_std = score_std
-                self.best_model_name = opt_model.__name__
-                self.best_model_wrapper_params = opt_model.wrapper_params
-                self.best_model_param = opt_model.model_param
-                self.best_cat_encoder = self._data.cat_encoder_name
-                self.best_target_encoder = self._data.target_encoder_name
 
             # History trials
             self.history_trials.append({
@@ -332,13 +347,8 @@ class ModelBase(object):
                                 })
             
             # verbose
-            if verbose == 1:
-                if pbar is not None:
-                    message = f'{self.best_model_name} Best Score {self.metric.__name__} = {self.best_score} '
-                    if self._score_cv_folds > 1:
-                        message+=f'+- {self.best_score_std}'
-                    pbar.set_postfix_str(message)
-                    pbar.update()
+            if verbose >= 1:
+                self._tqdm_opt_print(pbar)
             return score_opt
         
         sampler=optuna.samplers.TPESampler(consider_prior=True, 
@@ -348,7 +358,6 @@ class ModelBase(object):
                                             n_startup_trials=self._cold_start, 
                                             n_ei_candidates=50, 
                                             seed=self._random_state)
-        
         if self.study is None:
             if save_to_sqlite:
                 self.study = optuna.create_study(
@@ -401,7 +410,7 @@ class ModelBase(object):
         return(self.history_trials_dataframe)
 
     def opt(self,
-            timeout=100,
+            timeout=100, # optimization time in seconds
             auto_parameters=None,
             cv=None,
             cold_start=None,
@@ -409,6 +418,9 @@ class ModelBase(object):
             opt_lvl=None,
             direction=None,
             early_stoping=100,
+            opt_encoders=False, # select encoders for data
+            cat_encoder_names=None,
+            target_cat_encoder_names=None,
             save_to_sqlite=False,
             verbose=1,):
         if cv is not None:
@@ -425,6 +437,12 @@ class ModelBase(object):
             self.direction = direction
         if self.direction is None:
             raise Exception('Need direction for optimaze!')
+        # Encoders
+        self._opt_encoders_bool = opt_encoders
+        if cat_encoder_names is not None:
+            self.encoders_names = cat_encoder_names
+        if target_cat_encoder_names is not None:
+            self.target_encoder_names = target_cat_encoder_names
 
         history = self._opt_core(
             timeout, 
@@ -432,8 +450,6 @@ class ModelBase(object):
             save_to_sqlite,
             verbose)
 
-        self.wrapper_params = self.best_model_wrapper_params
-        self.model_param = self.best_model_param
         return(history)
 
     def plot_opt_history(self, figsize=(15,5)):
@@ -504,57 +520,91 @@ class ModelBase(object):
                                                     name=self.wrapper_params['scaler_name'],)
         return(train_x, val_x, test_x)
 
-    def cv(self, print_metric=False, metric_round=4, predict=False, score_cv_folds=None):
+    def _preproc_fit_predict(self, model=None, train_x=None, train_y=None, val_x=None, val_y=None, test_x=None, predict_test=True):
+        y_pred_test=None
+
+        if model is None:
+            model = self
+        if (train_x is None) or (train_y is None):
+            train_x = self._data.X_train
+            train_y = self._data.y_train
+            test_x = self._data.X_test
+        # TargetEncoder and Scaling
+        train_x, val_x, test_x = model._data.target_encodet(
+            train_x=train_x, 
+            train_y=train_y, 
+            val_x=val_x,
+            test_x=test_x
+            )
+        train_x, val_x, test_x = model._norm_data(train_x, val_x, test_x=test_x)
+        #print(train_x.shape, val_x.shape, test_x.shape)
+        # Fit
+        model._fit(train_x, train_y, val_x, val_y)
+
+        # Predict
+        if val_x is None:
+            val_x = train_x
+        if (model.metric.__name__ in predict_proba_metrics) and (model.is_possible_predict_proba()):
+            y_pred = model._predict_proba(val_x)
+            if predict_test:
+                y_pred_test = model._predict_proba(test_x)
+        else:
+            y_pred = model._predict(val_x)
+            if predict_test:
+                y_pred_test = model._predict(test_x)
+        return(y_pred_test, y_pred)
+
+    def cv(self, print_metric=False, metric_round=4, predict=False, score_cv_folds=None, n_repeats=3):
         if score_cv_folds is None:
             score_cv_folds = self._score_cv_folds
+
         if self.type_of_estimator == 'classifier':
-            skf = StratifiedKFold(n_splits=self._cv, shuffle=True, random_state=self._random_state,)
+            skf = RepeatedStratifiedKFold(
+                n_splits=self._cv, 
+                n_repeats=n_repeats,
+                random_state=self._random_state,
+                )
         else:
-            skf = KFold(n_splits=self._cv, shuffle=True, random_state=self._random_state,)
+            skf = RepeatedKFold(
+                n_splits=self._cv,
+                n_repeats=n_repeats, 
+                random_state=self._random_state,
+                )
 
         folds_scores = []
         if predict:
-            stacking_y_pred_train = np.zeros(self.X_train.shape[0])
-            stacking_y_pred_test = np.zeros(self.X_test.shape[0])
+            stacking_y_pred_train = np.zeros(self._data.X_train.shape[0])
+            stacking_y_pred_test = np.zeros(self._data.X_test.shape[0])
 
-        count=0
-        for train_idx, valid_idx in skf.split(self.X_train, self.y_train):
-            count+=1
+        for i, (train_idx, valid_idx) in enumerate(skf.split(self._data.X_train, self._data.y_train)):
             if not predict:
-                if count > score_cv_folds:
+                if i >= score_cv_folds:
                     break
 
-            train_x, train_y = self.X_train.iloc[train_idx], self.y_train.iloc[train_idx]
-            val_x, val_y = self.X_train.iloc[valid_idx], self.y_train.iloc[valid_idx]
+            train_x, train_y = self._data.X_train.iloc[train_idx], self._data.y_train.iloc[train_idx]
+            val_x, val_y = self._data.X_train.iloc[valid_idx], self._data.y_train.iloc[valid_idx]
             
-            # TargetEncoder and Scaling
-            train_x, val_x, test_x = self._data.target_encodet(train_x=train_x, train_y=train_y, 
-                                                        val_x=val_x, test_x=self.X_test)
-            train_x, val_x, test_x = self._norm_data(train_x, val_x, test_x=test_x)
-            #print(train_x.shape, val_x.shape, test_x.shape)
-            # Fit
-            self._fit(
-                train_x.reset_index(drop=True), 
-                train_y.reset_index(drop=True), 
-                val_x.reset_index(drop=True), 
-                val_y.reset_index(drop=True))
-
             # Predict
-            if (self.metric.__name__ in predict_proba_metrics) and (self.is_possible_predict_proba()):
-                y_pred = self._predict_proba(val_x)
-                if predict:
-                    y_pred_test = self._predict_proba(test_x)
-            else:
-                y_pred = self._predict(val_x)
-                if predict:
-                    y_pred_test = self._predict(test_x)
+            y_pred_test, y_pred = self._preproc_fit_predict(
+                model = self, 
+                train_x = train_x.reset_index(drop=True), 
+                train_y = train_y.reset_index(drop=True), 
+                val_x = val_x.reset_index(drop=True), 
+                val_y = val_y.reset_index(drop=True), 
+                test_x = self._data.X_test, 
+                predict_test = predict,
+                )
 
             if predict:
-                stacking_y_pred_train[valid_idx] = y_pred
-                stacking_y_pred_test += y_pred_test/self._cv
+                stacking_y_pred_train[valid_idx] += y_pred
+                stacking_y_pred_test += y_pred_test
 
             score_model = self.metric(val_y, y_pred)
             folds_scores.append(score_model)
+
+        if predict:
+            stacking_y_pred_train = stacking_y_pred_train / n_repeats
+            stacking_y_pred_test = stacking_y_pred_test / (self._cv*n_repeats)
         
         if score_cv_folds > 1 or predict:
             score = round(np.mean(folds_scores),self._metric_round)
@@ -564,15 +614,103 @@ class ModelBase(object):
             score_std = 0
 
         if print_metric:
-            print(f'Mean Score {self.metric.__name__} on {self._cv} Folds: {score} std: {score_std}')
+            print(f'\n Mean Score {self.metric.__name__} on {i+1} Folds: {score} std: {score_std}')
 
         if predict:
             return(stacking_y_pred_test, stacking_y_pred_train,)
         else:
             return(score, score_std)
 
-    def fit_predict(self, print_metric=True,):
-        return(self.cv(print_metric=print_metric, predict=True))
+    def fit(self, model=None, print_metric=False):
+        if model is None:
+            model = self
+        score, score_std = model.cv(print_metric=print_metric)
+
+        if self._combined_score_opt:
+            score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
+        else: 
+            score_opt = score
+        # History trials
+        config = {
+            'score_opt': score_opt,
+            'model_score': score,
+            'score_std': score_std,
+            'model_name': model.__name__,
+            'model_param': model.model_param,
+            'wrapper_params': model.wrapper_params,
+            'cat_encoder': self._data.cat_encoder_name,
+            'target_encoder': self._data.target_encoder_name,
+            }
+        return(pd.DataFrame([config,]))
+
+    def _predict_preproc_model(self, model_cfg, model, cv):
+        databunch = self._remake_encode_databunch(
+                encoder_name=model_cfg['cat_encoder'], 
+                target_encoder_name=model_cfg['target_encoder'],
+                )
+        model._data = databunch
+        model.model_param = model_cfg['model_param']
+        model.wrapper_params = model_cfg['wrapper_params']
+        model._cv = cv
+        return(model)
+
+    def _predict_from_cfg(self, index, model_cfg, model, databunch, cv, n_repeats=3, print_metric=True,):
+        model = self._predict_preproc_model(model_cfg, model, cv)
+        if cv > 1:
+            predict_test, predict_train = model.cv(
+                                            metric_round=self._metric_round,
+                                            print_metric=print_metric,
+                                            predict=True,
+                                            n_repeats=n_repeats,
+                                            )
+        else:
+            predict_test, predict_train = model._preproc_fit_predict(
+                model=model, 
+                predict_test=True
+                )
+        predict = {
+                    'model_name': f'{index}_' + model_cfg['model_name'], 
+                    'predict_test': predict_test,
+                    'predict_train': predict_train,
+                    }
+        return(predict)
+
+    def _predict_get_default_model_cfg(self, model):
+        if len(self.history_trials_dataframe) < 1:
+            model_cfgs = model.fit()
+        else: 
+            model_cfgs = self.history_trials_dataframe.head(1)
+        return(model_cfgs)
+
+    def predict(self, model=None, databunch=None, cv=None, n_repeats=3, models_cfgs=None, print_metric=True, verbose=1,):
+        if model is None:
+            model = self
+        if databunch is None:
+            databunch=self._data
+        if cv is None:
+            cv = self._cv
+        if models_cfgs is None:
+            models_cfgs = self._predict_get_default_model_cfg(model,)
+
+        if verbose > 0:
+            disable_tqdm = False
+        else: 
+            disable_tqdm = True
+        predicts = []
+        total_tqdm = len(models_cfgs)
+        for index, model_cfg in tqdm(models_cfgs.iterrows(), total=total_tqdm, disable=disable_tqdm):
+            predict = self._predict_from_cfg(
+                index,
+                model_cfg=model_cfg, 
+                model=model, 
+                databunch=databunch, 
+                cv=cv, 
+                n_repeats=n_repeats, 
+                print_metric=print_metric,
+                )
+            predicts.append(predict)
+        self.predicts = predicts
+        return(pd.DataFrame(predicts))
 
     def _need_scaler_params(self, trial):
         """
@@ -588,12 +726,10 @@ class ModelBase(object):
 
 class ModelClassifier(ModelBase):
     type_of_estimator='classifier'
-    __name__ = 'ModelClassifier'
 
 
 class ModelRegressor(ModelBase):
     type_of_estimator='regression'
-    __name__ = 'ModelRegressor'
 
 
 class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
@@ -613,13 +749,12 @@ class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
             self.best_score = study.best_value
             self.early_stop_count = 0
         else:
-            if self.early_stop_count > self.early_stop:
+            if self.early_stop_count < self.early_stop:
+                self.early_stop_count=self.early_stop_count+1
+            else:
                 self.early_stop_count = 0
                 self.best_score = None
                 raise EarlyStoppingExceeded()
-            else:
-                self.early_stop_count=self.early_stop_count+1
-        return
     
     def early_stopping_opt_minimize(self, study, trial):
         if self.best_score is None:
@@ -629,10 +764,9 @@ class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
             self.best_score = study.best_value
             self.early_stop_count = 0
         else:
-            if self.early_stop_count > self.early_stop:
+            if self.early_stop_count < self.early_stop:
+                self.early_stop_count=self.early_stop_count+1
+            else:
                 self.early_stop_count = 0
                 self.best_score = None
                 raise EarlyStoppingExceeded()
-            else:
-                self.early_stop_count=self.early_stop_count+1
-        return

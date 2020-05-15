@@ -65,7 +65,7 @@ class XGBoost(ModelBase):
         ################################# LVL 2 ########################################
         if self._opt_lvl == 2:
             self.model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 2, 12,)
-            self.model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 1, (len(self.X_train)//100))
+            self.model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 1, (len(self._data.X_train)//100))
                        
         if self._opt_lvl >= 2:
             self.model_param['learning_rate'] = trial.suggest_int('xgb_learning_rate', 1, 100)/1000
@@ -77,7 +77,7 @@ class XGBoost(ModelBase):
             self.model_param['booster'] = trial.suggest_categorical('xgb_booster', ['gbtree', 'dart', 'gblinear'])
             
             if self.model_param['booster'] == 'dart' or self.model_param['booster'] == 'gbtree':
-                self.model_param['min_child_weight'] = trial.suggest_int('xg_min_child_weight', 1, (len(self.X_train)//100))
+                self.model_param['min_child_weight'] = trial.suggest_int('xg_min_child_weight', 1, (len(self._data.X_train)//100))
                 self.model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 1, 20)
                 self.model_param['gamma'] = trial.suggest_loguniform('xgb_gamma', 1e-6, 1.0)
                 self.model_param['grow_policy'] = trial.suggest_categorical('xgb_grow_policy', ['depthwise', 'lossguide'])
@@ -120,8 +120,8 @@ class XGBoost(ModelBase):
             self
         """
         if (X_train is None) or (y_train is None):
-            X_train = self.X_train
-            y_train = self.y_train
+            X_train = self._data.X_train
+            y_train = self._data.y_train
 
         params = self.model_param.copy()
         early_stopping_rounds = params.pop('early_stopping_rounds')
@@ -198,9 +198,7 @@ class XGBoost(ModelBase):
 
 class XGBoostClassifier(XGBoost):
     type_of_estimator='classifier'
-    __name__ = 'XGBoostClassifier'
 
 
 class XGBoostRegressor(XGBoost):
     type_of_estimator='regression'
-    __name__ = 'XGBoostRegressor'

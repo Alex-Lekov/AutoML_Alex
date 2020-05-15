@@ -59,7 +59,7 @@ class LightGBM(ModelBase):
             
         if self._opt_lvl >= 1:
             self.model_param['min_child_samples'] = trial.suggest_int('lgbm_min_child_samples', 2, \
-                                                                        (len(self.X_train)//100))
+                                                                        (len(self._data.X_train)//100))
 
         ################################# LVL 2 ########################################
         if self._opt_lvl == 2:
@@ -142,8 +142,8 @@ class LightGBM(ModelBase):
             self
         """
         if (X_train is None) or (y_train is None):
-            X_train = self.X_train
-            y_train = self.y_train
+            X_train = self._data.X_train
+            y_train = self._data.y_train
         
         dtrain = lgb.Dataset(X_train, y_train,)
         params = self.model_param.copy()
@@ -183,7 +183,7 @@ class LightGBM(ModelBase):
             raise Exception("No fit models")
 
         if X is None:
-            X = self.X_test
+            X = self._data.X_test
 
         if self.type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
@@ -216,9 +216,7 @@ class LightGBM(ModelBase):
 
 class LightGBMClassifier(LightGBM):
     type_of_estimator='classifier'
-    __name__ = 'LightGBMClassifier'
 
 
 class LightGBMRegressor(LightGBM):
     type_of_estimator='regression'
-    __name__ = 'LightGBMRegressor'

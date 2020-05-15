@@ -92,8 +92,8 @@ class LinearModel(ModelBase):
             self
         """
         if (X_train is None) or (y_train is None):
-            X_train = self.X_train
-            y_train = self.y_train
+            X_train = self._data.X_train
+            y_train = self._data.y_train
             
         self.model = self._init_model(model_param=self.model_param)
         self.model.fit(X_train, y_train,)
@@ -137,12 +137,10 @@ class LinearModel(ModelBase):
 
 class LogisticRegressionClassifier(LinearModel):
     type_of_estimator='classifier'
-    __name__ = 'LogisticRegressionClassifier'
 
 
 class LinearRegression(LinearModel):
     type_of_estimator='regression'
-    __name__ = 'LinearRegression'
 
 
 ################################## SGD ##########################################################
@@ -248,12 +246,10 @@ class SGD(LinearModel):
 
 class SGDClassifier(SGD):
     type_of_estimator='classifier'
-    __name__ = 'SGDClassifier'
 
 
 class SGDRegressor(SGD):
     type_of_estimator='regression'
-    __name__ = 'SGDRegressor'
 
 
 ########################################### SVM #####################################################
@@ -346,12 +342,10 @@ class LinearSVM(LinearModel):
 
 class LinearSVClassifier(LinearSVM):
     type_of_estimator='classifier'
-    __name__ = 'LinearSVClassifier'
 
 
 class LinearSVRegressor(LinearSVM):
     type_of_estimator='regression'
-    __name__ = 'LinearSVRegressor'
 
 
 ########################################### KNN #####################################################
@@ -410,12 +404,10 @@ class KNeighbors(LinearModel):
 
 class KNNClassifier(KNeighbors):
     type_of_estimator='classifier'
-    __name__ = 'KNNClassifier'
 
 
 class KNNRegressor(KNeighbors):
     type_of_estimator='regression'
-    __name__ = 'KNNRegressor'
 
 
 ########################################### MLP #####################################################
@@ -479,12 +471,10 @@ class MLP(LinearModel):
 
 class MLPClassifier(MLP):
     type_of_estimator='classifier'
-    __name__ = 'MLPClassifier'
 
 
 class MLPRegressor(MLP):
     type_of_estimator='regression'
-    __name__ = 'MLPRegressor'
 
 
 ########################################### RandomForest #####################################################
@@ -544,7 +534,7 @@ class RandomForest(LinearModel):
         ################################# LVL 1 ########################################
         if self._opt_lvl >= 1:
             self.model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, \
-                                                                        (len(self.X_train)//100))
+                                                                        (len(self._data.X_train)//100))
             self.model_param['max_depth'] = trial.suggest_int('rf_max_depth', 1, 10,)*10
 
         ################################# LVL 2 ########################################
@@ -567,12 +557,10 @@ class RandomForest(LinearModel):
 
 class RandomForestClassifier(RandomForest):
     type_of_estimator='classifier'
-    __name__ = 'RandomForestClassifier'
 
 
 class RandomForestRegressor(RandomForest):
     type_of_estimator='regression'
-    __name__ = 'RandomForestRegressor'
 
 
 ########################################### ExtraTrees #####################################################
@@ -632,7 +620,7 @@ class ExtraTrees(LinearModel):
         ################################# LVL 1 ########################################
         if self._opt_lvl >= 1:
             self.model_param['min_samples_split'] = trial.suggest_int('ext_min_samples_split', 2, \
-                                                                        (len(self.X_train)//100))
+                                                                        (len(self._data.X_train)//100))
             self.model_param['max_depth'] = trial.suggest_int('ext_max_depth', 1, 10,)*10
 
         ################################# LVL 2 ########################################
@@ -655,9 +643,7 @@ class ExtraTrees(LinearModel):
 
 class ExtraTreesClassifier(ExtraTrees):
     type_of_estimator='classifier'
-    __name__ = 'ExtraTreesClassifier'
 
 
 class ExtraTreesRegressor(ExtraTrees):
     type_of_estimator='regression'
-    __name__ = 'ExtraTreesRegressor'

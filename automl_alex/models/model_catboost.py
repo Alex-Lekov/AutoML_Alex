@@ -68,7 +68,7 @@ class CatBoost(ModelBase):
 
         if self._opt_lvl >= 1:
             self.model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, \
-                                                                        (len(self.X_train)//100))
+                                                                        (len(self._data.X_train)//100))
 
        ################################# LVL 2 ########################################
         if self._opt_lvl == 2:
@@ -124,8 +124,8 @@ class CatBoost(ModelBase):
             self
         """
         if (X_train is None) or (y_train is None):
-            X_train = self.X_train
-            y_train = self.y_train
+            X_train = self._data.X_train
+            y_train = self._data.y_train
 
         train_pool = Pool(X_train, label=y_train,)
 
