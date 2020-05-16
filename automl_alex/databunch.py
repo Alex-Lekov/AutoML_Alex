@@ -200,7 +200,7 @@ class DataBunch(object):
             test_x = pd.DataFrame(scaler.transform(test_x))
         return(train_x, val_x, test_x)
 
-    def target_encodet(self, train_x, train_y, val_x, test_x=None):
+    def target_encodet(self, train_x, train_y, val_x=None, test_x=None):
         """
         Encodet data in TargetEncoder
         """
@@ -213,7 +213,8 @@ class DataBunch(object):
                     train_x.reset_index(drop=True), 
                     train_y.reset_index(drop=True),
                     )
-                val_x = encoder.transform(val_x)
+                if val_x is not None:
+                    val_x = encoder.transform(val_x)
                 if test_x is not None:
                     test_x = encoder.transform(test_x)
         return(train_x, val_x, test_x)

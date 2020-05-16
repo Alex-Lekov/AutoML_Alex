@@ -83,7 +83,7 @@ class LinearModel(ModelBase):
                 if self.model_param['solver'] == 'lbfgs':
                     self.model_param['max_iter'] = 5000
 
-    def _fit(self, X_train=None, y_train=None, X_test=None, y_test=None,):
+    def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -91,13 +91,15 @@ class LinearModel(ModelBase):
         Return:
             self
         """
+        if model is None:
+            model = self
         if (X_train is None) or (y_train is None):
-            X_train = self.X_train
-            y_train = self.y_train
+            X_train = model._data.X_train
+            y_train = model._data.y_train
             
-        self.model = self._init_model(model_param=self.model_param)
-        self.model.fit(X_train, y_train,)
-        return self
+        model.model = model._init_model(model_param=model.model_param)
+        model.model.fit(X_train, y_train,)
+        return model
 
     def _predict(self, X_test=None):
         """
@@ -137,12 +139,10 @@ class LinearModel(ModelBase):
 
 class LogisticRegressionClassifier(LinearModel):
     type_of_estimator='classifier'
-    __name__ = 'LogisticRegressionClassifier'
 
 
 class LinearRegression(LinearModel):
     type_of_estimator='regression'
-    __name__ = 'LinearRegression'
 
 
 ################################## SGD ##########################################################
@@ -248,12 +248,10 @@ class SGD(LinearModel):
 
 class SGDClassifier(SGD):
     type_of_estimator='classifier'
-    __name__ = 'SGDClassifier'
 
 
 class SGDRegressor(SGD):
     type_of_estimator='regression'
-    __name__ = 'SGDRegressor'
 
 
 ########################################### SVM #####################################################
@@ -346,12 +344,10 @@ class LinearSVM(LinearModel):
 
 class LinearSVClassifier(LinearSVM):
     type_of_estimator='classifier'
-    __name__ = 'LinearSVClassifier'
 
 
 class LinearSVRegressor(LinearSVM):
     type_of_estimator='regression'
-    __name__ = 'LinearSVRegressor'
 
 
 ########################################### KNN #####################################################
@@ -410,12 +406,10 @@ class KNeighbors(LinearModel):
 
 class KNNClassifier(KNeighbors):
     type_of_estimator='classifier'
-    __name__ = 'KNNClassifier'
 
 
 class KNNRegressor(KNeighbors):
     type_of_estimator='regression'
-    __name__ = 'KNNRegressor'
 
 
 ########################################### MLP #####################################################
@@ -479,12 +473,10 @@ class MLP(LinearModel):
 
 class MLPClassifier(MLP):
     type_of_estimator='classifier'
-    __name__ = 'MLPClassifier'
 
 
 class MLPRegressor(MLP):
     type_of_estimator='regression'
-    __name__ = 'MLPRegressor'
 
 
 ########################################### RandomForest #####################################################
@@ -544,7 +536,7 @@ class RandomForest(LinearModel):
         ################################# LVL 1 ########################################
         if self._opt_lvl >= 1:
             self.model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, \
-                                                                        (len(self.X_train)//100))
+                                                                        (len(self._data.X_train)//100))
             self.model_param['max_depth'] = trial.suggest_int('rf_max_depth', 1, 10,)*10
 
         ################################# LVL 2 ########################################
@@ -567,47 +559,22 @@ class RandomForest(LinearModel):
 
 class RandomForestClassifier(RandomForest):
     type_of_estimator='classifier'
-    __name__ = 'RandomForestClassifier'
 
 
 class RandomForestRegressor(RandomForest):
     type_of_estimator='regression'
-    __name__ = 'RandomForestRegressor'
 
 
 ########################################### ExtraTrees #####################################################
 
 
-class ExtraTrees(LinearModel):
+class ExtraTrees(RandomForest):
     """
     Args:
         params (dict or None): parameters for model.
             If None default params are fetched.
     """
     __name__ = 'ExtraTrees'
-
-    def _init_wrapper_params(self, wrapper_params=None):
-        """
-        Default wrapper_params
-        """
-        self.wrapper_params = {
-                'need_norm_data':False,
-                }
-        if wrapper_params is not None:
-            self.wrapper_params = wrapper_params
-
-    def _init_model_param(self, model_param=None):
-        """
-        Default model_param
-        """
-        if model_param is None:
-            self.model_param = {
-                'verbose': 0,
-                'random_state': self._random_state,
-                'n_jobs': -1,
-                }
-        else: 
-            self.model_param = model_param
 
     def _init_model(self, model_param=None):
         """
@@ -621,43 +588,10 @@ class ExtraTrees(LinearModel):
             model = ensemble.ExtraTreesRegressor(**model_param)
         return(model)
 
-    @staticmethod
-    def get_model_opt_params(self, trial):
-        """
-        Return:
-            dict of DistributionWrappers
-        """
-        # model Default params
-        self._init_model_param()
-        ################################# LVL 1 ########################################
-        if self._opt_lvl >= 1:
-            self.model_param['min_samples_split'] = trial.suggest_int('ext_min_samples_split', 2, \
-                                                                        (len(self.X_train)//100))
-            self.model_param['max_depth'] = trial.suggest_int('ext_max_depth', 1, 10,)*10
-
-        ################################# LVL 2 ########################################
-        if self._opt_lvl >= 2:
-            self.model_param['n_estimators'] = trial.suggest_int('ext_n_estimators', 1, 10,)*100
-            self.model_param['max_features'] = trial.suggest_categorical('ext_max_features', [
-                'auto', 
-                'sqrt', 
-                'log2'
-                ])
-        
-        ################################# LVL 3 ########################################
-        if self._opt_lvl >= 3:
-            self.model_param['bootstrap'] = trial.suggest_categorical('ext_bootstrap',[True, False])
-            if self.model_param['bootstrap']:
-                self.model_param['oob_score'] = trial.suggest_categorical('ext_oob_score',[True, False])
-            if self.type_of_estimator == 'classifier':
-                self.model_param['class_weight'] = trial.suggest_categorical('ext_class_weight',[None, 'balanced'])
-
 
 class ExtraTreesClassifier(ExtraTrees):
     type_of_estimator='classifier'
-    __name__ = 'ExtraTreesClassifier'
 
 
 class ExtraTreesRegressor(ExtraTrees):
     type_of_estimator='regression'
-    __name__ = 'ExtraTreesRegressor'

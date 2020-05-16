@@ -6,6 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
 [![Python](https://img.shields.io/badge/python-v3.7-blue.svg)]()
+[![CodeFactor](https://www.codefactor.io/repository/github/alex-lekov/automl_alex/badge)](https://www.codefactor.io/repository/github/alex-lekov/automl_alex)
 
 </div>
 
@@ -28,7 +29,7 @@ Classifier:
 from automl_alex import AutoMLClassifier
 
 model = AutoMLClassifier(X_train, y_train, X_test,)
-predict_test, predict_train = model.fit_predict(timeout=1000,)
+predict_test, predict_train = model.fit_predict(timeout=2000,)
 ```
 
 Regression:
@@ -36,7 +37,7 @@ Regression:
 from automl_alex import AutoMLRegressor
 
 model = AutoMLRegressor(X_train, y_train, X_test,)
-predict_test, predict_train = model.fit_predict(timeout=1000,)
+predict_test, predict_train = model.fit_predict(timeout=2000,)
 ```
 
 More examples in the folder ./examples
