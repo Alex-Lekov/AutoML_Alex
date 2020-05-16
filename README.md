@@ -5,7 +5,8 @@
 <div align="center">
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
-[![Python](https://img.shields.io/badge/python-v3.7-blue.svg)]()
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/automl-alex)
+![PyPI](https://img.shields.io/pypi/v/automl-alex)
 [![CodeFactor](https://www.codefactor.io/repository/github/alex-lekov/automl_alex/badge)](https://www.codefactor.io/repository/github/alex-lekov/automl_alex)
 
 </div>
