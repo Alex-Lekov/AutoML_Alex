@@ -27,6 +27,16 @@ class AutoMLBase(ModelBase):
         """
         raise NotImplementedError("Pure virtual class.")
 
+    def predict(self, dataset):
+        """
+        Args:
+            dataset : the input data,
+                dataset.y may be None
+        Return:
+            np.array, shape (n_samples, ): predictions
+        """
+        raise NotImplementedError("Pure virtual class.")
+
     def _init_wrapper_params(self, wrapper_params=None):
         pass
 
@@ -129,7 +139,7 @@ class BestSingleModel(XGBoost):
             verbose)
         return(history)
 
-    def _predict_preproc_model(self, model_cfg, model, cv):
+    def _predict_preproc_model(self, model_cfg, cv):
         """
         custom function for predict, now we can choose model library
         """
@@ -280,9 +290,8 @@ class ModelsReview(AutoMLBase):
             if sec_dev > 10:
                 timeout_per_model = timeout_per_model + (sec_dev // (len(self.models_names)))
             model_tmp = None
-            
-        return(self.history_trials_dataframe)
 
+        return(self.history_trials_dataframe)
 
 class ModelsReviewClassifier(ModelsReview):
     type_of_estimator='classifier'
@@ -448,7 +457,7 @@ class StackingRegressor(Stacking):
 
 ##################################### AutoML #########################################
 
-class AutoML(Stacking):
+class AutoML(AutoMLBase):
     '''
     in progress AutoML
     '''

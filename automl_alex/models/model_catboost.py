@@ -115,7 +115,7 @@ class CatBoost(ModelBase):
 
         ################################# Other ########################################
 
-    def _fit(self, X_train=None, y_train=None, X_test=None, y_test=None,):
+    def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -123,27 +123,29 @@ class CatBoost(ModelBase):
         Return:
             self
         """
+        if model is None:
+            model = self
+
         if (X_train is None) or (y_train is None):
-            X_train = self._data.X_train
-            y_train = self._data.y_train
+            X_train = model._data.X_train
+            y_train = model._data.y_train
 
         train_pool = Pool(X_train, label=y_train,)
 
-        if self.wrapper_params['early_stopping'] and (X_test is not None):
+        if model.wrapper_params['early_stopping'] and (X_test is not None):
             validate_pool = Pool(X_test, label=y_test,)
-            self.model = self._init_model(model_param=self.model_param)
-            self.model.fit(train_pool, 
+            model.model = model._init_model(model_param=model.model_param)
+            model.model.fit(train_pool, 
                             eval_set = validate_pool,
                             use_best_model = True,
                             verbose = False,
                             plot=False,)
         else:
-            params = self.model_param.copy()
+            params = model.model_param.copy()
             early_stopping_rounds = params.pop('early_stopping_rounds')
-            self.model = self._init_model(model_param=params)
-            self.model.fit(train_pool, verbose=False, plot=False,)
-
-        return self
+            model.model = model._init_model(model_param=params)
+            model.model.fit(train_pool, verbose=False, plot=False,)
+        return model
 
     def _predict(self, X=None):
         """

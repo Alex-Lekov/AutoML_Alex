@@ -511,24 +511,15 @@ class ModelBase(object):
             raise Exception('No history to visualize!')
         return(optuna.visualization.plot_slice(self.study, params=params))
 
-    def _norm_data(self, train_x, val_x, test_x=None):
-        # Scaler
-        if self.wrapper_params['need_norm_data']: 
-            train_x, val_x, test_x = self._data.use_scaler(train_x,
-                                                    val_x=val_x,
-                                                    test_x=test_x,
-                                                    name=self.wrapper_params['scaler_name'],)
-        return(train_x, val_x, test_x)
-
     def _preproc_fit_predict(self, model=None, train_x=None, train_y=None, val_x=None, val_y=None, test_x=None, predict_test=True):
         y_pred_test=None
 
         if model is None:
             model = self
         if (train_x is None) or (train_y is None):
-            train_x = self._data.X_train
-            train_y = self._data.y_train
-            test_x = self._data.X_test
+            train_x = model._data.X_train
+            train_y = model._data.y_train
+            test_x = model._data.X_test
         # TargetEncoder and Scaling
         train_x, val_x, test_x = model._data.target_encodet(
             train_x=train_x, 
@@ -536,10 +527,15 @@ class ModelBase(object):
             val_x=val_x,
             test_x=test_x
             )
-        train_x, val_x, test_x = model._norm_data(train_x, val_x, test_x=test_x)
-        #print(train_x.shape, val_x.shape, test_x.shape)
+        # Norm Data
+        if model.wrapper_params['need_norm_data']: 
+            train_x, val_x, test_x = model._data.use_scaler(train_x,
+                                                    val_x=val_x,
+                                                    test_x=test_x,
+                                                    name=model.wrapper_params['scaler_name'],)
+
         # Fit
-        model._fit(train_x, train_y, val_x, val_y)
+        model._fit(model=model, X_train=train_x, y_train=train_y, X_test=val_x, y_test=val_y,)
 
         # Predict
         if val_x is None:
@@ -554,44 +550,46 @@ class ModelBase(object):
                 y_pred_test = model._predict(test_x)
         return(y_pred_test, y_pred)
 
-    def cv(self, print_metric=False, metric_round=4, predict=False, score_cv_folds=None, n_repeats=3):
+    def cv(self, model=None, print_metric=False, metric_round=4, predict=False, score_cv_folds=None, n_repeats=3):
+        if model is None:
+            model = self
         if score_cv_folds is None:
-            score_cv_folds = self._score_cv_folds
+            score_cv_folds = model._score_cv_folds
 
-        if self.type_of_estimator == 'classifier':
+        if model.type_of_estimator == 'classifier':
             skf = RepeatedStratifiedKFold(
-                n_splits=self._cv, 
+                n_splits=model._cv, 
                 n_repeats=n_repeats,
-                random_state=self._random_state,
+                random_state=model._random_state,
                 )
         else:
             skf = RepeatedKFold(
-                n_splits=self._cv,
+                n_splits=model._cv,
                 n_repeats=n_repeats, 
-                random_state=self._random_state,
+                random_state=model._random_state,
                 )
 
         folds_scores = []
         if predict:
-            stacking_y_pred_train = np.zeros(self._data.X_train.shape[0])
-            stacking_y_pred_test = np.zeros(self._data.X_test.shape[0])
+            stacking_y_pred_train = np.zeros(model._data.X_train.shape[0])
+            stacking_y_pred_test = np.zeros(model._data.X_test.shape[0])
 
-        for i, (train_idx, valid_idx) in enumerate(skf.split(self._data.X_train, self._data.y_train)):
+        for i, (train_idx, valid_idx) in enumerate(skf.split(model._data.X_train, model._data.y_train)):
             if not predict:
                 if i >= score_cv_folds:
                     break
 
-            train_x, train_y = self._data.X_train.iloc[train_idx], self._data.y_train.iloc[train_idx]
-            val_x, val_y = self._data.X_train.iloc[valid_idx], self._data.y_train.iloc[valid_idx]
+            train_x, train_y = model._data.X_train.iloc[train_idx], model._data.y_train.iloc[train_idx]
+            val_x, val_y = model._data.X_train.iloc[valid_idx], model._data.y_train.iloc[valid_idx]
             
             # Predict
-            y_pred_test, y_pred = self._preproc_fit_predict(
-                model = self, 
+            y_pred_test, y_pred = model._preproc_fit_predict(
+                model = model, 
                 train_x = train_x.reset_index(drop=True), 
                 train_y = train_y.reset_index(drop=True), 
                 val_x = val_x.reset_index(drop=True), 
                 val_y = val_y.reset_index(drop=True), 
-                test_x = self._data.X_test, 
+                test_x = model._data.X_test, 
                 predict_test = predict,
                 )
 
@@ -599,22 +597,22 @@ class ModelBase(object):
                 stacking_y_pred_train[valid_idx] += y_pred
                 stacking_y_pred_test += y_pred_test
 
-            score_model = self.metric(val_y, y_pred)
+            score_model = model.metric(val_y, y_pred)
             folds_scores.append(score_model)
 
         if predict:
             stacking_y_pred_train = stacking_y_pred_train / n_repeats
-            stacking_y_pred_test = stacking_y_pred_test / (self._cv*n_repeats)
+            stacking_y_pred_test = stacking_y_pred_test / (model._cv*n_repeats)
         
         if score_cv_folds > 1 or predict:
-            score = round(np.mean(folds_scores),self._metric_round)
-            score_std = round(np.std(folds_scores),self._metric_round+2)
+            score = round(np.mean(folds_scores),model._metric_round)
+            score_std = round(np.std(folds_scores),model._metric_round+2)
         else:
-            score = round(score_model, self._metric_round)
+            score = round(score_model, model._metric_round)
             score_std = 0
 
         if print_metric:
-            print(f'\n Mean Score {self.metric.__name__} on {i+1} Folds: {score} std: {score_std}')
+            print(f'\n Mean Score {model.metric.__name__} on {i+1} Folds: {score} std: {score_std}')
 
         if predict:
             return(stacking_y_pred_test, stacking_y_pred_train,)
@@ -624,10 +622,10 @@ class ModelBase(object):
     def fit(self, model=None, print_metric=False):
         if model is None:
             model = self
-        score, score_std = model.cv(print_metric=print_metric)
+        score, score_std = model.cv(model=model, print_metric=print_metric)
 
-        if self._combined_score_opt:
-            score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
+        if model._combined_score_opt:
+            score_opt = model.__calc_combined_score_opt__(model.direction, score, score_std)
         else: 
             score_opt = score
         # History trials
@@ -638,26 +636,26 @@ class ModelBase(object):
             'model_name': model.__name__,
             'model_param': model.model_param,
             'wrapper_params': model.wrapper_params,
-            'cat_encoder': self._data.cat_encoder_name,
-            'target_encoder': self._data.target_encoder_name,
+            'cat_encoder': model._data.cat_encoder_name,
+            'target_encoder': model._data.target_encoder_name,
             }
         return(pd.DataFrame([config,]))
 
-    def _predict_preproc_model(self, model_cfg, model, cv):
+    def _predict_preproc_model(self, model_cfg, cv):
         databunch = self._remake_encode_databunch(
                 encoder_name=model_cfg['cat_encoder'], 
                 target_encoder_name=model_cfg['target_encoder'],
                 )
-        model._data = databunch
-        model.model_param = model_cfg['model_param']
-        model.wrapper_params = model_cfg['wrapper_params']
-        model._cv = cv
-        return(model)
+        self._data = databunch
+        self.model_param = model_cfg['model_param']
+        self.wrapper_params = model_cfg['wrapper_params']
+        self._cv = cv
+        return(self)
 
-    def _predict_from_cfg(self, index, model_cfg, model, databunch, cv, n_repeats=3, print_metric=True,):
-        model = self._predict_preproc_model(model_cfg, model, cv)
+    def _predict_from_cfg(self, index, model_cfg, databunch, cv, n_repeats=3, print_metric=True,):
+        model = self._predict_preproc_model(model_cfg=model_cfg, cv=cv)
         if cv > 1:
-            predict_test, predict_train = model.cv(
+            predict_test, predict_train = model.cv(model=model,
                                             metric_round=self._metric_round,
                                             print_metric=print_metric,
                                             predict=True,
@@ -675,22 +673,20 @@ class ModelBase(object):
                     }
         return(predict)
 
-    def _predict_get_default_model_cfg(self, model):
+    def _predict_get_default_model_cfg(self,):
         if len(self.history_trials_dataframe) < 1:
-            model_cfgs = model.fit()
+            model_cfgs = self.fit()
         else: 
             model_cfgs = self.history_trials_dataframe.head(1)
         return(model_cfgs)
 
-    def predict(self, model=None, databunch=None, cv=None, n_repeats=3, models_cfgs=None, print_metric=True, verbose=1,):
-        if model is None:
-            model = self
+    def predict(self, databunch=None, cv=None, n_repeats=3, models_cfgs=None, print_metric=True, verbose=1,):
         if databunch is None:
             databunch=self._data
         if cv is None:
             cv = self._cv
         if models_cfgs is None:
-            models_cfgs = self._predict_get_default_model_cfg(model,)
+            models_cfgs = self._predict_get_default_model_cfg()
 
         if verbose > 0:
             disable_tqdm = False
@@ -702,7 +698,6 @@ class ModelBase(object):
             predict = self._predict_from_cfg(
                 index,
                 model_cfg=model_cfg, 
-                model=model, 
                 databunch=databunch, 
                 cv=cv, 
                 n_repeats=n_repeats, 

@@ -111,7 +111,7 @@ class XGBoost(ModelBase):
                 self.model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('xgb_scale_pos_weight', 0.1, 1., 0.1)
 
 
-    def _fit(self, X_train=None, y_train=None, X_test=None, y_test=None,):
+    def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -119,16 +119,19 @@ class XGBoost(ModelBase):
         Return:
             self
         """
-        if (X_train is None) or (y_train is None):
-            X_train = self._data.X_train
-            y_train = self._data.y_train
+        if model is None:
+            model = self
 
-        params = self.model_param.copy()
+        if (X_train is None) or (y_train is None):
+            X_train = model._data.X_train
+            y_train = model._data.y_train
+
+        params = model.model_param.copy()
         early_stopping_rounds = params.pop('early_stopping_rounds')
        
-        self.model = self._init_model(model_param=params)
-        if self.wrapper_params['early_stopping'] and (X_test is not None):
-            self.model.fit(
+        model.model = model._init_model(model_param=params)
+        if model.wrapper_params['early_stopping'] and (X_test is not None):
+            model.model.fit(
                 X_train, 
                 y_train,
                 eval_set=(X_test, y_test,),
@@ -136,13 +139,12 @@ class XGBoost(ModelBase):
                 verbose=False,
                 )
         else:
-            self.model.fit(
+            model.model.fit(
                 X_train, 
                 y_train,
                 verbose=False,
                 )
-
-        return self
+        return model
 
     def _predict(self, X=None):
         """

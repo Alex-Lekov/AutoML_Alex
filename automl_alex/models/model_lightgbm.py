@@ -133,7 +133,7 @@ class LightGBM(ModelBase):
                 self.model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('lgbm_scale_pos_weight', 0.1, 1., 0.1)
             
 
-    def _fit(self, X_train=None, y_train=None, X_test=None, y_test=None,):
+    def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -141,17 +141,20 @@ class LightGBM(ModelBase):
         Return:
             self
         """
+        if model is None:
+            model = self
+
         if (X_train is None) or (y_train is None):
-            X_train = self._data.X_train
-            y_train = self._data.y_train
+            X_train = model._data.X_train
+            y_train = model._data.y_train
         
         dtrain = lgb.Dataset(X_train, y_train,)
-        params = self.model_param.copy()
+        params = model.model_param.copy()
         num_iterations = params.pop('num_iterations')
 
-        if self.wrapper_params['early_stopping'] and (X_test is not None):
+        if model.wrapper_params['early_stopping'] and (X_test is not None):
             dtest = lgb.Dataset(X_test, y_test,)
-            self.model = lgb.train(params,
+            model.model = lgb.train(params,
                                     dtrain,
                                     num_boost_round=num_iterations,
                                     valid_sets=(dtrain, dtest),
@@ -159,7 +162,7 @@ class LightGBM(ModelBase):
                                     )
         else:
             early_stopping_rounds = params.pop('early_stopping_rounds')
-            self.model = lgb.train(
+            model.model = lgb.train(
                 params, 
                 dtrain, 
                 num_boost_round=num_iterations, 
@@ -169,7 +172,7 @@ class LightGBM(ModelBase):
         dtrain=None
         dtest=None
         
-        return self
+        return model
 
 
     def _predict(self, X=None):
