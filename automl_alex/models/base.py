@@ -550,7 +550,7 @@ class ModelBase(object):
                 y_pred_test = model._predict(test_x)
         return(y_pred_test, y_pred)
 
-    def cv(self, model=None, print_metric=False, metric_round=4, predict=False, score_cv_folds=None, n_repeats=3):
+    def cv(self, model=None, print_metric=False, metric_round=4, predict=False, score_cv_folds=None, n_repeats=2):
         if model is None:
             model = self
         if score_cv_folds is None:
