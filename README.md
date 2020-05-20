@@ -15,9 +15,10 @@
 
 <p align="center"> State-of-the art Automated Machine Learning python library for Tabular Data</p>
 
-
 <img width=800 src="https://github.com/Alex-Lekov/AutoML-Benchmark/blob/master/img/AUC_place_v2.png" alt="bench">
-From ![AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark) 
+
+
+From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/) 
 
 
 ## Installation
