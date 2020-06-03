@@ -472,7 +472,7 @@ class AutoML(AutoMLBase):
             score_cv_folds=None,
             auto_parameters=True,
             stack_models_names=None,
-            stack_top=25,
+            stack_top=10,
             opt_encoders=True,
             cat_encoder_names=None,
             target_cat_encoder_names=None,
