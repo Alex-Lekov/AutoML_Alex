@@ -1,13 +1,9 @@
 import pandas as pd
 import numpy as np
 import time
-from sklearn.preprocessing import Normalizer, RobustScaler, StandardScaler
-from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler
 import warnings
 import os
 
-#from .encoders import FrequencyEncoder
-#from .automl_alex import *
 from .encoders import *
 
 
@@ -23,12 +19,10 @@ class DataBunch(object):
                     cat_features=None,
                     clean_and_encod_data=True,
                     cat_encoder_name='OneHotEncoder',
-                    target_encoder_name='JamesSteinEncoder',
                     clean_nan=True,
                     random_state=42):
         self.random_state = random_state
         self.cat_encoder_name = cat_encoder_name
-        self.target_encoder_name = target_encoder_name
         
         self.X_train = None
         self.y_train = None
@@ -148,19 +142,12 @@ class DataBunch(object):
                                                             drop_invariant=True)
                 data_encodet = encoder.fit_transform(data[encodet_features_names])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
-            else:
-                raise Exception(f"{cat_encoder_name} not support!")
-
-            if self.target_encoder_name is not None:
-                data = pd.concat([
-                    data.reset_index(drop=True), 
-                    data_encodet.reset_index(drop=True)], 
-                    axis=1,)
-            else:
                 data = pd.concat([
                     data.drop(columns=encodet_features_names).reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
+            else:
+                raise Exception(f"{cat_encoder_name} not support!")
 
                 
         # Nans
@@ -170,51 +157,3 @@ class DataBunch(object):
         X_train = data.query('test == 0').drop(['test'], axis=1)
         X_test = data.query('test == 1').drop(['test'], axis=1)
         return(X_train, X_test)
-
-
-    def use_scaler(self, train_x=None, val_x=None, test_x=None, name='StandardScaler'):
-        """
-        Args:
-            train_x (pd.DataFrame, shape (n_samples, n_features)): the input data
-            test_x (pd.DataFrame, shape (n_samples, n_features)): the input data
-            name (str): name Scaler from sklearn.preprocessing
-        Return:
-            Scaled train_x test_x
-        """
-        preprocessor_dict = {
-            'MaxAbsScaler': MaxAbsScaler(), 
-            'MinMaxScaler': MinMaxScaler(),
-            'Normalizer': Normalizer(),
-            'RobustScaler': RobustScaler(),
-            'StandardScaler': StandardScaler(),
-            }
-            
-        scaler = preprocessor_dict[name]
-        # train
-        train_x = pd.DataFrame(scaler.fit_transform(train_x))
-        # val
-        if val_x is not None:
-            val_x = pd.DataFrame(scaler.transform(val_x))
-        # test
-        if test_x is not None:
-            test_x = pd.DataFrame(scaler.transform(test_x))
-        return(train_x, val_x, test_x)
-
-    def target_encodet(self, train_x, train_y, val_x=None, test_x=None):
-        """
-        Encodet data in TargetEncoder
-        """
-        if self.target_encoder_name is not None:
-            if self.encodet_features_names:
-                encoder = target_encoders_names[self.target_encoder_name](
-                    cols=self.encodet_features_names,
-                    drop_invariant=True) 
-                train_x = encoder.fit_transform(
-                    train_x.reset_index(drop=True), 
-                    train_y.reset_index(drop=True),
-                    )
-                if val_x is not None:
-                    val_x = encoder.transform(val_x)
-                if test_x is not None:
-                    test_x = encoder.transform(test_x)
-        return(train_x, val_x, test_x)

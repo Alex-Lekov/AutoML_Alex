@@ -12,38 +12,6 @@ from .databunch import DataBunch
 from .encoders import *
 
 
-class AutoMLBase(ModelBase):
-    """
-    Base class for a specific ML algorithm implementation factory,
-    i.e. it defines algorithm-specific hyperparameter space and generic methods for model training & inference
-    """
-    def fit(self, dataset):
-        """
-        Args:
-            dataset: the input data,
-                dataset.y may be None
-        Return:
-            np.array, shape (n_samples, ): predictions
-        """
-        raise NotImplementedError("Pure virtual class.")
-
-    def predict(self, dataset):
-        """
-        Args:
-            dataset : the input data,
-                dataset.y may be None
-        Return:
-            np.array, shape (n_samples, ): predictions
-        """
-        raise NotImplementedError("Pure virtual class.")
-
-    def _init_wrapper_params(self, wrapper_params=None):
-        pass
-
-    def _init_model_param(self, model_param=None):
-        pass
-
-
 ##################################### BestSingleModel ################################################
 
 
@@ -99,7 +67,6 @@ class BestSingleModel(XGBoost):
         cat_encoder_names=None,
         target_cat_encoder_names=None,
         models_names=None, #list models_names for opt
-        save_to_sqlite=False,
         verbose=1,
         ):
         '''
@@ -135,7 +102,6 @@ class BestSingleModel(XGBoost):
         history = self._opt_core(
             timeout, 
             early_stoping, 
-            save_to_sqlite,
             verbose)
         return(history)
 
@@ -165,7 +131,7 @@ class BestSingleModelRegressor(BestSingleModel):
 ##################################### ModelsReview ################################################
 
 
-class ModelsReview(AutoMLBase):
+class ModelsReview(BestSingleModel):
     """
     ModelsReview...
     """
@@ -304,7 +270,7 @@ class ModelsReviewRegressor(ModelsReview):
 ##################################### Stacking #########################################
 
 
-class Stacking(AutoMLBase):
+class Stacking(BestSingleModel):
     '''
     Stack top models
     '''
@@ -457,7 +423,7 @@ class StackingRegressor(Stacking):
 
 ##################################### AutoML #########################################
 
-class AutoML(AutoMLBase):
+class AutoML(BestSingleModel):
     '''
     in progress AutoML
     '''

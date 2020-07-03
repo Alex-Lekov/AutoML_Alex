@@ -46,7 +46,7 @@ def test_fit_predict_default_model(get_data):
         assert score is not None
         assert 0.9 < score <= 1
 
-        predicts = test_model.predict(cv=0)
+        predicts = test_model.predict(cv_folds=5, n_repeats=1)
         score = sklearn.metrics.roc_auc_score(data.y_test, predicts['predict_test'][0])
         assert score is not None
         assert 0.9 < score <= 1
@@ -59,7 +59,7 @@ def test_cross_val_score(get_data):
                                             direction = 'maximize',
                                             type_of_estimator='classifier',
                                             random_state=RANDOM_SEED)
-        predict_test, predict_train = test_model.cv(predict=True, n_repeats=3)
+        predict_test, predict_train = test_model.cross_val_predict(n_repeats=3)
         score = sklearn.metrics.roc_auc_score(data.y_test, predict_test)
         assert score is not None
         assert 0.9 < score <= 1
@@ -70,17 +70,7 @@ def test_cross_val_score(get_data):
                                             cv=12,
                                             type_of_estimator='classifier',
                                             random_state=RANDOM_SEED)
-        predict_test, predict_train = test_model.cv(predict=True, n_repeats=1)
+        predict_test, predict_train = test_model.cross_val_predict(n_repeats=1)
         score = sklearn.metrics.roc_auc_score(data.y_test, predict_test)
         assert score is not None
         assert 0.9 < score <= 1
-
-
-# def test_opt_default(get_data):
-#     data = get_data
-#     for model_name in all_models.keys():
-#         test_model = all_models[model_name](databunch=data, random_state=RANDOM_SEED)
-#         s = test_model.opt(timeout=100, verbose=0,)
-#         assert s is not None
-#         assert test_model.best_score > 0.95
-

@@ -60,7 +60,7 @@ def test_ModelsReviewClassifier(get_data):
 def test_BestSingleModelClassifier(get_data):
     data = get_data
     test_model = BestSingleModelClassifier(databunch=data, random_state=RANDOM_SEED)
-    history = test_model.opt(timeout=200)
+    history = test_model.opt(timeout=400)
     assert history is not None
     assert isinstance(history, pd.DataFrame)
     predicts = test_model.predict()
@@ -70,7 +70,7 @@ def test_BestSingleModelClassifier(get_data):
     assert score >= 0.78
  
     test_model = BestSingleModelClassifier(databunch=data, cv=10, score_cv_folds=3, random_state=RANDOM_SEED)
-    history = test_model.opt(timeout=200, auto_parameters=False, opt_encoders=False)
+    history = test_model.opt(timeout=400, auto_parameters=False, opt_encoders=False)
     assert history is not None
     assert isinstance(history, pd.DataFrame)
     predicts = test_model.predict()

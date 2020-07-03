@@ -5,7 +5,6 @@ import time
 import warnings
 import os
 from category_encoders import HashingEncoder, SumEncoder, OneHotEncoder, HelmertEncoder, OrdinalEncoder
-from category_encoders import TargetEncoder, CatBoostEncoder, JamesSteinEncoder
 
 
 ################################################################
@@ -79,10 +78,3 @@ encoders_names = {
                 'OrdinalEncoder': OrdinalEncoder,
                 #'FrequencyEncoder': FrequencyEncoder,
                 }
-
-
-target_encoders_names = {
-                        'TargetEncoder': TargetEncoder,
-                        'CatBoostEncoder': CatBoostEncoder,
-                        'JamesSteinEncoder': JamesSteinEncoder,
-                        }
