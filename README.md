@@ -59,7 +59,6 @@ More examples in the folder ./examples:
 
 - Data preprocessing
 - Categorical feature Encoding
-- Target Encoding with cross validation
 - Cross Validation
 - Search for the best solving library 
 - Smart Optimization of Hyperparameters (TPE)
