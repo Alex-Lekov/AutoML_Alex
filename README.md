@@ -65,3 +65,8 @@ More examples in the folder ./examples:
 - Timelimit and EarlyStoping
 - Stacking
 
+
+## Contact
+
+Telegram Group: @AutoML-alex
+
