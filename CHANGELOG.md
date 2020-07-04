@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.07.05]
+
+### Fixed
+- RandomForest min_samples_split size
+
 ## [0.07.04]
 
 ### Changed
@@ -16,7 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - add Docs in functions
-- auto metric directions
 
 ### Fixed
 - Try Fix .self buffer bug

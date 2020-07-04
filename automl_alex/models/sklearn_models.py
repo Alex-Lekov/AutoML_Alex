@@ -455,8 +455,11 @@ class RandomForest(LinearModel):
         model_param = model._init_default_model_param()
         ################################# LVL 1 ########################################
         if opt_lvl >= 1:
-            model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, \
+            if len(model._data.X_train) > 1000:
+                model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, \
                                                                         (len(self._data.X_train)//100))
+            else:
+                model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 1, 10)
             model_param['max_depth'] = trial.suggest_int('rf_max_depth', 1, 10,)*10
 
         ################################# LVL 2 ########################################
