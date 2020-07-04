@@ -41,7 +41,7 @@ def test_ModelsReviewClassifier(get_data):
     predicts = test_model.predict()
     score = sklearn.metrics.roc_auc_score(data.y_test, predicts['predict_test'][0])
     assert score is not None
-    assert score >= 0.78
+    assert score >= 0.75
 
     # timeout = 300sec
     test_model = ModelsReviewClassifier(databunch=data, random_state=RANDOM_SEED)
@@ -54,13 +54,13 @@ def test_ModelsReviewClassifier(get_data):
     predicts = test_model.predict(models_cfgs=test_model.top1_models_cfgs)
     score = sklearn.metrics.roc_auc_score(data.y_test, predicts['predict_test'][0])
     assert score is not None
-    assert score >= 0.79
+    assert score >= 0.75
 
 
 def test_BestSingleModelClassifier(get_data):
     data = get_data
     test_model = BestSingleModelClassifier(databunch=data, random_state=RANDOM_SEED)
-    history = test_model.opt(timeout=400)
+    history = test_model.opt(timeout=500)
     assert history is not None
     assert isinstance(history, pd.DataFrame)
     predicts = test_model.predict()
@@ -70,7 +70,7 @@ def test_BestSingleModelClassifier(get_data):
     assert score >= 0.78
 
     test_model = BestSingleModelClassifier(databunch=data, cv=10, score_cv_folds=3, random_state=RANDOM_SEED)
-    history = test_model.opt(timeout=400, auto_parameters=False,)
+    history = test_model.opt(timeout=500, auto_parameters=False,)
     assert history is not None
     assert isinstance(history, pd.DataFrame)
     predicts = test_model.predict()
