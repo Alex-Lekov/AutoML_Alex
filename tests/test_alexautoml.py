@@ -9,7 +9,7 @@ from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 
 import automl_alex
-from automl_alex import BestSingleModelClassifier, ModelsReviewClassifier, StackingClassifier
+from automl_alex import BestSingleModelClassifier, ModelsReviewClassifier, AutoMLClassifier
 
 RANDOM_SEED = 42
 
@@ -68,7 +68,7 @@ def test_BestSingleModelClassifier(get_data):
     score = sklearn.metrics.roc_auc_score(data.y_test, predicts['predict_test'][0])
     assert score is not None
     assert score >= 0.78
- 
+
     test_model = BestSingleModelClassifier(databunch=data, cv=10, score_cv_folds=3, random_state=RANDOM_SEED)
     history = test_model.opt(timeout=400, auto_parameters=False, opt_encoders=False)
     assert history is not None
@@ -80,10 +80,10 @@ def test_BestSingleModelClassifier(get_data):
     assert score >= 0.78
 
 
-def test_StackingClassifier(get_data):
+def test_AutoMLClassifier(get_data):
     data = get_data
-    test_model = StackingClassifier(databunch=data, random_state=RANDOM_SEED)
-    predict_test, predict_train = test_model.opt(timeout=2000, verbose=0,)
+    test_model = AutoMLClassifier(databunch=data, random_state=RANDOM_SEED)
+    predict_test, predict_train = test_model.opt(timeout=1000, verbose=0,)
     assert predict_test is not None
     score = sklearn.metrics.roc_auc_score(data.y_test, predict_test)
     assert score is not None

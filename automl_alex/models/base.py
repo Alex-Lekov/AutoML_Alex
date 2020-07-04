@@ -667,7 +667,7 @@ class ModelBase(object):
         return(model)
 
     def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=3, print_metric=True,):
-        model = self._predict_preproc_model(model_cfg=model_cfg, model=model,)
+        model = model._predict_preproc_model(model_cfg=model_cfg, model=model,)
         predict_test, predict_train = model.cross_val_predict(
                                             model=model, 
                                             folds=cv_folds,

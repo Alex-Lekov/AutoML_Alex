@@ -85,7 +85,7 @@ class CatBoost(ModelBase):
 
         if opt_lvl >= 3:
             if model.type_of_estimator == 'classifier':
-                model_param['objective'] = trial.suggest_categorical('cbobjective', 
+                model_param['objective'] = trial.suggest_categorical('cb_objective', 
                         [
                         'Logloss', 
                         'CrossEntropy',
@@ -101,7 +101,7 @@ class CatBoost(ModelBase):
                     ])
 
             if model_param['objective'] == 'Logloss':
-                if metric.__name__ not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
+                if model.metric.__name__ not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
                     model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('cb_scale_pos_weight', 0.1, 1., 0.1)
         
 

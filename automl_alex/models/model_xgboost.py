@@ -88,7 +88,7 @@ class XGBoost(ModelBase):
                 model_param['rate_drop'] = trial.suggest_loguniform('xgb_rate_drop', 1e-8, 1.0)
                 model_param['skip_drop'] = trial.suggest_loguniform('xgb_skip_drop', 1e-8, 1.0)
 
-            if not wrapper_params['early_stopping']:
+            if not model.wrapper_params['early_stopping']:
                 model_param['n_estimators'] = trial.suggest_int('xgb_n_estimators', 1, 10,)*100
 
         ################################# LVL 4 ########################################
