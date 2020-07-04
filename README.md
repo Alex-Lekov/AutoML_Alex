@@ -49,7 +49,7 @@ predict_test, predict_train = model.fit_predict(timeout=2000,)
 More examples in the folder ./examples:
 
 - [01_Quick_Start.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/01_Quick_Start.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/01_Quick_Start.ipynb)
-- [02_Models_v1.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Models_v1.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Models_v1.ipynb)
+- [02_Models.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Models.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Models.ipynb)
 - [03_Data_Cleaning_and_Encoding_(DataBunch).ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/03_Data_Cleaning_and_Encoding_(DataBunch).ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/03_Data_Cleaning_and_Encoding_(DataBunch).ipynb)
 - [04_ModelsReview.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/04_ModelsReview.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/04_ModelsReview.ipynb)
 - [05_BestSingleModel.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)
@@ -59,10 +59,14 @@ More examples in the folder ./examples:
 
 - Data preprocessing
 - Categorical feature Encoding
-- Target Encoding with cross validation
 - Cross Validation
 - Search for the best solving library 
 - Smart Optimization of Hyperparameters (TPE)
 - Timelimit and EarlyStoping
 - Stacking
+
+
+## Contact
+
+Telegram Group: @AutoML-alex
 
