@@ -12,34 +12,31 @@ class CatBoost(ModelBase):
     """
     __name__ = 'CatBoost'
 
-    def _init_wrapper_params(self, wrapper_params=None):
+    def _init_default_wrapper_params(self,):
         """
         Default wrapper_params
         """
-        self.wrapper_params = {
-            'need_norm_data': False,
+        wrapper_params = {
             'early_stopping': True,
             }
-        if wrapper_params is not None:
-            self.wrapper_params = wrapper_params
+        return(wrapper_params)
 
-    def _init_model_param(self, model_param=None):
+    def _init_default_model_param(self, model_param=None):
         """
         Default model_param
         """
         if model_param is None:
-            self.model_param = {'verbose': 0, 
+            model_param = {'verbose': 0, 
                                 'early_stopping_rounds': 50,
                                 'task_type': 'GPU' if self._gpu else 'CPU',
                                 'random_seed': self._random_state,
                                 }
             if self.wrapper_params['early_stopping']:
-                self.model_param['iterations'] = 1000
+                model_param['iterations'] = 1000
                 if self.metric is not None:
                     if self.metric.__name__ == 'roc_auc_score':
-                        self.model_param['eval_metric'] = 'AUC'
-        else:
-            self.model_param = model_param
+                        model_param['eval_metric'] = 'AUC'
+        return(model_param)
 
 
     def _init_model(self, model_param=None):
@@ -55,43 +52,47 @@ class CatBoost(ModelBase):
         return(model)
 
 
-    @staticmethod
-    def get_model_opt_params(self, trial):
+    #@staticmethod
+    def get_model_opt_params(self, trial, model, opt_lvl, metric_name):
         """
         Return:
             dict of DistributionWrappers
         """
-        self._init_model_param()
+        model_param = model._init_default_model_param()
         ################################# LVL 1 ########################################
-        if self._opt_lvl == 1:
-            self.model_param['depth'] = trial.suggest_categorical('cb_depth', [6, 10])
+        if opt_lvl == 1:
+            model_param['depth'] = trial.suggest_categorical('cb_depth', [6, 10])
 
-        if self._opt_lvl >= 1:
-            self.model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, \
-                                                                        (len(self._data.X_train)//100))
+        if opt_lvl >= 1:
+            if len(self._data.X_train) > 1000:
+                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, \
+                                                                    (len(self._data.X_train)//100))
+            else:
+                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, 10)
+            
 
-       ################################# LVL 2 ########################################
-        if self._opt_lvl == 2:
-            self.model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 10])
+        ################################# LVL 2 ########################################
+        if opt_lvl == 2:
+            model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 10])
 
-        if self._opt_lvl >= 2:
-            self.model_param['bagging_temperature'] = trial.suggest_int('cb_bagging_temperature', 0, 10,)
-            self.model_param['subsample'] = trial.suggest_discrete_uniform('cb_subsample', 0.1, 1.0, 0.1)
+        if opt_lvl >= 2:
+            model_param['bagging_temperature'] = trial.suggest_int('cb_bagging_temperature', 0, 10,)
+            model_param['subsample'] = trial.suggest_discrete_uniform('cb_subsample', 0.1, 1.0, 0.1)
         
         ################################# LVL 3 ########################################
-        if self._opt_lvl == 3:
-            self.model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 8, 10])
+        if opt_lvl == 3:
+            model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 8, 10])
 
-        if self._opt_lvl >= 3:
-            if self.type_of_estimator == 'classifier':
-                self.model_param['objective'] = trial.suggest_categorical('cbobjective', 
+        if opt_lvl >= 3:
+            if model.type_of_estimator == 'classifier':
+                model_param['objective'] = trial.suggest_categorical('cb_objective', 
                         [
                         'Logloss', 
                         'CrossEntropy',
                         ])
 
-            elif self.type_of_estimator == 'regression':
-                self.model_param['objective'] = trial.suggest_categorical('cb_objective', 
+            elif model.type_of_estimator == 'regression':
+                model_param['objective'] = trial.suggest_categorical('cb_objective', 
                     [
                     'MAE',
                     'MAPE',
@@ -99,21 +100,22 @@ class CatBoost(ModelBase):
                     'RMSE',
                     ])
 
-            if self.model_param['objective'] == 'Logloss':
-                if self.metric.__name__ not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
-                    self.model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('cb_scale_pos_weight', 0.1, 1., 0.1)
+            if model_param['objective'] == 'Logloss':
+                if model.metric.__name__ not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
+                    model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('cb_scale_pos_weight', 0.1, 1., 0.1)
         
 
         ################################# LVL 4 ########################################
-        if self._opt_lvl >= 4:
-            self.model_param['depth'] = trial.suggest_int('cb_depth', 2, 16)
-            self.model_param['l2_leaf_reg'] = trial.suggest_loguniform('cb_l2_leaf_reg', 1e-8, .1)
-            self.model_param['learning_rate'] = trial.suggest_int('cb_learning_rate', 1, 100)/1000
+        if opt_lvl >= 4:
+            model_param['depth'] = trial.suggest_int('cb_depth', 2, 16)
+            model_param['l2_leaf_reg'] = trial.suggest_loguniform('cb_l2_leaf_reg', 1e-8, .1)
+            model_param['learning_rate'] = trial.suggest_int('cb_learning_rate', 1, 100)/1000
             
-            if not self.wrapper_params['early_stopping']:
-                self.model_param['iterations'] = trial.suggest_int('cb_iterations', 1, 10)*100
+            if not model.wrapper_params['early_stopping']:
+                model_param['iterations'] = trial.suggest_int('cb_iterations', 1, 10)*100
 
         ################################# Other ########################################
+        return(model_param)
 
     def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
         """
@@ -158,7 +160,7 @@ class CatBoost(ModelBase):
             raise Exception("No fit models")
 
         if X is None:
-            X = self.X_test
+            X = self._data.X_test
 
         if self.type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
@@ -173,13 +175,16 @@ class CatBoost(ModelBase):
         """
         return True
 
-    def _predict_proba(self, X):
+    def _predict_proba(self, X=None):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
         Return:
             np.array, shape (n_samples, n_classes)
         """
+        if X is None:
+            X = self._data.X_test
+
         if self.model is None:
             raise Exception("No fit models")
         if not self.is_possible_predict_proba(): 

@@ -12,38 +12,6 @@ from .databunch import DataBunch
 from .encoders import *
 
 
-class AutoMLBase(ModelBase):
-    """
-    Base class for a specific ML algorithm implementation factory,
-    i.e. it defines algorithm-specific hyperparameter space and generic methods for model training & inference
-    """
-    def fit(self, dataset):
-        """
-        Args:
-            dataset: the input data,
-                dataset.y may be None
-        Return:
-            np.array, shape (n_samples, ): predictions
-        """
-        raise NotImplementedError("Pure virtual class.")
-
-    def predict(self, dataset):
-        """
-        Args:
-            dataset : the input data,
-                dataset.y may be None
-        Return:
-            np.array, shape (n_samples, ): predictions
-        """
-        raise NotImplementedError("Pure virtual class.")
-
-    def _init_wrapper_params(self, wrapper_params=None):
-        pass
-
-    def _init_model_param(self, model_param=None):
-        pass
-
-
 ##################################### BestSingleModel ################################################
 
 
@@ -83,7 +51,11 @@ class BestSingleModel(XGBoost):
         '''
         model_name = trial.suggest_categorical('model_name', self.models_names)
         model = self._make_model(model_name,)
-        model.get_model_opt_params(model, trial=trial)
+        model.model_param = model.get_model_opt_params(trial=trial, 
+            model=model, 
+            opt_lvl=model._opt_lvl, 
+            metric_name=model.metric.__name__,
+            )
         return(model)
 
     def opt(self, 
@@ -95,11 +67,8 @@ class BestSingleModel(XGBoost):
         cv=None,
         score_cv_folds=None,
         auto_parameters=True,
-        opt_encoders=True,
         cat_encoder_names=None,
-        target_cat_encoder_names=None,
         models_names=None, #list models_names for opt
-        save_to_sqlite=False,
         verbose=1,
         ):
         '''
@@ -120,11 +89,8 @@ class BestSingleModel(XGBoost):
             self._auto_parameters = auto_parameters
 
         # Encoders
-        self._opt_encoders_bool = opt_encoders
         if cat_encoder_names is not None:
             self.encoders_names = cat_encoder_names
-        if target_cat_encoder_names is not None:
-            self.target_encoder_names = target_cat_encoder_names
 
         if models_names is None:
             self.models_names = all_models.keys()
@@ -135,22 +101,16 @@ class BestSingleModel(XGBoost):
         history = self._opt_core(
             timeout, 
             early_stoping, 
-            save_to_sqlite,
             verbose)
         return(history)
 
-    def _predict_preproc_model(self, model_cfg, cv):
+    def _predict_preproc_model(self, model_cfg, model,):
         """
         custom function for predict, now we can choose model library
         """
-        databunch = self._remake_encode_databunch(
-                encoder_name=model_cfg['cat_encoder'], 
-                target_encoder_name=model_cfg['target_encoder'],
-                )
-        model = self._make_model(model_cfg['model_name'], databunch=databunch)
+        model = self._make_model(model_cfg['model_name'], databunch=self._data)
         model.model_param = model_cfg['model_param']
         model.wrapper_params = model_cfg['wrapper_params']
-        model._cv = cv
         return(model)
 
 
@@ -165,7 +125,7 @@ class BestSingleModelRegressor(BestSingleModel):
 ##################################### ModelsReview ################################################
 
 
-class ModelsReview(AutoMLBase):
+class ModelsReview(BestSingleModel):
     """
     ModelsReview...
     """
@@ -212,9 +172,7 @@ class ModelsReview(AutoMLBase):
         early_stoping=100, 
         auto_parameters=True,
         direction=None,
-        opt_encoders=False,
         cat_encoder_names=None,
-        target_cat_encoder_names=None,
         verbose=1,
         models_names=None,
         ):
@@ -256,9 +214,7 @@ class ModelsReview(AutoMLBase):
             history = model_tmp.opt(timeout=timeout_per_model,
                         early_stoping=early_stoping, 
                         auto_parameters=auto_parameters,
-                        opt_encoders=opt_encoders,
                         cat_encoder_names=cat_encoder_names,
-                        target_cat_encoder_names=cat_encoder_names,
                         verbose= (lambda x: 0 if x <= 1 else 1)(verbose),
                         )
             if verbose > 0:
@@ -304,7 +260,7 @@ class ModelsReviewRegressor(ModelsReview):
 ##################################### Stacking #########################################
 
 
-class Stacking(AutoMLBase):
+class Stacking(BestSingleModel):
     '''
     Stack top models
     '''
@@ -321,9 +277,7 @@ class Stacking(AutoMLBase):
             stack_models_names=None,
             stack_top=20,
             meta_models_names=['MLP',],
-            opt_encoders=False,
             cat_encoder_names=None,
-            target_cat_encoder_names=None,
             verbose=1,):
         if self.direction is None:
             raise Exception('Need direction for optimaze!')
@@ -377,9 +331,7 @@ class Stacking(AutoMLBase):
             score_cv_folds=score_cv_folds,
             auto_parameters=auto_parameters,
             models_names=self.stack_models_names,
-            opt_encoders=opt_encoders,
             cat_encoder_names=cat_encoder_names,
-            target_cat_encoder_names=target_cat_encoder_names,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
@@ -411,7 +363,6 @@ class Stacking(AutoMLBase):
         metamodel = ModelsReview(x_train, self._data.y_train, x_test, 
                                 clean_and_encod_data=False,
                                 cat_encoder_name=None,
-                                target_encoder_name=None,
                                 clean_nan=False,
                                 type_of_estimator=self.type_of_estimator, 
                                 random_state=self._random_state,)
@@ -457,7 +408,7 @@ class StackingRegressor(Stacking):
 
 ##################################### AutoML #########################################
 
-class AutoML(AutoMLBase):
+class AutoML(BestSingleModel):
     '''
     in progress AutoML
     '''
@@ -473,9 +424,7 @@ class AutoML(AutoMLBase):
             auto_parameters=True,
             stack_models_names=None,
             stack_top=10,
-            opt_encoders=True,
             cat_encoder_names=None,
-            target_cat_encoder_names=None,
             verbose=1,):
         if self.direction is None:
             raise Exception('Need direction for optimaze!')
@@ -527,9 +476,7 @@ class AutoML(AutoMLBase):
             score_cv_folds=score_cv_folds,
             auto_parameters=auto_parameters,
             models_names=self.stack_models_names,
-            opt_encoders=opt_encoders,
             cat_encoder_names=cat_encoder_names,
-            target_cat_encoder_names=target_cat_encoder_names,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
