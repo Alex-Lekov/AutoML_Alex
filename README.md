@@ -63,7 +63,6 @@ More examples in the folder ./examples:
 - Search for the best solving library 
 - Smart Optimization of Hyperparameters (TPE)
 - Timelimit and EarlyStoping
-- Stacking
 
 
 ## Contact
