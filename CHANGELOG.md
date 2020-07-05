@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - RandomForest min_samples_split size
+- fix ModelsReview opt cv
 
 ## [0.07.04]
 

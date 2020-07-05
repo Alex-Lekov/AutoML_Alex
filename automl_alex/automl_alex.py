@@ -170,7 +170,7 @@ class ModelsReview(BestSingleModel):
     def opt(self, 
         timeout=1000, 
         early_stoping=100, 
-        auto_parameters=True,
+        auto_parameters=False,
         direction=None,
         cat_encoder_names=None,
         verbose=1,
