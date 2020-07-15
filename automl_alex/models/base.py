@@ -537,6 +537,7 @@ class ModelBase(object):
         print_metric=False, 
         metric_round=4, 
         predict=False,
+        get_feature_importance=False,
         ):
         if model is None:
             model = self
@@ -565,9 +566,9 @@ class ModelBase(object):
                 )
 
         folds_scores = []
-        if predict:
-            stacking_y_pred_train = np.zeros(X.shape[0])
-            stacking_y_pred_test = np.zeros(X_test.shape[0])
+        stacking_y_pred_train = np.zeros(X.shape[0])
+        stacking_y_pred_test = np.zeros(X_test.shape[0])
+        feature_importance_df = pd.DataFrame(np.zeros(len(X.columns)), index=X.columns)
 
         for i, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
 
@@ -595,14 +596,16 @@ class ModelBase(object):
                 if predict:
                     y_pred_test = model._predict(X_test)
 
-            if predict:
-                stacking_y_pred_train[valid_idx] += y_pred
-                stacking_y_pred_test += y_pred_test
-
             score_model = model.metric(val_y, y_pred)
             folds_scores.append(score_model)
 
-            if not predict:
+            if get_feature_importance:
+                feature_importance_df += model._get_feature_importance(train_x)
+
+            if predict:
+                stacking_y_pred_train[valid_idx] += y_pred
+                stacking_y_pred_test += y_pred_test
+            else:
                 # score_folds
                 if i+1 >= score_folds:
                     break
@@ -621,16 +624,27 @@ class ModelBase(object):
         if print_metric:
             print(f'\n Mean Score {model.metric.__name__} on {i+1} Folds: {score} std: {score_std}')
 
-        if predict:
-            return(stacking_y_pred_test, stacking_y_pred_train,)
-        else:
-            return(score, score_std)
+        # Total
+        result = {
+            'Score':score,
+            'Score_Std':score_std,
+            'Test_predict':stacking_y_pred_test,
+            'Train_predict':stacking_y_pred_train,
+            'Feature_importance': dict(feature_importance_df[0]),
+            }
+        return(result)
 
     def cross_val_score(self, **kwargs):
-        return(self.cross_val(predict=False,**kwargs))
+        res = self.cross_val(predict=False,**kwargs)
+        score = res['Score']
+        score_std = res['Score_Std']
+        return(score, score_std)
     
     def cross_val_predict(self, **kwargs):
-        return(self.cross_val(predict=True,**kwargs))
+        res = self.cross_val(predict=True,**kwargs)
+        predict_test = res['Test_predict']
+        predict_train = res['Train_predict']
+        return(predict_test, predict_train)
 
     def fit(self, model=None, print_metric=True):
         if model is None:
