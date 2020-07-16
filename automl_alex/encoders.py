@@ -5,6 +5,7 @@ import time
 import warnings
 import os
 from category_encoders import HashingEncoder, SumEncoder, OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder
+from category_encoders import TargetEncoder, CatBoostEncoder, WOEEncoder, JamesSteinEncoder
 
 
 ################################################################
@@ -127,4 +128,11 @@ cat_encoders_names = {
                 'HelmertEncoder': HelmertEncoder,
                 'OrdinalEncoder': OrdinalEncoder,
                 'FrequencyEncoder': FrequencyEncoder,
+                }
+
+target_encoders_names = {
+                'TargetEncoder': TargetEncoder,
+                'CatBoostEncoder': CatBoostEncoder,
+                'WOEEncoder': WOEEncoder,
+                'JamesSteinEncoder': JamesSteinEncoder,
                 }

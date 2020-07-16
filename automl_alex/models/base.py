@@ -225,34 +225,35 @@ class ModelBase(object):
 
         if possible_iters > 100:
             cv = 5
-            score_cv_folds = 1
+            score_cv_folds = 2
             opt_lvl = 1
             cold_start = possible_iters // 2
             early_stoping = 100
 
-        if possible_iters > 300:
-            score_cv_folds = 2
+        if possible_iters > 200:
+            score_cv_folds = 3
             opt_lvl = 2
             cold_start = (possible_iters / score_cv_folds) // 3
 
-        if possible_iters > 600:
+        if possible_iters > 300:
             cv = 10
             score_cv_folds = 3
             cold_start = (possible_iters / score_cv_folds) // 5
 
         if possible_iters > 900:
+            score_cv_folds = 4
             opt_lvl = 3
             early_stoping = cold_start * 2
         
         if possible_iters > 10000:
             opt_lvl = 4
-            score_cv_folds = 4
+            score_cv_folds = 5
             cold_start = (possible_iters / score_cv_folds) // 10
             early_stoping = cold_start * 2
 
         if possible_iters > 25000:
             opt_lvl = 5
-            score_cv_folds = 5
+            score_cv_folds = 10
             cold_start = (possible_iters / score_cv_folds) // 30
             early_stoping = cold_start * 2
         return(early_stoping, cv, score_cv_folds, opt_lvl, cold_start,)
@@ -270,10 +271,11 @@ class ModelBase(object):
             
             best_trail = self.history_trials_dataframe.head(1)
             best_model_name = best_trail['model_name'].iloc[0]
-            self.best_score = best_trail['model_score'].iloc[0]
+            self.best_score = best_trail['score_opt'].iloc[0]
             self.best_score_std = best_trail['score_std'].iloc[0]
+            best_metric_score = best_trail['model_score'].iloc[0]
 
-            message = f'{best_model_name} Best Score {self.metric.__name__} = {self.best_score} '
+            message = f' | Model: {best_model_name} | OptScore: {self.best_score} | Best {self.metric.__name__}: {best_metric_score} '
             if self._score_cv_folds > 1:
                 message+=f'+- {self.best_score_std}'
             pbar.set_postfix_str(message)
@@ -303,11 +305,20 @@ class ModelBase(object):
             metric_name=model.metric.__name__,
             )
         return(model)
+    
+    def _opt_feature_selector(self, columns, trial):
+        select_columns = {}
+        for colum in columns:
+            select_columns[colum] = trial.suggest_categorical(colum, [True, False])
+        select_columns_ = {k: v for k, v in select_columns.items() if v == True}
+        return(select_columns_.keys())
 
-    def _opt_core(self, timeout, early_stoping, verbose=1):
+    def _opt_core(self, timeout, early_stoping, feature_selection, verbose=1):
+        # X
+        X=self._data.X_train
         # time model
         start_time = time.time()
-        score, score_std = self.cross_val_score(folds=self._cv, score_folds=2, print_metric=False,)
+        score, score_std = self.cross_val_score(X=X, folds=self._cv, score_folds=2, print_metric=False,)
         iter_time = (time.time() - start_time)
 
         if verbose > 0: 
@@ -327,19 +338,27 @@ class ModelBase(object):
                 self.__auto_parameters_calc(possible_iters, verbose)
         
         config = self.fit(print_metric=False,)
-        self.best_score = config['model_score'].iloc[0]
+        self.best_score = config['score_opt'].iloc[0]
 
         if verbose > 0: 
             print('Start optimization with the parameters:')
             self._print_opt_parameters(early_stoping)
-            print(f'Default model {self.metric.__name__} = {round(self.best_score,4)}')
+            print(f'Default model OptScore = {round(self.best_score,4)}')
             print('#'*40)
         
         # OPTUNA objective
         def objective(trial, fast_check=True):
+            # generate model
             opt_model = self._opt_model(trial=trial)
+            # feature selector
+            if feature_selection:
+                select_columns = self._opt_feature_selector(
+                    opt_model._data.X_train.columns, 
+                    trial=trial)
+                X=opt_model._data.X_train[select_columns]
             # score
             score, score_std = opt_model.cross_val_score(
+                X=X,
                 folds=opt_model._cv, 
                 score_folds=opt_model._score_cv_folds, 
                 print_metric=False,
@@ -359,7 +378,8 @@ class ModelBase(object):
                 'model_name': opt_model.__name__,
                 'model_param': opt_model.model_param,
                 'wrapper_params': opt_model.wrapper_params,
-                'cat_encoder': opt_model._data.cat_encoder_names,
+                'cat_encoders': opt_model._data.cat_encoder_names,
+                'columns': X.columns.values,
                 'cv_folds': opt_model._cv,
                                 })
             
@@ -412,9 +432,9 @@ class ModelBase(object):
                     print(f'\n EarlyStopping Exceeded: Best Score: {self.study.best_value}', 
                         self.metric.__name__)
         
-        self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('model_score', ascending=True)
+        self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=True)
         if self.direction == 'maximize':
-            self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('model_score', ascending=False)
+            self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=False)
         return(self.history_trials_dataframe)
 
     def opt(self,
@@ -426,6 +446,7 @@ class ModelBase(object):
             opt_lvl=None,
             direction=None,
             early_stoping=100,
+            feature_selection=True,
             verbose=1,):
         if cv_folds is not None:
             self._cv = cv_folds
@@ -445,6 +466,7 @@ class ModelBase(object):
         history = self._opt_core(
             timeout, 
             early_stoping, 
+            feature_selection,
             verbose)
 
         return(history)
@@ -528,8 +550,9 @@ class ModelBase(object):
         if model is None:
             model = self
 
-        if (X is None) or (y is None):
+        if X is None:
             X = model._data.X_train
+        if y is None:
             y = model._data.y_train
             
         if X_test is None:
@@ -627,7 +650,7 @@ class ModelBase(object):
         return(score, score_std)
     
     def cross_val_predict(self, **kwargs):
-        res = self.cross_val(predict=True,**kwargs)
+        res = self.cross_val(predict=True, **kwargs)
         predict_test = res['Test_predict']
         predict_train = res['Train_predict']
         return(predict_test, predict_train)
@@ -656,6 +679,7 @@ class ModelBase(object):
             'model_param': model.model_param,
             'wrapper_params': model.wrapper_params,
             'cat_encoder': model._data.cat_encoder_names,
+            'columns': model._data.X_train.columns.values,
             'cv_folds': model._cv,
 
             }
@@ -668,17 +692,21 @@ class ModelBase(object):
 
     def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=3, print_metric=True,):
         model = model._predict_preproc_model(model_cfg=model_cfg, model=model,)
-        predict_test, predict_train = model.cross_val_predict(
-                                            model=model, 
-                                            folds=cv_folds,
-                                            metric_round=model._metric_round,
-                                            print_metric=print_metric,
-                                            n_repeats=n_repeats,
-                                            )
+        #print(model_cfg)
+        res = model.cross_val(
+                            X=databunch.X_train[model_cfg['columns']],
+                            X_test=databunch.X_test[model_cfg['columns']],
+                            model=model, 
+                            folds=cv_folds,
+                            metric_round=model._metric_round,
+                            print_metric=print_metric,
+                            n_repeats=n_repeats,
+                            predict=True,
+                            )
         predict = {
                     'model_name': f'{index}_' + model_cfg['model_name'], 
-                    'predict_test': predict_test,
-                    'predict_train': predict_train,
+                    'predict_test': res['Test_predict'],
+                    'predict_train': res['Train_predict'],
                     }
         return(predict)
 

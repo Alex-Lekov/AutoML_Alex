@@ -3,6 +3,7 @@ import numpy as np
 import time
 import warnings
 import os
+from itertools import combinations
 
 from .encoders import *
 
@@ -20,6 +21,8 @@ class DataBunch(object):
                     clean_and_encod_data=True,
                     cat_encoder_names=['FrequencyEncoder', 'HelmertEncoder', 'HashingEncoder'],
                     clean_nan=True,
+                    num_generator_features=True,
+                    group_generator_features=True,
                     random_state=42):
         self.random_state = random_state
         
@@ -63,7 +66,9 @@ class DataBunch(object):
                                                             self.X_test_source, 
                                                             cat_features=self.cat_features,
                                                             cat_encoder_names=cat_encoder_names,
-                                                            clean_nan=clean_nan,)
+                                                            clean_nan=clean_nan,
+                                                            num_generator_features=num_generator_features,
+                                                            group_generator_features=group_generator_features,)
         else: 
             self.X_train, self.X_test = X_train, X_test
                                         
@@ -107,6 +112,9 @@ class DataBunch(object):
 
 
     def _encode_features(self, data, cat_encoder_name):
+        '''
+        Encode car features
+        '''
         if cat_encoder_name in cat_encoders_names.keys():
             encoder = cat_encoders_names[cat_encoder_name](drop_invariant=True) 
 
@@ -125,11 +133,41 @@ class DataBunch(object):
         return(data_encodet)
 
 
+    def numeric_interaction_terms(self, df, columns):
+        '''
+        Numerical interaction generator features: A/B, A*B, A-B,
+        '''
+        fe_df = pd.DataFrame()
+        for c in combinations(columns,2):
+            fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
+            fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
+            fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
+            #fe_df['{} + {}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
+        return fe_df
+
+
+    def group_encoder(self, data, cat_columns, num_columns):
+        '''
+        Group Encode car features on num features
+        '''
+        for num_col in num_columns:
+            encoder = JamesSteinEncoder(drop_invariant=True)
+            data_encodet = encoder.fit_transform(X=data[cat_columns], y=data[num_col].values)
+            data_encodet = data_encodet.add_prefix('GroupEncoder_' + num_col + '_')
+            data = pd.concat([
+                        data.reset_index(drop=True), 
+                        data_encodet.reset_index(drop=True)], 
+                        axis=1,)
+        return(data)
+
+
     def preproc_data(self, X_train=None, 
                         X_test=None, 
                         cat_features=None,
                         cat_encoder_names=None,
-                        clean_nan=True,):
+                        clean_nan=True,
+                        num_generator_features=True,
+                        group_generator_features=True):
         '''
         dataset preprocessing function
         '''
@@ -165,12 +203,35 @@ class DataBunch(object):
                     data.reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
-            data.drop(columns=encodet_features_names, inplace=True)
 
-                
+        # FrequencyEncoder num features
+        if 'FrequencyEncoder' in cat_encoder_names:
+            encoder = cat_encoders_names['FrequencyEncoder']()
+            data_encodet = encoder.fit_transform(data[num_features])
+            data_encodet = data_encodet.add_prefix('FrequencyEncoder' + '_')
+            data = pd.concat([
+                    data.reset_index(drop=True), 
+                    data_encodet.reset_index(drop=True)], 
+                    axis=1,)
+
         # Nans
         if clean_nan:
             data = self.clean_nans(data, cols=num_features)
+
+        # Num Generator Features
+        if num_generator_features:
+            fe_df = self.numeric_interaction_terms(data[num_features], num_features)
+            data = pd.concat([
+                        data.reset_index(drop=True), 
+                        fe_df.reset_index(drop=True)], 
+                        axis=1,)
+
+        # Group Encoder
+        if group_generator_features:
+            data = self.group_encoder(data, encodet_features_names, num_features)
+
+        # Drop source cat features
+        data.drop(columns=encodet_features_names, inplace=True)
 
         X_train = data.query('test == 0').drop(['test'], axis=1)
         X_test = data.query('test == 1').drop(['test'], axis=1)
