@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
-from os.path import join, dirname
 
 def load_requirements(filename):
     with open(os.path.join('.', filename), "r") as f:

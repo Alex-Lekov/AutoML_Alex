@@ -1,4 +1,3 @@
-import sklearn
 from sklearn import ensemble, neural_network, linear_model, svm, neighbors
 from .base import *
 

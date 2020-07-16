@@ -1,12 +1,8 @@
-import sys
-import numpy as np
 import pandas as pd
 import pytest
 import sklearn
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
-
-import automl_alex
 from automl_alex.models import *
 
 #
