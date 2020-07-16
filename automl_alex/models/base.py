@@ -37,11 +37,9 @@ class ModelBase(object):
                 y_test=None,
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_name='HelmertEncoder',
+                cat_encoder_names=['HelmertEncoder', 'HashingEncoder', 'FrequencyEncoder'],
                 clean_nan=True,
                 databunch=None,
-                opt_encoders=False,
-                cat_encoder_names=None,
                 model_param=None, 
                 wrapper_params=None,
                 auto_parameters=True,
@@ -81,12 +79,6 @@ class ModelBase(object):
         self._opt_lvl = opt_lvl
         self._combined_score_opt = combined_score_opt
 
-        # Encoders
-        if cat_encoder_names is None:
-            self.encoders_names = encoders_names.keys()
-        else:
-            self.encoders_names = cat_encoder_names
-
         self.wrapper_params = wrapper_params
         if wrapper_params is None:
             self.wrapper_params = self._init_default_wrapper_params()
@@ -109,7 +101,7 @@ class ModelBase(object):
                                     y_test=y_test,
                                     cat_features=cat_features,
                                     clean_and_encod_data=clean_and_encod_data,
-                                    cat_encoder_name=cat_encoder_name,
+                                    cat_encoder_names=cat_encoder_names,
                                     clean_nan=clean_nan,
                                     random_state=random_state,)
             else: 
@@ -367,7 +359,7 @@ class ModelBase(object):
                 'model_name': opt_model.__name__,
                 'model_param': opt_model.model_param,
                 'wrapper_params': opt_model.wrapper_params,
-                'cat_encoder': opt_model._data.cat_encoder_name,
+                'cat_encoder': opt_model._data.cat_encoder_names,
                 'cv_folds': opt_model._cv,
                                 })
             
@@ -434,9 +426,6 @@ class ModelBase(object):
             opt_lvl=None,
             direction=None,
             early_stoping=100,
-            opt_encoders=False, # select encoders for data
-            cat_encoder_names=None,
-            target_cat_encoder_names=None,
             verbose=1,):
         if cv_folds is not None:
             self._cv = cv_folds
@@ -452,9 +441,6 @@ class ModelBase(object):
             self.direction = direction
         if self.direction is None:
             raise Exception('Need direction for optimize!')
-        # Encoders
-        if cat_encoder_names is not None:
-            self.encoders_names = cat_encoder_names
 
         history = self._opt_core(
             timeout, 
@@ -669,7 +655,7 @@ class ModelBase(object):
             'model_name': model.__name__,
             'model_param': model.model_param,
             'wrapper_params': model.wrapper_params,
-            'cat_encoder': model._data.cat_encoder_name,
+            'cat_encoder': model._data.cat_encoder_names,
             'cv_folds': model._cv,
 
             }

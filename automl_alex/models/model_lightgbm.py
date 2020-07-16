@@ -227,7 +227,7 @@ class LightGBM(ModelBase):
         """
         return True
 
-    def _get_feature_importance(self, train_x, importance_type='split',):
+    def _get_feature_importance(self, train_x, importance_type='gain',):
         """
         Return:
             list feature_importance

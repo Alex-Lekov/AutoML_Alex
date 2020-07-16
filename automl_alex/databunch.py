@@ -18,11 +18,10 @@ class DataBunch(object):
                     y_test=None,
                     cat_features=None,
                     clean_and_encod_data=True,
-                    cat_encoder_name='OneHotEncoder',
+                    cat_encoder_names=['FrequencyEncoder', 'HelmertEncoder', 'HashingEncoder'],
                     clean_nan=True,
                     random_state=42):
         self.random_state = random_state
-        self.cat_encoder_name = cat_encoder_name
         
         self.X_train = None
         self.y_train = None
@@ -31,6 +30,12 @@ class DataBunch(object):
         self.X_train_predicts = None
         self.X_test_predicts = None
         self.cat_features = None
+
+        # Encoders
+        if cat_encoder_names is None:
+            self.cat_encoder_names = cat_encoders_names.keys()
+        else:
+            self.cat_encoder_names = cat_encoder_names
         
         # check X_train, y_train, X_test
         if self.check_data_format(X_train):
@@ -57,7 +62,7 @@ class DataBunch(object):
             self.X_train, self.X_test = self.preproc_data(self.X_train_source, 
                                                             self.X_test_source, 
                                                             cat_features=self.cat_features,
-                                                            cat_encoder_name=cat_encoder_name,
+                                                            cat_encoder_names=cat_encoder_names,
                                                             clean_nan=clean_nan,)
         else: 
             self.X_train, self.X_test = X_train, X_test
@@ -101,10 +106,29 @@ class DataBunch(object):
         return(cat_features)
 
 
+    def _encode_features(self, data, cat_encoder_name):
+        if cat_encoder_name in cat_encoders_names.keys():
+            encoder = cat_encoders_names[cat_encoder_name](drop_invariant=True) 
+
+            if cat_encoder_name == 'HashingEncoder':
+                encoder = cat_encoders_names[cat_encoder_name](n_components=int(np.log(len(data))*100), 
+                                                        drop_invariant=True)
+            if cat_encoder_name == 'FrequencyEncoder':
+                encoder = cat_encoders_names['OrdinalEncoder']()
+                data = encoder.fit_transform(data)
+                encoder = cat_encoders_names['FrequencyEncoder']()
+
+            data_encodet = encoder.fit_transform(data)
+            data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
+        else:
+            raise Exception(f"{cat_encoder_name} not support!")
+        return(data_encodet)
+
+
     def preproc_data(self, X_train=None, 
                         X_test=None, 
                         cat_features=None,
-                        cat_encoder_name=None,
+                        cat_encoder_names=None,
                         clean_nan=True,):
         '''
         dataset preprocessing function
@@ -135,19 +159,13 @@ class DataBunch(object):
         
         # Encoding
         if encodet_features_names:
-            if cat_encoder_name in encoders_names.keys():
-                encoder = encoders_names[cat_encoder_name](drop_invariant=True) 
-                if cat_encoder_name == 'HashingEncoder':
-                    encoder = encoders_names[cat_encoder_name](n_components=int(np.log(len(data))*100), 
-                                                            drop_invariant=True)
-                data_encodet = encoder.fit_transform(data[encodet_features_names])
-                data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
+            for encoder_name in cat_encoder_names:
+                data_encodet = self._encode_features(data[encodet_features_names], encoder_name,)
                 data = pd.concat([
-                    data.drop(columns=encodet_features_names).reset_index(drop=True), 
+                    data.reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
-            else:
-                raise Exception(f"{cat_encoder_name} not support!")
+            data.drop(columns=encodet_features_names, inplace=True)
 
                 
         # Nans
