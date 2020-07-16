@@ -1,9 +1,6 @@
 
 import pandas as pd
 import numpy as np
-import time
-import warnings
-import os
 from category_encoders import HashingEncoder, SumEncoder, OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder
 from category_encoders import TargetEncoder, CatBoostEncoder, WOEEncoder, JamesSteinEncoder
 
