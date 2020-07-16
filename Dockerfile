@@ -7,8 +7,7 @@ COPY requirements.txt .
 #COPY model.py .
 
 # Configure apt and install packages
-RUN apt-get update && apt-get install -y \
-    && apt-get -y install git iproute2 procps lsb-release
+RUN apt-get update && apt-get -y install git iproute2 procps lsb-release
 RUN pip install --upgrade pip
 RUN pip --no-cache-dir install -r requirements.txt
 RUN pip install automl-alex

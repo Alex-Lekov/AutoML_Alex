@@ -47,9 +47,10 @@ class DataBunch(object):
             if self.check_data_format(X_test):
                 self.X_test_source = pd.DataFrame(X_test)
                 
-        if y_train is None:
+        if y_train is not None:
+            self.y_train = y_train
+        else:
             raise Exception("No target data!")
-        else: self.y_train = y_train
         
         if y_test is not None:
             self.y_test = y_test
@@ -189,7 +190,7 @@ class DataBunch(object):
 
         # LabelEncoded Binary Features
         for feature in data.columns:
-            if (feature is not 'test') and (data[feature].nunique(dropna=False) < 3):
+            if (feature != 'test') and (data[feature].nunique(dropna=False) < 3):
                 data[feature] = data[feature].astype('category').cat.codes
                 #if len(encodet_features_names) > 0:
                 #    if feature in encodet_features_names:
