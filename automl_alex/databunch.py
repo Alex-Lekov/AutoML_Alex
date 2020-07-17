@@ -11,17 +11,18 @@ class DataBunch(object):
     Сlass for storing, cleaning and processing your dataset
     """
     def __init__(self, 
-                    X_train=None, 
-                    y_train=None,
-                    X_test=None,
-                    y_test=None,
-                    cat_features=None,
-                    clean_and_encod_data=True,
-                    cat_encoder_names=['FrequencyEncoder', 'HelmertEncoder', 'HashingEncoder'],
-                    clean_nan=True,
-                    num_generator_features=True,
-                    group_generator_features=True,
-                    random_state=42):
+                X_train=None, 
+                y_train=None,
+                X_test=None,
+                y_test=None,
+                cat_features=None,
+                clean_and_encod_data=True,
+                cat_encoder_names=['FrequencyEncoder', 'HelmertEncoder', 'HashingEncoder'],
+                clean_nan=True,
+                num_generator_features=True,
+                group_generator_features=True,
+                random_state=42,
+                verbose=1):
         """
         Description of __init__
 
@@ -70,21 +71,30 @@ class DataBunch(object):
         if y_test is not None:
             self.y_test = y_test
         
+        if verbose > 0:   
+            print('Source X_train shape: ', X_train.shape, '| X_test shape: ', X_test.shape)
+        
         # add categorical features in DataBunch
         if cat_features is None:
             self.cat_features = self.auto_detect_cat_features(self.X_train_source)
+            if verbose > 0:
+                print('Auto detect cat features: ', len(self.cat_features))
+                
         else:
             self.cat_features = list(cat_features)
         
         # preproc_data in DataBunch 
         if clean_and_encod_data:
+            if verbose > 0:
+                print('> Start preprocessing Data')
             self.X_train, self.X_test = self.preproc_data(self.X_train_source, 
                                                             self.X_test_source, 
                                                             cat_features=self.cat_features,
                                                             cat_encoder_names=cat_encoder_names,
                                                             clean_nan=clean_nan,
                                                             num_generator_features=num_generator_features,
-                                                            group_generator_features=group_generator_features,)
+                                                            group_generator_features=group_generator_features,
+                                                            verbose=verbose,)
         else: 
             self.X_train, self.X_test = X_train, X_test
                                         
@@ -231,7 +241,8 @@ class DataBunch(object):
                         cat_encoder_names=None,
                         clean_nan=True,
                         num_generator_features=True,
-                        group_generator_features=True):
+                        group_generator_features=True,
+                        verbose=1,):
         """
         Description of preproc_data:
             dataset preprocessing function
@@ -274,13 +285,15 @@ class DataBunch(object):
             if (feature != 'test') and (data[feature].nunique(dropna=False) < 3):
                 data[feature] = data[feature].astype('category').cat.codes
                 self.binary_features_names.append(feature)
-                if len(encodet_features_names) > 0:
-                    if feature in encodet_features_names:
-                        encodet_features_names.remove(feature)
-                        self.encodet_features_names = encodet_features_names
+                #if len(encodet_features_names) > 0:
+                #    if feature in encodet_features_names:
+                #        encodet_features_names.remove(feature)
+                #        self.encodet_features_names = encodet_features_names
                         
         # Generator cat encodet features
         if encodet_features_names:
+            if verbose > 0:
+                print('> Generate cat encodet features')
             for encoder_name in cat_encoder_names:
                 data_encodet = self.gen_cat_encodet_features(data[encodet_features_names], 
                                                              encoder_name,)
@@ -288,6 +301,8 @@ class DataBunch(object):
                     data.reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
+                if verbose > 0:
+                    print(' + ', data_encodet.shape[1], ' Features from ', encoder_name)
 
         # Generate FrequencyEncoder num features
         if 'FrequencyEncoder' in cat_encoder_names:
@@ -300,21 +315,29 @@ class DataBunch(object):
 
         # Nans
         if clean_nan:
+            if verbose > 0:
+                print('> Clean Nans in num features')
             data = self.clean_nans(data, cols=num_features)
 
         # Generator interaction Num Features
         if num_generator_features:
             if num_features:
+                if verbose > 0:
+                    print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[num_features], 
                                                               num_features,
-                                                              operations=['/','*','-',],)
+                                                              operations=['/','*','-','+'],)
                 data = pd.concat([data.reset_index(drop=True), 
                             fe_df.reset_index(drop=True)], 
                             axis=1,)
+                if verbose > 0:
+                    print(' + ', fe_df.shape[1], 'Interaction Features')
 
         # Generator Group Encoder Features
         if group_generator_features:
             if encodet_features_names and num_features:
+                if verbose > 0:
+                    print('> Generate Group Encoder Features')
                 for num_col in num_features:
                     data_encodet = self.gen_groupby_cat_encode_features(
                         data,
@@ -331,7 +354,11 @@ class DataBunch(object):
         
         X_train = data.query('test == 0').drop(['test'], axis=1)
         X_test = data.query('test == 1').drop(['test'], axis=1)
-        print('X_train: ', X_train.shape, 'X_test: ', X_test.shape)
+        if verbose > 0:
+            print('#'*50)
+            print('> Total Generated Features: ', (X_train.shape[1] - len(encodet_features_names)))
+            print('New X_train shape: ', X_train.shape, '| X_test shape: ', X_test.shape)
+            print('#'*50)
         
         # Normalization Data
         columns_name = X_train.columns.values

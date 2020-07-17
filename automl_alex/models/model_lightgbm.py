@@ -139,7 +139,7 @@ class LightGBM(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self
+            model (Class)
         """
         if model is None:
             model = self

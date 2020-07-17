@@ -37,8 +37,10 @@ class ModelBase(object):
                 y_test=None,
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_names=['HelmertEncoder', 'HashingEncoder', 'FrequencyEncoder'],
+                cat_encoder_names=['OneHotEncoder', 'HelmertEncoder', 'HashingEncoder', 'FrequencyEncoder'],
                 clean_nan=True,
+                num_generator_features=True,
+                group_generator_features=False,
                 databunch=None,
                 model_param=None, 
                 wrapper_params=None,
@@ -103,6 +105,8 @@ class ModelBase(object):
                                     clean_and_encod_data=clean_and_encod_data,
                                     cat_encoder_names=cat_encoder_names,
                                     clean_nan=clean_nan,
+                                    num_generator_features=num_generator_features,
+                                    group_generator_features=group_generator_features,
                                     random_state=random_state,)
             else: 
                 raise Exception("no Data?")
@@ -241,19 +245,19 @@ class ModelBase(object):
             cold_start = (possible_iters / score_cv_folds) // 5
 
         if possible_iters > 900:
-            score_cv_folds = 4
+            score_cv_folds = 5
             opt_lvl = 3
             early_stoping = cold_start * 2
         
         if possible_iters > 10000:
             opt_lvl = 4
-            score_cv_folds = 5
+            score_cv_folds = 10
             cold_start = (possible_iters / score_cv_folds) // 10
             early_stoping = cold_start * 2
 
         if possible_iters > 25000:
             opt_lvl = 5
-            score_cv_folds = 10
+            score_cv_folds = 15
             cold_start = (possible_iters / score_cv_folds) // 30
             early_stoping = cold_start * 2
         return(early_stoping, cv, score_cv_folds, opt_lvl, cold_start,)
@@ -711,18 +715,49 @@ class ModelBase(object):
         return(result)
 
     def cross_val_score(self, **kwargs):
+        """
+        cross_val_score
+
+        Args:
+            **kwargs (kwargs): 
+
+        Returns:
+            score, score_std (float)
+            
+        """
         res = self.cross_val(predict=False,**kwargs)
         score = res['Score']
         score_std = res['Score_Std']
         return(score, score_std)
     
     def cross_val_predict(self, **kwargs):
+        """
+        Description of cross_val_predict
+
+        Args:
+            **kwargs (kwargs):
+
+        Returns:
+            predict_test, predict_train (array)
+            
+        """
         res = self.cross_val(predict=True, **kwargs)
         predict_test = res['Test_predict']
         predict_train = res['Train_predict']
         return(predict_test, predict_train)
 
     def fit(self, model=None, print_metric=True):
+        """
+        Description of fit
+
+        Args:
+            model=None (Class or None):
+            print_metric=True (bool):
+
+        Returns:
+            config (pd.DataFrame)
+            
+        """
         if model is None:
             model = self
         score, score_std = model.cross_val_score(
@@ -758,6 +793,22 @@ class ModelBase(object):
         return(model)
 
     def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=3, print_metric=True,):
+        """
+        Description of _predict_from_cfg
+
+        Args:
+            index (int):
+            model (Class):
+            model_cfg (dict):
+            cv_folds (int):
+            databunch (Class):
+            n_repeats=3 (int):
+            print_metric=True (bool):
+
+        Returns:
+            predict (dict)
+            
+        """
         model = model._predict_preproc_model(model_cfg=model_cfg, model=model,)
         #print(model_cfg)
         res = model.cross_val(

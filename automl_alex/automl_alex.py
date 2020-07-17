@@ -64,6 +64,7 @@ class BestSingleModel(XGBoost):
         auto_parameters=True,
         cat_encoder_names=None,
         models_names=None, #list models_names for opt
+        feature_selection=True,
         verbose=1,
         ):
         '''
@@ -83,10 +84,6 @@ class BestSingleModel(XGBoost):
         if auto_parameters is not None:
             self._auto_parameters = auto_parameters
 
-        # Encoders
-        if cat_encoder_names is not None:
-            self.encoders_names = cat_encoder_names
-
         if models_names is None:
             self.models_names = all_models.keys()
         else:
@@ -96,6 +93,7 @@ class BestSingleModel(XGBoost):
         history = self._opt_core(
             timeout, 
             early_stoping, 
+            feature_selection,
             verbose)
         return(history)
 
@@ -275,6 +273,7 @@ class AutoML(BestSingleModel):
             stack_models_names=None,
             stack_top=10,
             cat_encoder_names=None,
+            feature_selection=True,
             verbose=1,):
         if self.direction is None:
             raise Exception('Need direction for optimaze!')
@@ -327,6 +326,7 @@ class AutoML(BestSingleModel):
             auto_parameters=auto_parameters,
             models_names=self.stack_models_names,
             cat_encoder_names=cat_encoder_names,
+            feature_selection=feature_selection,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
