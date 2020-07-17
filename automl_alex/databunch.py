@@ -31,7 +31,7 @@ class DataBunch(object):
             y_test=None (undefined): y
             cat_features=None (list or None): 
             clean_and_encod_data=True (undefined):
-            cat_encoder_names=['FrequencyEncoder','HelmertEncoder','HashingEncoder'] (list):
+            cat_encoder_names=None (list or None):
             clean_nan=True (undefined):
             num_generator_features=True (undefined):
             group_generator_features=True (undefined):
@@ -105,7 +105,7 @@ class DataBunch(object):
 
 
     def clean_nans(self, data, cols=None):
-        '''
+        """
         Fill Nans and add column, that there were nans in this column
         
         Args:
@@ -113,7 +113,8 @@ class DataBunch(object):
             cols list() features: the input data
         Return:
             Clean data (pd.DataFrame, shape (n_samples, n_features))
-        '''
+        
+        """
         if cols is not None:
             nan_columns = list(data[cols].columns[data[cols].isnull().sum() > 0])
             if nan_columns:
@@ -124,10 +125,18 @@ class DataBunch(object):
 
 
     def _auto_detect_cat_features(self, data):
-        '''
-        Auto-detection categorical_features by simple rule:
-        categorical feature == if feature nunique low 1% of data
-        '''
+        """
+        Description of _auto_detect_cat_features:
+            Auto-detection categorical_features by simple rule:
+            categorical feature == if feature nunique low 1% of data
+
+        Args:
+            data (pd.DataFrame): dataset
+            
+        Returns:
+            cat_features (list): columns names cat features
+        
+        """
         #object_features = list(data.columns[data.dtypes == 'object'])
         cat_features = data.columns[(data.nunique(dropna=False) < len(data)//100) & \
             (data.nunique(dropna=False) >2)]
@@ -233,8 +242,8 @@ class DataBunch(object):
             group_generator_features=True (Bool):
             
         Returns:
-            X_train(pd.DataFrame)
-            X_test(pd.DataFrame)
+            X_train (pd.DataFrame)
+            X_test (pd.DataFrame)
 
         """
         # concat datasets for correct processing.
