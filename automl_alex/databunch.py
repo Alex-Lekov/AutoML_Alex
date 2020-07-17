@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from itertools import combinations
+from sklearn.preprocessing import StandardScaler
 
 from .encoders import *
 
@@ -71,7 +72,7 @@ class DataBunch(object):
         
         # add categorical features in DataBunch
         if cat_features is None:
-            self.cat_features = self._auto_detect_cat_features(self.X_train_source)
+            self.cat_features = self.auto_detect_cat_features(self.X_train_source)
         else:
             self.cat_features = list(cat_features)
         
@@ -124,7 +125,7 @@ class DataBunch(object):
         return(data)
 
 
-    def _auto_detect_cat_features(self, data):
+    def auto_detect_cat_features(self, data):
         """
         Description of _auto_detect_cat_features:
             Auto-detection categorical_features by simple rule:
@@ -144,14 +145,14 @@ class DataBunch(object):
         return(cat_features)
 
 
-    def _encode_features(self, data, cat_encoder_name) -> pd.DataFrame:
+    def gen_cat_encodet_features(self, data, cat_encoder_name) -> pd.DataFrame:
         """
         Description of _encode_features:
             Encode car features
 
         Args:
             data (pd.DataFrame):
-            cat_encoder_name (list): cat columns names
+            cat_encoder_name (str): cat Encoder name
 
         Returns:
             pd.DataFrame
@@ -175,7 +176,10 @@ class DataBunch(object):
         return(data_encodet)
 
 
-    def numeric_interaction_terms(self, df, columns) -> pd.DataFrame:
+    def gen_numeric_interaction_features(self, 
+                                         df, 
+                                         columns, 
+                                         operations=['/','*','-','+'],) -> pd.DataFrame:
         """
         Description of numeric_interaction_terms:
             Numerical interaction generator features: A/B, A*B, A-B,
@@ -183,6 +187,7 @@ class DataBunch(object):
         Args:
             df (pd.DataFrame):
             columns (list): num columns names
+            operations (list): operations type
 
         Returns:
             pd.DataFrame
@@ -190,35 +195,34 @@ class DataBunch(object):
         """
         fe_df = pd.DataFrame()
         for c in combinations(columns,2):
-            fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
-            fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
-            fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
-            #fe_df['{} + {}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
-        return fe_df
+            if '/' in operations:
+                fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
+            if '*' in operations:
+                fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
+            if '-' in operations:
+                fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
+            if '+' in operations:
+                fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
+        return(fe_df)
 
 
-    def group_encoder(self, data, cat_columns, num_columns) -> pd.DataFrame:
+    def gen_groupby_cat_encode_features(self, data, cat_columns, num_column) -> pd.DataFrame:
         """
         Description of group_encoder
 
         Args:
             data (pd.DataFrame): dataset
             cat_columns (list): cat columns names
-            num_columns (list): num columns names
+            num_column (str): num column name
 
         Returns:
             pd.DataFrame
 
         """
-        for num_col in num_columns:
-            encoder = JamesSteinEncoder(drop_invariant=True)
-            data_encodet = encoder.fit_transform(X=data[cat_columns], y=data[num_col].values)
-            data_encodet = data_encodet.add_prefix('GroupEncoder_' + num_col + '_')
-            data = pd.concat([
-                        data.reset_index(drop=True), 
-                        data_encodet.reset_index(drop=True)], 
-                        axis=1,)
-        return(data)
+        encoder = JamesSteinEncoder(drop_invariant=True)
+        data_encodet = encoder.fit_transform(X=data[cat_columns], y=data[num_column].values)
+        data_encodet = data_encodet.add_prefix('GroupEncoder_' + num_column + '_')
+        return(data_encodet)
 
 
     def preproc_data(self, X_train=None, 
@@ -260,32 +264,37 @@ class DataBunch(object):
         object_features = list(data.columns[(data.dtypes == 'object') | (data.dtypes == 'category')])
         num_features = list(set(data.columns) - set(cat_features) - set(object_features) - {'test'})
         encodet_features_names = list(set(object_features + list(cat_features)))
+        
         self.encodet_features_names = encodet_features_names
+        self.num_features_names = num_features
+        self.binary_features_names = []
 
         # LabelEncoded Binary Features
         for feature in data.columns:
             if (feature != 'test') and (data[feature].nunique(dropna=False) < 3):
                 data[feature] = data[feature].astype('category').cat.codes
-                #if len(encodet_features_names) > 0:
-                #    if feature in encodet_features_names:
-                #        encodet_features_names.remove(feature)
-        
-        # Encoding
+                self.binary_features_names.append(feature)
+                if len(encodet_features_names) > 0:
+                    if feature in encodet_features_names:
+                        encodet_features_names.remove(feature)
+                        self.encodet_features_names = encodet_features_names
+                        
+        # Generator cat encodet features
         if encodet_features_names:
             for encoder_name in cat_encoder_names:
-                data_encodet = self._encode_features(data[encodet_features_names], encoder_name,)
+                data_encodet = self.gen_cat_encodet_features(data[encodet_features_names], 
+                                                             encoder_name,)
                 data = pd.concat([
                     data.reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
 
-        # FrequencyEncoder num features
+        # Generate FrequencyEncoder num features
         if 'FrequencyEncoder' in cat_encoder_names:
             encoder = cat_encoders_names['FrequencyEncoder']()
             data_encodet = encoder.fit_transform(data[num_features])
             data_encodet = data_encodet.add_prefix('FrequencyEncoder' + '_')
-            data = pd.concat([
-                    data.reset_index(drop=True), 
+            data = pd.concat([data.reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
 
@@ -293,23 +302,43 @@ class DataBunch(object):
         if clean_nan:
             data = self.clean_nans(data, cols=num_features)
 
-        # Num Generator Features
+        # Generator interaction Num Features
         if num_generator_features:
             if num_features:
-                fe_df = self.numeric_interaction_terms(data[num_features], num_features)
-                data = pd.concat([
-                            data.reset_index(drop=True), 
+                fe_df = self.gen_numeric_interaction_features(data[num_features], 
+                                                              num_features,
+                                                              operations=['/','*','-',],)
+                data = pd.concat([data.reset_index(drop=True), 
                             fe_df.reset_index(drop=True)], 
                             axis=1,)
 
-        # Group Encoder
+        # Generator Group Encoder Features
         if group_generator_features:
             if encodet_features_names and num_features:
-                data = self.group_encoder(data, encodet_features_names, num_features)
+                for num_col in num_features:
+                    data_encodet = self.gen_groupby_cat_encode_features(
+                        data,
+                        encodet_features_names, 
+                        num_col,)
+                    data = pd.concat([data.reset_index(drop=True), 
+                                data_encodet.reset_index(drop=True)], 
+                                axis=1,)
 
         # Drop source cat features
         data.drop(columns=encodet_features_names, inplace=True)
-
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
+        data.fillna(0, inplace=True)
+        
         X_train = data.query('test == 0').drop(['test'], axis=1)
         X_test = data.query('test == 1').drop(['test'], axis=1)
+        print('X_train: ', X_train.shape, 'X_test: ', X_test.shape)
+        
+        # Normalization Data
+        columns_name = X_train.columns.values
+        scaler = StandardScaler().fit(X_train)
+        X_train = scaler.transform(X_train)
+        X_test = scaler.transform(X_test)
+        X_train = pd.DataFrame(X_train, columns=columns_name)
+        X_test = pd.DataFrame(X_test, columns=columns_name)
+        
         return(X_train, X_test)

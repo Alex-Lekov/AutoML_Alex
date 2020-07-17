@@ -1,7 +1,8 @@
 
 import pandas as pd
 import numpy as np
-from category_encoders import HashingEncoder, SumEncoder, OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder
+from category_encoders import HashingEncoder, SumEncoder, PolynomialEncoder, BackwardDifferenceEncoder 
+from category_encoders import OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder
 from category_encoders import TargetEncoder, CatBoostEncoder, WOEEncoder, JamesSteinEncoder
 
 
@@ -201,6 +202,8 @@ class FrequencyEncoder():
 cat_encoders_names = {
                 'HashingEncoder': HashingEncoder,
                 'SumEncoder': SumEncoder,
+                'PolynomialEncoder': PolynomialEncoder,
+                'BackwardDifferenceEncoder': BackwardDifferenceEncoder,
                 'OneHotEncoder': OneHotEncoder,
                 'HelmertEncoder': HelmertEncoder,
                 'OrdinalEncoder': OrdinalEncoder,

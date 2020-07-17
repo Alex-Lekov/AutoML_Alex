@@ -5,6 +5,7 @@ import sklearn
 import optuna
 import pandas as pd
 import numpy as np
+import time
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -291,8 +292,14 @@ class ModelBase(object):
 
     def _opt_model(self, trial, model=None):
         """
-        Model extraction for optimization with new parameters
-        Created for a more flexible change of the model in optimization during class inheritance
+        Description of _opt_model:
+            Model extraction for optimization with new parameters
+            Created for a more flexible change of the model in optimization during class inheritance
+
+        Args:
+            trial (undefined):
+            model=None (None or class):
+
         """
         if model is None:
             model = self
@@ -306,6 +313,16 @@ class ModelBase(object):
         return(model)
     
     def _opt_feature_selector(self, columns, trial):
+        """
+        Description of _opt_feature_selector
+
+        Args:
+            columns (list):
+            trial (undefined):
+
+        Returns:
+            selected columns (list)
+        """
         select_columns = {}
         for colum in columns:
             select_columns[colum] = trial.suggest_categorical(colum, [True, False])
@@ -313,6 +330,19 @@ class ModelBase(object):
         return(select_columns_.keys())
 
     def _opt_core(self, timeout, early_stoping, feature_selection, verbose=1):
+        """
+        Description of _opt_core:
+            in progress...
+
+        Args:
+            timeout (int):
+            early_stoping (int):
+            feature_selection (bool):
+            verbose=1 (int):
+
+        Returns:
+            history_trials_dataframe (pd.DataFrame)
+        """
         # X
         X=self._data.X_train
         # time model
@@ -447,6 +477,24 @@ class ModelBase(object):
             early_stoping=100,
             feature_selection=True,
             verbose=1,):
+        """
+        Description of opt:
+           in progress... 
+
+        Args:
+            timeout=100 (int):
+            cv_folds=None (None or int):
+            cold_start=None (None or int):
+            score_cv_folds=None (None or int):
+            opt_lvl=None (None or int):
+            direction=None (None or str):
+            early_stoping=100 (int):
+            feature_selection=True (bool):
+            verbose=1 (int):
+        
+        Returns:
+            history_trials (pd.DataFrame)
+        """
         if cv_folds is not None:
             self._cv = cv_folds
         if score_cv_folds is not None:
@@ -546,6 +594,26 @@ class ModelBase(object):
         predict=False,
         get_feature_importance=False,
         ):
+        """
+        Description of cross_val:
+            Cross-validation function
+
+        Args:
+            X=None (undefined):
+            y=None (undefined):
+            X_test=None (undefined):
+            model=None (undefined):
+            folds=10 (undefined):
+            score_folds=5 (undefined):
+            n_repeats=2 (undefined):
+            print_metric=False (undefined):
+            metric_round=4 (undefined):
+            predict=False (undefined):
+            get_feature_importance=False (undefined):
+        
+        Returns:
+            result (dict)
+        """
         if model is None:
             model = self
 
@@ -716,7 +784,30 @@ class ModelBase(object):
             model_cfgs = model.history_trials_dataframe.head(1)
         return(model_cfgs)
 
-    def predict(self, model=None, databunch=None, cv_folds=None, n_repeats=3, models_cfgs=None, print_metric=True, verbose=1,):
+    def predict(self, 
+                model=None, 
+                databunch=None, 
+                cv_folds=None, 
+                n_repeats=3, 
+                models_cfgs=None, 
+                print_metric=True, 
+                verbose=1,) -> pd.DataFrame:
+        """
+        Description of predict
+
+        Args:
+            model=None (undefined):
+            databunch=None (undefined):
+            cv_folds=None (undefined):
+            n_repeats=3 (undefined):
+            models_cfgs=None (undefined):
+            print_metric=True (undefined):
+            verbose=1 (int):
+
+        Returns:
+            predicts (pd.DataFrame)
+
+        """
         if model is None:
             model = self
         if databunch is None:
