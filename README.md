@@ -20,8 +20,9 @@
 
 From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/) 
 
-### Shema
-<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/shema.png" alt="shema">
+### Scheme
+<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/shema.png" alt="scheme">
+
 
 ## Features
 
@@ -32,7 +33,6 @@ From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/)
 - Search for the best solving library 
 - Smart Optimization of Hyperparameters (TPE)
 - Timelimit and EarlyStoping
-
 
 
 ## Installation
@@ -69,6 +69,8 @@ More examples in the folder ./examples:
 - [05_BestSingleModel.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)
 
 
+**NOTE: With a large dataset, a lot of memory is required!** 
+Library creates many new features. If you have a large dataset with a large number of features (more than 100), you may need a lot of memory.
 
 ## Contact
 
