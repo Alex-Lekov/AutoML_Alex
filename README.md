@@ -4,10 +4,12 @@
 
 <div align="center">
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
+[![Downloads](https://pepy.tech/badge/automl-alex)](https://pepy.tech/project/automl-alex)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/automl-alex)
 ![PyPI](https://img.shields.io/pypi/v/automl-alex)
 [![CodeFactor](https://www.codefactor.io/repository/github/alex-lekov/automl_alex/badge)](https://www.codefactor.io/repository/github/alex-lekov/automl_alex)
+[![Telegram](https://img.shields.io/badge/chat-on%20Telegram-2ba2d9.svg)](https://t.me/automlalex)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
 
 </div>
 
@@ -24,25 +26,26 @@ From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/)
 <img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/shema.png" alt="scheme">
 
 
-## Features
+# Features
 
-- Data preprocessing
-- **Feature Engineering**
+- Automated Data Clean (Auto Clean)
+- Automated **Feature Engineering** (Auto FE)
+- Smart Hyperparameter Optimization (HPO)
+- Feature Generation
 - Feature Selection
+- Models Selection
 - Cross Validation
-- Search for the best solving library 
-- Smart Optimization of Hyperparameters (TPE)
 - Timelimit and EarlyStoping
 
 
-## Installation
+# Installation
 
 ```python
 pip install automl-alex
 ```
 
 
-## 🚀 Examples
+# 🚀 Examples
 
 Classifier:
 ```python
@@ -69,10 +72,40 @@ More examples in the folder ./examples:
 - [05_BestSingleModel.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)
 
 
-**NOTE: With a large dataset, a lot of memory is required!** 
+# What's inside
+
+It integrates many popular frameworks:
+- scikit-learn
+- XGBoost
+- LightGBM
+- CatBoost
+- Optuna
+- ...
+
+
+# Note:
+
+- **With a large dataset, a lot of memory is required!**
 Library creates many new features. If you have a large dataset with a large number of features (more than 100), you may need a lot of memory.
+- **Do not work with timeseries and texts** yet
 
-## Contact
 
-Telegram Group: @AutoML-alex
+# Road Map
+
+-   [ ] Advanced Logging
+
+-   [ ] New Features Generators
+
+-   [ ] Save/Load and Predict on New Samples
+
+-   [ ] Add More libs (NNs)
+
+-   [ ] Build pipelines
+
+-   [ ] Docs Site
+
+
+# Contact
+
+[Telegram Group](https://t.me/automlalex)
 
