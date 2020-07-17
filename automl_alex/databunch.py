@@ -21,6 +21,23 @@ class DataBunch(object):
                     num_generator_features=True,
                     group_generator_features=True,
                     random_state=42):
+        """
+        Description of __init__
+
+        Args:
+            X_train=None (undefined): dataset
+            y_train=None (undefined): y 
+            X_test=None (undefined): dataset
+            y_test=None (undefined): y
+            cat_features=None (list or None): 
+            clean_and_encod_data=True (undefined):
+            cat_encoder_names=['FrequencyEncoder','HelmertEncoder','HashingEncoder'] (list):
+            clean_nan=True (undefined):
+            num_generator_features=True (undefined):
+            group_generator_features=True (undefined):
+            random_state=42 (undefined):
+
+        """
         self.random_state = random_state
         
         self.X_train = None
@@ -72,6 +89,15 @@ class DataBunch(object):
                                         
     
     def check_data_format(self, data):
+        """
+        Description of check_data_format:
+            Check that data is not pd.DataFrame or empty
+
+        Args:
+            data (undefined): dataset
+        Return:
+            True or Exception
+        """
         data_tmp = pd.DataFrame(data)
         if data_tmp is None or data_tmp.empty:
             raise Exception("data is not pd.DataFrame or empty")
@@ -109,10 +135,19 @@ class DataBunch(object):
         return(cat_features)
 
 
-    def _encode_features(self, data, cat_encoder_name):
-        '''
-        Encode car features
-        '''
+    def _encode_features(self, data, cat_encoder_name) -> pd.DataFrame:
+        """
+        Description of _encode_features:
+            Encode car features
+
+        Args:
+            data (pd.DataFrame):
+            cat_encoder_name (list): cat columns names
+
+        Returns:
+            pd.DataFrame
+
+        """
         if cat_encoder_name in cat_encoders_names.keys():
             encoder = cat_encoders_names[cat_encoder_name](drop_invariant=True) 
 
@@ -131,10 +166,19 @@ class DataBunch(object):
         return(data_encodet)
 
 
-    def numeric_interaction_terms(self, df, columns):
-        '''
-        Numerical interaction generator features: A/B, A*B, A-B,
-        '''
+    def numeric_interaction_terms(self, df, columns) -> pd.DataFrame:
+        """
+        Description of numeric_interaction_terms:
+            Numerical interaction generator features: A/B, A*B, A-B,
+
+        Args:
+            df (pd.DataFrame):
+            columns (list): num columns names
+
+        Returns:
+            pd.DataFrame
+
+        """
         fe_df = pd.DataFrame()
         for c in combinations(columns,2):
             fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
@@ -144,10 +188,19 @@ class DataBunch(object):
         return fe_df
 
 
-    def group_encoder(self, data, cat_columns, num_columns):
-        '''
-        Group Encode car features on num features
-        '''
+    def group_encoder(self, data, cat_columns, num_columns) -> pd.DataFrame:
+        """
+        Description of group_encoder
+
+        Args:
+            data (pd.DataFrame): dataset
+            cat_columns (list): cat columns names
+            num_columns (list): num columns names
+
+        Returns:
+            pd.DataFrame
+
+        """
         for num_col in num_columns:
             encoder = JamesSteinEncoder(drop_invariant=True)
             data_encodet = encoder.fit_transform(X=data[cat_columns], y=data[num_col].values)
@@ -166,9 +219,24 @@ class DataBunch(object):
                         clean_nan=True,
                         num_generator_features=True,
                         group_generator_features=True):
-        '''
-        dataset preprocessing function
-        '''
+        """
+        Description of preproc_data:
+            dataset preprocessing function
+
+        Args:
+            X_train=None (pd.DataFrame):
+            X_test=None (pd.DataFrame):
+            cat_features=None (list):
+            cat_encoder_names=None (list):
+            clean_nan=True (Bool):
+            num_generator_features=True (Bool):
+            group_generator_features=True (Bool):
+            
+        Returns:
+            X_train(pd.DataFrame)
+            X_test(pd.DataFrame)
+
+        """
         # concat datasets for correct processing.
         df_train = X_train.copy()
         df_train['test'] = 0
@@ -218,15 +286,17 @@ class DataBunch(object):
 
         # Num Generator Features
         if num_generator_features:
-            fe_df = self.numeric_interaction_terms(data[num_features], num_features)
-            data = pd.concat([
-                        data.reset_index(drop=True), 
-                        fe_df.reset_index(drop=True)], 
-                        axis=1,)
+            if num_features:
+                fe_df = self.numeric_interaction_terms(data[num_features], num_features)
+                data = pd.concat([
+                            data.reset_index(drop=True), 
+                            fe_df.reset_index(drop=True)], 
+                            axis=1,)
 
         # Group Encoder
         if group_generator_features:
-            data = self.group_encoder(data, encodet_features_names, num_features)
+            if encodet_features_names and num_features:
+                data = self.group_encoder(data, encodet_features_names, num_features)
 
         # Drop source cat features
         data.drop(columns=encodet_features_names, inplace=True)

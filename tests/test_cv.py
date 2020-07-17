@@ -28,7 +28,5 @@ def get_data():
 def test_cv_score(get_data):
     data = get_data
     model = LightGBMClassifier(databunch=data, random_state=RANDOM_SEED)
-    score, score_std = model.cross_val(print_metric=True)
-    assert score is not None
     score, score_std = model.cross_val_score(print_metric=True)
     assert score is not None

@@ -18,10 +18,29 @@ class CountsEncoder():
     drop_invariant : not used
     """    
     def __init__(self, cols=None, drop_invariant=None):
+        """
+        Description of __init__
+
+        Args:
+            cols=None (undefined): columns in dataset
+            drop_invariant=None (undefined): not used
+
+        """
         self.cols = cols
         self.counts_dict = None
 
     def fit(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        """
+        Description of fit
+
+        Args:
+            X (pd.DataFrame): dataset
+            y=None (not used): not used
+
+        Returns:
+            pd.DataFrame
+
+        """
         counts_dict = {}
         if self.cols is None:
             self.cols = X.columns
@@ -32,6 +51,16 @@ class CountsEncoder():
         self.counts_dict = counts_dict
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Description of transform
+
+        Args:
+            X (pd.DataFrame): dataset
+
+        Returns:
+            pd.DataFrame
+
+        """
         counts_dict_test = {}
         res = []
         for col in self.cols:
@@ -54,6 +83,17 @@ class CountsEncoder():
         return X
 
     def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        """
+        Description of fit_transform
+
+        Args:
+            X (pd.DataFrame): dataset
+            y=None (undefined): not used
+
+        Returns:
+            pd.DataFrame
+
+        """
         self.fit(X, y)
         X = self.transform(X)
         return X
@@ -69,10 +109,29 @@ class FrequencyEncoder():
     drop_invariant : not used
     """    
     def __init__(self, cols=None, drop_invariant=None):
+        """
+        Description of __init__
+
+        Args:
+            cols=None (undefined): columns in dataset
+            drop_invariant=None (undefined): not used
+
+        """
         self.cols = cols
         self.counts_dict = None
 
     def fit(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        """
+        Description of fit
+
+        Args:
+            X (pd.DataFrame): dataset
+            y=None (not used): not used
+
+        Returns:
+            pd.DataFrame
+
+        """
         counts_dict = {}
         if self.cols is None:
             self.cols = X.columns
@@ -84,6 +143,16 @@ class FrequencyEncoder():
         self.counts_dict = counts_dict
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Description of transform
+
+        Args:
+            X (pd.DataFrame): dataset
+
+        Returns:
+            pd.DataFrame
+
+        """
         counts_dict_test = {}
         res = []
         for col in self.cols:
@@ -107,6 +176,17 @@ class FrequencyEncoder():
         return X
 
     def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        """
+        Description of fit_transform
+
+        Args:
+            X (pd.DataFrame): dataset
+            y=None (undefined): not used
+
+        Returns:
+            pd.DataFrame
+
+        """
         self.fit(X, y)
         X = self.transform(X)
         return X
