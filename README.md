@@ -20,6 +20,9 @@
 
 From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/) 
 
+### Shema
+<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/tree/master/examples/img/shema.png" alt="bench">
+
 ## Features
 
 - Data preprocessing

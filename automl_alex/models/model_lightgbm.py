@@ -1,6 +1,7 @@
 from .base import *
 import lightgbm as lgb
 import numpy as np
+import pandas as pd
 
 
 class LightGBM(ModelBase):
