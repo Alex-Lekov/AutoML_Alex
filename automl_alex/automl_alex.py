@@ -62,7 +62,6 @@ class BestSingleModel(XGBoost):
         cv=None,
         score_cv_folds=None,
         auto_parameters=True,
-        cat_encoder_names=None,
         models_names=None, #list models_names for opt
         feature_selection=True,
         verbose=1,
@@ -164,8 +163,8 @@ class ModelsReview(BestSingleModel):
         timeout=1000, 
         early_stoping=100, 
         auto_parameters=False,
+        feature_selection=True,
         direction=None,
-        cat_encoder_names=None,
         verbose=1,
         models_names=None,
         ):
@@ -206,8 +205,11 @@ class ModelsReview(BestSingleModel):
             time.sleep(0.1)
             history = model_tmp.opt(timeout=timeout_per_model,
                         early_stoping=early_stoping, 
-                        auto_parameters=auto_parameters,
-                        cat_encoder_names=cat_encoder_names,
+                        auto_parameters=False, # try to set the rules ourselves
+                        score_cv_folds=3,
+                        cold_start=50, 
+                        opt_lvl=3,
+                        feature_selection=feature_selection,
                         verbose= (lambda x: 0 if x <= 1 else 1)(verbose),
                         )
             if verbose > 0:
@@ -272,7 +274,6 @@ class AutoML(BestSingleModel):
             auto_parameters=True,
             stack_models_names=None,
             stack_top=10,
-            cat_encoder_names=None,
             feature_selection=True,
             verbose=1,):
         if self.direction is None:
@@ -325,7 +326,6 @@ class AutoML(BestSingleModel):
             score_cv_folds=score_cv_folds,
             auto_parameters=auto_parameters,
             models_names=self.stack_models_names,
-            cat_encoder_names=cat_encoder_names,
             feature_selection=feature_selection,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 

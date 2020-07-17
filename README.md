@@ -20,6 +20,17 @@
 
 From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/) 
 
+## Features
+
+- Data preprocessing
+- **Feature Engineering**
+- Feature Selection
+- Cross Validation
+- Search for the best solving library 
+- Smart Optimization of Hyperparameters (TPE)
+- Timelimit and EarlyStoping
+
+
 
 ## Installation
 
@@ -54,15 +65,6 @@ More examples in the folder ./examples:
 - [04_ModelsReview.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/04_ModelsReview.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/04_ModelsReview.ipynb)
 - [05_BestSingleModel.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)
 
-
-## Features
-
-- Data preprocessing
-- Categorical feature Encoding
-- Cross Validation
-- Search for the best solving library 
-- Smart Optimization of Hyperparameters (TPE)
-- Timelimit and EarlyStoping
 
 
 ## Contact

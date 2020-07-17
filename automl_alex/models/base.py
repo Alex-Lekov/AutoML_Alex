@@ -37,10 +37,12 @@ class ModelBase(object):
                 y_test=None,
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_names=['OneHotEncoder', 'HelmertEncoder', 'HashingEncoder', 'FrequencyEncoder'],
+                cat_encoder_names=['HelmertEncoder', 'HashingEncoder', 'FrequencyEncoder'],
                 clean_nan=True,
                 num_generator_features=True,
                 group_generator_features=False,
+                frequency_enc_num_features=False,
+                normalization=True,
                 databunch=None,
                 model_param=None, 
                 wrapper_params=None,
@@ -55,6 +57,7 @@ class ModelBase(object):
                 cold_start=100,
                 gpu=False, 
                 type_of_estimator=None, # classifier or regression
+                verbose=0,
                 random_state=42):
         if type_of_estimator is not None:
             self.type_of_estimator = type_of_estimator
@@ -107,6 +110,8 @@ class ModelBase(object):
                                     clean_nan=clean_nan,
                                     num_generator_features=num_generator_features,
                                     group_generator_features=group_generator_features,
+                                    frequency_enc_num_features=frequency_enc_num_features,
+                                    verbose=verbose,
                                     random_state=random_state,)
             else: 
                 raise Exception("no Data?")
@@ -225,7 +230,7 @@ class ModelBase(object):
         """
 
         if verbose > 0: 
-                print('Start Auto calibration parameters')
+                print('> Start Auto calibration parameters')
 
         if possible_iters > 100:
             cv = 5
@@ -285,9 +290,10 @@ class ModelBase(object):
             pbar.set_postfix_str(message)
             pbar.update(1)
 
-    def _print_opt_parameters(self,early_stoping):
+    def _print_opt_parameters(self, early_stoping, feature_selection):
         print('CV_Folds = ', self._cv)
         print('Score_CV_Folds = ', self._score_cv_folds)
+        print('Feature_Selection = ', feature_selection)
         print('Opt_lvl = ', self._opt_lvl)
         print('Cold_start = ', self._cold_start)
         print('Early_stoping = ', early_stoping)
@@ -374,10 +380,10 @@ class ModelBase(object):
         self.best_score = config['score_opt'].iloc[0]
 
         if verbose > 0: 
-            print('Start optimization with the parameters:')
-            self._print_opt_parameters(early_stoping)
+            print('> Start optimization with the parameters:')
+            self._print_opt_parameters(early_stoping, feature_selection)
+            print('#'*50)
             print(f'Default model OptScore = {round(self.best_score,4)}')
-            print('#'*40)
         
         # OPTUNA objective
         def objective(trial, fast_check=True):
@@ -483,7 +489,7 @@ class ModelBase(object):
             verbose=1,):
         """
         Description of opt:
-           in progress... 
+        in progress... 
 
         Args:
             timeout=100 (int):

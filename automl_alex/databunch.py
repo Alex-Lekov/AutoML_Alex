@@ -21,6 +21,8 @@ class DataBunch(object):
                 clean_nan=True,
                 num_generator_features=True,
                 group_generator_features=True,
+                frequency_enc_num_features=True,
+                normalization=True,
                 random_state=42,
                 verbose=1):
         """
@@ -51,11 +53,12 @@ class DataBunch(object):
         self.cat_features = None
 
         # Encoders
-        if cat_encoder_names is None:
-            self.cat_encoder_names = cat_encoders_names.keys()
-        else:
-            self.cat_encoder_names = cat_encoder_names
-        
+        # if cat_encoder_names is None:
+        #     self.cat_encoder_names = cat_encoders_names.keys()
+        # else:
+        #     self.cat_encoder_names = cat_encoder_names
+        self.cat_encoder_names = cat_encoder_names
+
         # check X_train, y_train, X_test
         if self.check_data_format(X_train):
             self.X_train_source = pd.DataFrame(X_train)
@@ -73,6 +76,7 @@ class DataBunch(object):
         
         if verbose > 0:   
             print('Source X_train shape: ', X_train.shape, '| X_test shape: ', X_test.shape)
+            print('#'*50)
         
         # add categorical features in DataBunch
         if cat_features is None:
@@ -94,6 +98,8 @@ class DataBunch(object):
                                                             clean_nan=clean_nan,
                                                             num_generator_features=num_generator_features,
                                                             group_generator_features=group_generator_features,
+                                                            frequency_enc_num_features=frequency_enc_num_features,
+                                                            normalization=normalization,
                                                             verbose=verbose,)
         else: 
             self.X_train, self.X_test = X_train, X_test
@@ -187,9 +193,9 @@ class DataBunch(object):
 
 
     def gen_numeric_interaction_features(self, 
-                                         df, 
-                                         columns, 
-                                         operations=['/','*','-','+'],) -> pd.DataFrame:
+                                        df, 
+                                        columns, 
+                                        operations=['/','*','-','+'],) -> pd.DataFrame:
         """
         Description of numeric_interaction_terms:
             Numerical interaction generator features: A/B, A*B, A-B,
@@ -242,6 +248,8 @@ class DataBunch(object):
                         clean_nan=True,
                         num_generator_features=True,
                         group_generator_features=True,
+                        frequency_enc_num_features=True,
+                        normalization=True,
                         verbose=1,):
         """
         Description of preproc_data:
@@ -292,26 +300,34 @@ class DataBunch(object):
                         
         # Generator cat encodet features
         if encodet_features_names:
-            if verbose > 0:
-                print('> Generate cat encodet features')
-            for encoder_name in cat_encoder_names:
-                data_encodet = self.gen_cat_encodet_features(data[encodet_features_names], 
-                                                             encoder_name,)
-                data = pd.concat([
-                    data.reset_index(drop=True), 
-                    data_encodet.reset_index(drop=True)], 
-                    axis=1,)
+            if cat_encoder_names is None:
+                for feature in encodet_features_names:
+                    data[feature] = data[feature].astype('category').cat.codes
+            else:
                 if verbose > 0:
-                    print(' + ', data_encodet.shape[1], ' Features from ', encoder_name)
+                    print('> Generate cat encodet features')
+                for encoder_name in cat_encoder_names:
+                    data_encodet = self.gen_cat_encodet_features(data[encodet_features_names], 
+                                                                encoder_name,)
+                    data = pd.concat([
+                        data.reset_index(drop=True), 
+                        data_encodet.reset_index(drop=True)], 
+                        axis=1,)
+                    if verbose > 0:
+                        print(' + ', data_encodet.shape[1], ' Features from ', encoder_name)
 
         # Generate FrequencyEncoder num features
-        if 'FrequencyEncoder' in cat_encoder_names:
+        if frequency_enc_num_features:
+            if verbose > 0:
+                print('> Generate Frequency Encode num features')
             encoder = cat_encoders_names['FrequencyEncoder']()
             data_encodet = encoder.fit_transform(data[num_features])
             data_encodet = data_encodet.add_prefix('FrequencyEncoder' + '_')
             data = pd.concat([data.reset_index(drop=True), 
                     data_encodet.reset_index(drop=True)], 
                     axis=1,)
+            if verbose > 0:
+                print(' + ', data_encodet.shape[1], ' Frequency Encode Num Features ',)
 
         # Nans
         if clean_nan:
@@ -325,19 +341,20 @@ class DataBunch(object):
                 if verbose > 0:
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[num_features], 
-                                                              num_features,
-                                                              operations=['/','*','-','+'],)
+                                                            num_features,
+                                                            operations=['/','*','-','+'],)
                 data = pd.concat([data.reset_index(drop=True), 
                             fe_df.reset_index(drop=True)], 
                             axis=1,)
                 if verbose > 0:
-                    print(' + ', fe_df.shape[1], 'Interaction Features')
+                    print(' + ', fe_df.shape[1], ' Interaction Features')
 
         # Generator Group Encoder Features
         if group_generator_features:
             if encodet_features_names and num_features:
                 if verbose > 0:
                     print('> Generate Group Encoder Features')
+                count = 0
                 for num_col in num_features:
                     data_encodet = self.gen_groupby_cat_encode_features(
                         data,
@@ -346,6 +363,9 @@ class DataBunch(object):
                     data = pd.concat([data.reset_index(drop=True), 
                                 data_encodet.reset_index(drop=True)], 
                                 axis=1,)
+                    count += data_encodet.shape[1]
+                if verbose > 0:
+                    print(' + ', count, ' Group cat Encoder Features')
 
         # Drop source cat features
         data.drop(columns=encodet_features_names, inplace=True)
@@ -354,18 +374,22 @@ class DataBunch(object):
         
         X_train = data.query('test == 0').drop(['test'], axis=1)
         X_test = data.query('test == 1').drop(['test'], axis=1)
+
+        # Normalization Data
+        if normalization:
+            if verbose > 0:
+                print('> Normalization Features')
+            columns_name = X_train.columns.values
+            scaler = StandardScaler().fit(X_train)
+            X_train = scaler.transform(X_train)
+            X_test = scaler.transform(X_test)
+            X_train = pd.DataFrame(X_train, columns=columns_name)
+            X_test = pd.DataFrame(X_test, columns=columns_name)
+
         if verbose > 0:
             print('#'*50)
-            print('> Total Generated Features: ', (X_train.shape[1] - len(encodet_features_names)))
-            print('New X_train shape: ', X_train.shape, '| X_test shape: ', X_test.shape)
+            print('> Total Features: ', (X_train.shape[1]))
             print('#'*50)
-        
-        # Normalization Data
-        columns_name = X_train.columns.values
-        scaler = StandardScaler().fit(X_train)
-        X_train = scaler.transform(X_train)
-        X_test = scaler.transform(X_test)
-        X_train = pd.DataFrame(X_train, columns=columns_name)
-        X_test = pd.DataFrame(X_test, columns=columns_name)
+            print('New X_train shape: ', X_train.shape, '| X_test shape: ', X_test.shape)
         
         return(X_train, X_test)
