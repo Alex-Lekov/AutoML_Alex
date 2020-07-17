@@ -21,7 +21,7 @@
 From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/) 
 
 ### Shema
-<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/tree/master/develop/examples/img/shema.png" alt="bench">
+<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/shema.png" alt="shema">
 
 ## Features
 
