@@ -56,12 +56,12 @@ class XGBoost(ModelBase):
         ################################# LVL 1 ########################################
         if opt_lvl == 1:
             model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 2, 8,)
-            model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 1, 7)
+            model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, 7)
         
         ################################# LVL 2 ########################################
         if opt_lvl == 2:
             model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 2, 12,)
-            model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 1, 10)
+            model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, 10)
         
         if opt_lvl >= 2:
             model_param['learning_rate'] = trial.suggest_int('xgb_learning_rate', 1, 100)/1000
@@ -74,9 +74,9 @@ class XGBoost(ModelBase):
             
             if model_param['booster'] == 'dart' or model_param['booster'] == 'gbtree':
                 if len(model._data.X_train) > 1000:
-                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 1, (len(model._data.X_train)//100))
+                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, (len(model._data.X_train)//100))
                 else:
-                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 1, 10)
+                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, 10)
                 model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 1, 20)
                 model_param['gamma'] = trial.suggest_loguniform('xgb_gamma', 1e-6, 1.0)
                 model_param['grow_policy'] = trial.suggest_categorical('xgb_grow_policy', ['depthwise', 'lossguide'])

@@ -1,12 +1,7 @@
 from sklearn.metrics import *
-import sklearn
-from tqdm import trange
 from tqdm import tqdm
-import optuna
 import pandas as pd
-import numpy as np
 import time
-import sys
 from .models import *
 from .databunch import DataBunch
 from .encoders import *
@@ -67,8 +62,8 @@ class BestSingleModel(XGBoost):
         cv=None,
         score_cv_folds=None,
         auto_parameters=True,
-        cat_encoder_names=None,
         models_names=None, #list models_names for opt
+        feature_selection=True,
         verbose=1,
         ):
         '''
@@ -88,10 +83,6 @@ class BestSingleModel(XGBoost):
         if auto_parameters is not None:
             self._auto_parameters = auto_parameters
 
-        # Encoders
-        if cat_encoder_names is not None:
-            self.encoders_names = cat_encoder_names
-
         if models_names is None:
             self.models_names = all_models.keys()
         else:
@@ -101,6 +92,7 @@ class BestSingleModel(XGBoost):
         history = self._opt_core(
             timeout, 
             early_stoping, 
+            feature_selection,
             verbose)
         return(history)
 
@@ -170,9 +162,9 @@ class ModelsReview(BestSingleModel):
     def opt(self, 
         timeout=1000, 
         early_stoping=100, 
-        auto_parameters=True,
+        auto_parameters=False,
+        feature_selection=True,
         direction=None,
-        cat_encoder_names=None,
         verbose=1,
         models_names=None,
         ):
@@ -213,8 +205,11 @@ class ModelsReview(BestSingleModel):
             time.sleep(0.1)
             history = model_tmp.opt(timeout=timeout_per_model,
                         early_stoping=early_stoping, 
-                        auto_parameters=auto_parameters,
-                        cat_encoder_names=cat_encoder_names,
+                        auto_parameters=False, # try to set the rules ourselves
+                        score_cv_folds=3,
+                        cold_start=50, 
+                        opt_lvl=3,
+                        feature_selection=feature_selection,
                         verbose= (lambda x: 0 if x <= 1 else 1)(verbose),
                         )
             if verbose > 0:
@@ -259,152 +254,7 @@ class ModelsReviewRegressor(ModelsReview):
 
 ##################################### Stacking #########################################
 
-
-class Stacking(BestSingleModel):
-    '''
-    Stack top models
-    '''
-    __name__ = 'Stacking'
-
-    def opt(self, 
-            timeout=2000,
-            early_stoping=100,
-            cold_start=None,
-            opt_lvl=3,
-            cv=None,
-            score_cv_folds=None,
-            auto_parameters=True,
-            stack_models_names=None,
-            stack_top=20,
-            meta_models_names=['MLP',],
-            cat_encoder_names=None,
-            verbose=1,):
-        if self.direction is None:
-            raise Exception('Need direction for optimaze!')
-        if cv is not None:
-            self._cv = cv
-        if score_cv_folds is not None:
-            self._score_cv_folds = score_cv_folds
-        if self._cv < 2:
-            raise Exception("Stacking no CV? O_o")
-
-        # calc ~ time for opt
-        #min_stack_model_timeout = 1000
-        metamodel_opt_timeout = (timeout // 100)*20
-        predict_timeout = 30*stack_top # time for predict
-        if (metamodel_opt_timeout/(len(meta_models_names))) < 100:
-            raise Exception(f"Please give me more time to optimize or reduce the number of meta models ('meta_models_names')")
-        select_models_timeout = (timeout - predict_timeout) - metamodel_opt_timeout
-
-        if stack_models_names is None:
-            self.stack_models_names = all_models.keys()
-        else:
-            self.stack_models_names = stack_models_names
-        self.meta_models_names = meta_models_names
-
-        if verbose > 0:
-            print("\n Step1: Opt StackingModels")
-            time.sleep(0.2) # clean print 
-    
-        # Model
-        model = BestSingleModel(databunch=self._data,
-                                opt_lvl=self._opt_lvl,
-                                cv=self._cv,
-                                score_cv_folds = self._score_cv_folds,
-                                auto_parameters = self._auto_parameters,
-                                metric=self.metric,
-                                direction=self.direction,
-                                metric_round=self._metric_round,
-                                combined_score_opt=self._combined_score_opt,
-                                gpu=self._gpu, 
-                                random_state=self._random_state,
-                                type_of_estimator=self.type_of_estimator)
-
-        # Opt
-        history = model.opt(
-            timeout=select_models_timeout, 
-            early_stoping=early_stoping,
-            cold_start=cold_start,
-            opt_lvl=opt_lvl,
-            cv=self._cv,
-            direction=self.direction,
-            score_cv_folds=score_cv_folds,
-            auto_parameters=auto_parameters,
-            models_names=self.stack_models_names,
-            cat_encoder_names=cat_encoder_names,
-            verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
-
-        history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-        self.stack_models_cfgs = history.head(stack_top)
-
-        if verbose > 0:
-            print("\n Step2: Get new X_train from StackingModels")
-            time.sleep(0.2) # clean print 
-        # Predict
-        predicts = model.predict(models_cfgs=self.stack_models_cfgs)
-        self.stack_models_predicts = predicts
-        
-        # get new X_train
-        self._data.X_train_predicts = pd.DataFrame([*predicts['predict_train'].values],).T
-        self._data.X_test_predicts = pd.DataFrame([*predicts['predict_test'].values],).T
-        
-        # Score:
-        if verbose > 0:
-            score_mean_models = self.metric(self._data.y_train, predicts['predict_train'].mean())
-            print(f'\n StackModels Mean {self.metric.__name__} Score Train: ', 
-                round(score_mean_models, self._metric_round))
-            print("\n Step3: MetaModels")
-            time.sleep(0.1) # clean print 
-
-        # Meta model
-        x_train = self._data.X_train_predicts
-        x_test = self._data.X_test_predicts
-
-        metamodel = ModelsReview(x_train, self._data.y_train, x_test, 
-                                clean_and_encod_data=False,
-                                cat_encoder_name=None,
-                                clean_nan=False,
-                                type_of_estimator=self.type_of_estimator, 
-                                random_state=self._random_state,)
-
-        review = metamodel.opt(
-            timeout=metamodel_opt_timeout, 
-            opt_encoders=False, 
-            models_names=meta_models_names, 
-            verbose=(lambda x: 0 if x <= 1 else 1)(verbose), 
-            )
-
-        models_cfgs = review
-        models_cfgs = models_cfgs.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-        stack_metamodels_cfgs = models_cfgs.sort_values('model_score', ascending=True).head(10)
-        if metamodel.direction == 'maximize':
-            stack_metamodels_cfgs = models_cfgs.sort_values('model_score', ascending=False).head(10)
-
-        metamodel_predicts = metamodel.predict(models_cfgs=stack_metamodels_cfgs)
-        meta_pred_test = metamodel_predicts['predict_test'].mean()
-        meta_pred_train = metamodel_predicts['predict_train'].mean()
-        
-        if verbose > 0:
-            # Score:
-            score_meta_models = self.metric(self._data.y_train, meta_pred_train)
-            print(f'MetaModels Mean {self.metric.__name__} Score Train : {score_meta_models}')
-            print("\n Finish!")
-
-        return (meta_pred_test, meta_pred_train)
-
-    fit_predict = opt
-    
-
-class StackingClassifier(Stacking):
-    type_of_estimator='classifier'
-    __name__ = 'StackingClassifier'
-
-
-class StackingRegressor(Stacking):
-    type_of_estimator='regression'
-    __name__ = 'StackingRegressor'
-
-
+# in progress...
 
 ##################################### AutoML #########################################
 
@@ -424,7 +274,7 @@ class AutoML(BestSingleModel):
             auto_parameters=True,
             stack_models_names=None,
             stack_top=10,
-            cat_encoder_names=None,
+            feature_selection=True,
             verbose=1,):
         if self.direction is None:
             raise Exception('Need direction for optimaze!')
@@ -438,7 +288,7 @@ class AutoML(BestSingleModel):
         # calc ~ time for opt
         #min_stack_model_timeout = 1000
         predict_timeout = 30*stack_top # time for predict
-        select_models_timeout = (timeout - predict_timeout)
+        select_models_timeout = (timeout - predict_timeout - 300)
         if select_models_timeout < 200:
             raise Exception(f"Please give me more time to optimize or reduce the number of stack models ('stack_top')")
 
@@ -447,8 +297,11 @@ class AutoML(BestSingleModel):
         else:
             self.stack_models_names = stack_models_names
 
+        ####################################################
+        # STEP 1
+        # Model 1
         if verbose > 0:
-            print("\n Opt StackingModels")
+            print("\n Opt BestModels")
             time.sleep(0.2) # clean print 
     
         # Model
@@ -476,28 +329,77 @@ class AutoML(BestSingleModel):
             score_cv_folds=score_cv_folds,
             auto_parameters=auto_parameters,
             models_names=self.stack_models_names,
-            cat_encoder_names=cat_encoder_names,
+            feature_selection=feature_selection,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-        self.stack_models_cfgs = history.head(stack_top)
+        stack_models_1_cfgs = history.head(stack_top)
 
         if verbose > 0:
-            print("\n Predict from StackingModels")
+            print("\n Predict from Models_1")
             time.sleep(0.2) # clean print 
         # Predict
-        predicts = model.predict(models_cfgs=self.stack_models_cfgs)
-        self.stack_models_predicts = predicts
+        predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs)
         
         # Score:
         if verbose > 0:
-            score_mean_models = self.metric(self._data.y_train, predicts['predict_train'].mean())
-            print(f'\n StackModels Mean {self.metric.__name__} Score Train: ', 
+            score_mean_models = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
+            print(f'\n Models_1 Mean {self.metric.__name__} Score Train: ', 
                 round(score_mean_models, self._metric_round))
             time.sleep(0.1) # clean print 
 
-        pred_test = predicts['predict_test'].mean()
-        pred_train = predicts['predict_train'].mean()
+        #############################################################
+        # STEP 2
+        # Model 2
+        model_2 = LinearModel(databunch=self._data,
+                                opt_lvl=self._opt_lvl,
+                                cv=self._cv,
+                                score_cv_folds = self._score_cv_folds,
+                                auto_parameters = self._auto_parameters,
+                                metric=self.metric,
+                                direction=self.direction,
+                                metric_round=self._metric_round,
+                                combined_score_opt=self._combined_score_opt,
+                                gpu=self._gpu, 
+                                random_state=self._random_state,
+                                type_of_estimator=self.type_of_estimator)
+
+        # Opt
+        history_2 = model_2.opt(
+            timeout=300, 
+            auto_parameters=auto_parameters,
+            feature_selection=feature_selection,
+            verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
+
+        history_2 = history_2.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
+        stack_model_2_cfgs = history_2.head(stack_top//2)
+
+        if verbose > 0:
+            print("\n Predict from Models_2")
+            time.sleep(0.2) # clean print 
+        # Predict
+        predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs)
+        
+        # Score:
+        if verbose > 0:
+            score_mean_models = self.metric(self._data.y_train, predicts_2['predict_train'].mean())
+            print(f'\n Models_2 Mean {self.metric.__name__} Score Train: ', 
+                round(score_mean_models, self._metric_round))
+            time.sleep(0.1) # clean print 
+
+        ###############################################################
+        # STEP 3
+        self.stack_models_predicts = pd.concat([predicts_1, predicts_2], ignore_index=True, sort=False)
+        self.stack_models_cfgs = pd.concat([stack_models_1_cfgs, stack_model_2_cfgs], ignore_index=True, sort=False)
+
+        pred_test = self.stack_models_predicts['predict_test'].mean()
+        pred_train = self.stack_models_predicts['predict_train'].mean()
+
+        if verbose > 0:
+            score_mean_models = self.metric(self._data.y_train, pred_train)
+            print(f'\n StackModels {self.metric.__name__} Score Train: ', \
+                round(score_mean_models, self._metric_round))
+            time.sleep(0.1) # clean print 
 
         return (pred_test, pred_train)
 

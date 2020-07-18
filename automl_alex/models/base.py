@@ -5,11 +5,14 @@ import sklearn
 import optuna
 import pandas as pd
 import numpy as np
+import time
 import sys
-import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_style(style="darkgrid")
+
+# disable chained assignments
+pd.options.mode.chained_assignment = None 
 
 from automl_alex.databunch import DataBunch
 from automl_alex.encoders import *
@@ -37,11 +40,13 @@ class ModelBase(object):
                 y_test=None,
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_name='HelmertEncoder',
+                cat_encoder_names=['OneHotEncoder', 'HelmertEncoder', 'HashingEncoder', 'FrequencyEncoder'],
                 clean_nan=True,
+                num_generator_features=True,
+                group_generator_features=False,
+                frequency_enc_num_features=True,
+                normalization=True,
                 databunch=None,
-                opt_encoders=False,
-                cat_encoder_names=None,
                 model_param=None, 
                 wrapper_params=None,
                 auto_parameters=True,
@@ -55,6 +60,7 @@ class ModelBase(object):
                 cold_start=100,
                 gpu=False, 
                 type_of_estimator=None, # classifier or regression
+                verbose=0,
                 random_state=42):
         if type_of_estimator is not None:
             self.type_of_estimator = type_of_estimator
@@ -81,12 +87,6 @@ class ModelBase(object):
         self._opt_lvl = opt_lvl
         self._combined_score_opt = combined_score_opt
 
-        # Encoders
-        if cat_encoder_names is None:
-            self.encoders_names = encoders_names.keys()
-        else:
-            self.encoders_names = cat_encoder_names
-
         self.wrapper_params = wrapper_params
         if wrapper_params is None:
             self.wrapper_params = self._init_default_wrapper_params()
@@ -109,8 +109,12 @@ class ModelBase(object):
                                     y_test=y_test,
                                     cat_features=cat_features,
                                     clean_and_encod_data=clean_and_encod_data,
-                                    cat_encoder_name=cat_encoder_name,
+                                    cat_encoder_names=cat_encoder_names,
                                     clean_nan=clean_nan,
+                                    num_generator_features=num_generator_features,
+                                    group_generator_features=group_generator_features,
+                                    frequency_enc_num_features=frequency_enc_num_features,
+                                    verbose=verbose,
                                     random_state=random_state,)
             else: 
                 raise Exception("no Data?")
@@ -229,38 +233,39 @@ class ModelBase(object):
         """
 
         if verbose > 0: 
-                print('Start Auto calibration parameters')
+                print('> Start Auto calibration parameters')
 
         if possible_iters > 100:
             cv = 5
-            score_cv_folds = 1
+            score_cv_folds = 2
             opt_lvl = 1
             cold_start = possible_iters // 2
             early_stoping = 100
 
-        if possible_iters > 300:
-            score_cv_folds = 2
+        if possible_iters > 200:
+            score_cv_folds = 3
             opt_lvl = 2
             cold_start = (possible_iters / score_cv_folds) // 3
 
-        if possible_iters > 600:
+        if possible_iters > 300:
             cv = 10
             score_cv_folds = 3
             cold_start = (possible_iters / score_cv_folds) // 5
 
         if possible_iters > 900:
+            score_cv_folds = 5
             opt_lvl = 3
             early_stoping = cold_start * 2
         
         if possible_iters > 10000:
             opt_lvl = 4
-            score_cv_folds = 4
+            score_cv_folds = 10
             cold_start = (possible_iters / score_cv_folds) // 10
             early_stoping = cold_start * 2
 
         if possible_iters > 25000:
             opt_lvl = 5
-            score_cv_folds = 5
+            score_cv_folds = 15
             cold_start = (possible_iters / score_cv_folds) // 30
             early_stoping = cold_start * 2
         return(early_stoping, cv, score_cv_folds, opt_lvl, cold_start,)
@@ -278,18 +283,20 @@ class ModelBase(object):
             
             best_trail = self.history_trials_dataframe.head(1)
             best_model_name = best_trail['model_name'].iloc[0]
-            self.best_score = best_trail['model_score'].iloc[0]
+            self.best_score = best_trail['score_opt'].iloc[0]
             self.best_score_std = best_trail['score_std'].iloc[0]
+            best_metric_score = best_trail['model_score'].iloc[0]
 
-            message = f'{best_model_name} Best Score {self.metric.__name__} = {self.best_score} '
+            message = f' | Model: {best_model_name} | OptScore: {self.best_score} | Best {self.metric.__name__}: {best_metric_score} '
             if self._score_cv_folds > 1:
                 message+=f'+- {self.best_score_std}'
             pbar.set_postfix_str(message)
             pbar.update(1)
 
-    def _print_opt_parameters(self,early_stoping):
+    def _print_opt_parameters(self, early_stoping, feature_selection):
         print('CV_Folds = ', self._cv)
         print('Score_CV_Folds = ', self._score_cv_folds)
+        print('Feature_Selection = ', feature_selection)
         print('Opt_lvl = ', self._opt_lvl)
         print('Cold_start = ', self._cold_start)
         print('Early_stoping = ', early_stoping)
@@ -298,8 +305,14 @@ class ModelBase(object):
 
     def _opt_model(self, trial, model=None):
         """
-        Model extraction for optimization with new parameters
-        Created for a more flexible change of the model in optimization during class inheritance
+        Description of _opt_model:
+            Model extraction for optimization with new parameters
+            Created for a more flexible change of the model in optimization during class inheritance
+
+        Args:
+            trial (undefined):
+            model=None (None or class):
+
         """
         if model is None:
             model = self
@@ -311,11 +324,43 @@ class ModelBase(object):
             metric_name=model.metric.__name__,
             )
         return(model)
+    
+    def _opt_feature_selector(self, columns, trial):
+        """
+        Description of _opt_feature_selector
 
-    def _opt_core(self, timeout, early_stoping, verbose=1):
+        Args:
+            columns (list):
+            trial (undefined):
+
+        Returns:
+            selected columns (list)
+        """
+        select_columns = {}
+        for colum in columns:
+            select_columns[colum] = trial.suggest_categorical(colum, [True, False])
+        select_columns_ = {k: v for k, v in select_columns.items() if v is True}
+        return(select_columns_.keys())
+
+    def _opt_core(self, timeout, early_stoping, feature_selection, verbose=1):
+        """
+        Description of _opt_core:
+            in progress...
+
+        Args:
+            timeout (int):
+            early_stoping (int):
+            feature_selection (bool):
+            verbose=1 (int):
+
+        Returns:
+            history_trials_dataframe (pd.DataFrame)
+        """
+        # X
+        X=self._data.X_train
         # time model
         start_time = time.time()
-        score, score_std = self.cross_val_score(folds=self._cv, score_folds=2, print_metric=False,)
+        score, score_std = self.cross_val_score(X=X, folds=self._cv, score_folds=2, print_metric=False,)
         iter_time = (time.time() - start_time)
 
         if verbose > 0: 
@@ -335,19 +380,27 @@ class ModelBase(object):
                 self.__auto_parameters_calc(possible_iters, verbose)
         
         config = self.fit(print_metric=False,)
-        self.best_score = config['model_score'].iloc[0]
+        self.best_score = config['score_opt'].iloc[0]
 
         if verbose > 0: 
-            print('Start optimization with the parameters:')
-            self._print_opt_parameters(early_stoping)
-            print(f'Default model {self.metric.__name__} = {round(self.best_score,4)}')
-            print('#'*40)
+            print('> Start optimization with the parameters:')
+            self._print_opt_parameters(early_stoping, feature_selection)
+            print('#'*50)
+            print(f'Default model OptScore = {round(self.best_score,4)}')
         
         # OPTUNA objective
         def objective(trial, fast_check=True):
+            # generate model
             opt_model = self._opt_model(trial=trial)
+            # feature selector
+            if feature_selection:
+                select_columns = self._opt_feature_selector(
+                    opt_model._data.X_train.columns, 
+                    trial=trial)
+                X=opt_model._data.X_train[select_columns]
             # score
             score, score_std = opt_model.cross_val_score(
+                X=X,
                 folds=opt_model._cv, 
                 score_folds=opt_model._score_cv_folds, 
                 print_metric=False,
@@ -367,7 +420,8 @@ class ModelBase(object):
                 'model_name': opt_model.__name__,
                 'model_param': opt_model.model_param,
                 'wrapper_params': opt_model.wrapper_params,
-                'cat_encoder': opt_model._data.cat_encoder_name,
+                'cat_encoders': opt_model._data.cat_encoder_names,
+                'columns': X.columns.values,
                 'cv_folds': opt_model._cv,
                                 })
             
@@ -420,9 +474,9 @@ class ModelBase(object):
                     print(f'\n EarlyStopping Exceeded: Best Score: {self.study.best_value}', 
                         self.metric.__name__)
         
-        self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('model_score', ascending=True)
+        self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=True)
         if self.direction == 'maximize':
-            self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('model_score', ascending=False)
+            self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=False)
         return(self.history_trials_dataframe)
 
     def opt(self,
@@ -434,10 +488,26 @@ class ModelBase(object):
             opt_lvl=None,
             direction=None,
             early_stoping=100,
-            opt_encoders=False, # select encoders for data
-            cat_encoder_names=None,
-            target_cat_encoder_names=None,
+            feature_selection=True,
             verbose=1,):
+        """
+        Description of opt:
+        in progress... 
+
+        Args:
+            timeout=100 (int):
+            cv_folds=None (None or int):
+            cold_start=None (None or int):
+            score_cv_folds=None (None or int):
+            opt_lvl=None (None or int):
+            direction=None (None or str):
+            early_stoping=100 (int):
+            feature_selection=True (bool):
+            verbose=1 (int):
+        
+        Returns:
+            history_trials (pd.DataFrame)
+        """
         if cv_folds is not None:
             self._cv = cv_folds
         if score_cv_folds is not None:
@@ -452,13 +522,11 @@ class ModelBase(object):
             self.direction = direction
         if self.direction is None:
             raise Exception('Need direction for optimize!')
-        # Encoders
-        if cat_encoder_names is not None:
-            self.encoders_names = cat_encoder_names
 
         history = self._opt_core(
             timeout, 
             early_stoping, 
+            feature_selection,
             verbose)
 
         return(history)
@@ -537,12 +605,34 @@ class ModelBase(object):
         print_metric=False, 
         metric_round=4, 
         predict=False,
+        get_feature_importance=False,
         ):
+        """
+        Description of cross_val:
+            Cross-validation function
+
+        Args:
+            X=None (undefined):
+            y=None (undefined):
+            X_test=None (undefined):
+            model=None (undefined):
+            folds=10 (undefined):
+            score_folds=5 (undefined):
+            n_repeats=2 (undefined):
+            print_metric=False (undefined):
+            metric_round=4 (undefined):
+            predict=False (undefined):
+            get_feature_importance=False (undefined):
+        
+        Returns:
+            result (dict)
+        """
         if model is None:
             model = self
 
-        if (X is None) or (y is None):
+        if X is None:
             X = model._data.X_train
+        if y is None:
             y = model._data.y_train
             
         if X_test is None:
@@ -565,9 +655,9 @@ class ModelBase(object):
                 )
 
         folds_scores = []
-        if predict:
-            stacking_y_pred_train = np.zeros(X.shape[0])
-            stacking_y_pred_test = np.zeros(X_test.shape[0])
+        stacking_y_pred_train = np.zeros(X.shape[0])
+        stacking_y_pred_test = np.zeros(X_test.shape[0])
+        feature_importance_df = pd.DataFrame(np.zeros(len(X.columns)), index=X.columns)
 
         for i, (train_idx, valid_idx) in enumerate(skf.split(X, y)):
 
@@ -595,14 +685,16 @@ class ModelBase(object):
                 if predict:
                     y_pred_test = model._predict(X_test)
 
-            if predict:
-                stacking_y_pred_train[valid_idx] += y_pred
-                stacking_y_pred_test += y_pred_test
-
             score_model = model.metric(val_y, y_pred)
             folds_scores.append(score_model)
 
-            if not predict:
+            if get_feature_importance:
+                feature_importance_df += model._get_feature_importance(train_x)
+
+            if predict:
+                stacking_y_pred_train[valid_idx] += y_pred
+                stacking_y_pred_test += y_pred_test
+            else:
                 # score_folds
                 if i+1 >= score_folds:
                     break
@@ -621,18 +713,60 @@ class ModelBase(object):
         if print_metric:
             print(f'\n Mean Score {model.metric.__name__} on {i+1} Folds: {score} std: {score_std}')
 
-        if predict:
-            return(stacking_y_pred_test, stacking_y_pred_train,)
-        else:
-            return(score, score_std)
+        # Total
+        result = {
+            'Score':score,
+            'Score_Std':score_std,
+            'Test_predict':stacking_y_pred_test,
+            'Train_predict':stacking_y_pred_train,
+            'Feature_importance': dict(feature_importance_df[0]),
+            }
+        return(result)
 
     def cross_val_score(self, **kwargs):
-        return(self.cross_val(predict=False,**kwargs))
+        """
+        cross_val_score
+
+        Args:
+            **kwargs (kwargs): 
+
+        Returns:
+            score, score_std (float)
+            
+        """
+        res = self.cross_val(predict=False,**kwargs)
+        score = res['Score']
+        score_std = res['Score_Std']
+        return(score, score_std)
     
     def cross_val_predict(self, **kwargs):
-        return(self.cross_val(predict=True,**kwargs))
+        """
+        Description of cross_val_predict
+
+        Args:
+            **kwargs (kwargs):
+
+        Returns:
+            predict_test, predict_train (array)
+            
+        """
+        res = self.cross_val(predict=True, **kwargs)
+        predict_test = res['Test_predict']
+        predict_train = res['Train_predict']
+        return(predict_test, predict_train)
 
     def fit(self, model=None, print_metric=True):
+        """
+        Description of fit
+
+        Args:
+            model=None (Class or None):
+            print_metric=True (bool):
+
+        Returns:
+            config (pd.DataFrame)
+            
+        """
         if model is None:
             model = self
         score, score_std = model.cross_val_score(
@@ -655,7 +789,8 @@ class ModelBase(object):
             'model_name': model.__name__,
             'model_param': model.model_param,
             'wrapper_params': model.wrapper_params,
-            'cat_encoder': model._data.cat_encoder_name,
+            'cat_encoder': model._data.cat_encoder_names,
+            'columns': model._data.X_train.columns.values,
             'cv_folds': model._cv,
 
             }
@@ -667,18 +802,38 @@ class ModelBase(object):
         return(model)
 
     def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=3, print_metric=True,):
+        """
+        Description of _predict_from_cfg
+
+        Args:
+            index (int):
+            model (Class):
+            model_cfg (dict):
+            cv_folds (int):
+            databunch (Class):
+            n_repeats=3 (int):
+            print_metric=True (bool):
+
+        Returns:
+            predict (dict)
+            
+        """
         model = model._predict_preproc_model(model_cfg=model_cfg, model=model,)
-        predict_test, predict_train = model.cross_val_predict(
-                                            model=model, 
-                                            folds=cv_folds,
-                                            metric_round=model._metric_round,
-                                            print_metric=print_metric,
-                                            n_repeats=n_repeats,
-                                            )
+        #print(model_cfg)
+        res = model.cross_val(
+                            X=databunch.X_train[model_cfg['columns']],
+                            X_test=databunch.X_test[model_cfg['columns']],
+                            model=model, 
+                            folds=cv_folds,
+                            metric_round=model._metric_round,
+                            print_metric=print_metric,
+                            n_repeats=n_repeats,
+                            predict=True,
+                            )
         predict = {
                     'model_name': f'{index}_' + model_cfg['model_name'], 
-                    'predict_test': predict_test,
-                    'predict_train': predict_train,
+                    'predict_test': res['Test_predict'],
+                    'predict_train': res['Train_predict'],
                     }
         return(predict)
 
@@ -689,7 +844,30 @@ class ModelBase(object):
             model_cfgs = model.history_trials_dataframe.head(1)
         return(model_cfgs)
 
-    def predict(self, model=None, databunch=None, cv_folds=None, n_repeats=3, models_cfgs=None, print_metric=True, verbose=1,):
+    def predict(self, 
+                model=None, 
+                databunch=None, 
+                cv_folds=None, 
+                n_repeats=3, 
+                models_cfgs=None, 
+                print_metric=True, 
+                verbose=1,) -> pd.DataFrame:
+        """
+        Description of predict
+
+        Args:
+            model=None (undefined):
+            databunch=None (undefined):
+            cv_folds=None (undefined):
+            n_repeats=3 (undefined):
+            models_cfgs=None (undefined):
+            print_metric=True (undefined):
+            verbose=1 (int):
+
+        Returns:
+            predicts (pd.DataFrame)
+
+        """
         if model is None:
             model = self
         if databunch is None:

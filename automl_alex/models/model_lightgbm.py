@@ -1,6 +1,7 @@
 from .base import *
 import lightgbm as lgb
 import numpy as np
+import pandas as pd
 
 
 class LightGBM(ModelBase):
@@ -139,7 +140,7 @@ class LightGBM(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self
+            model (Class)
         """
         if model is None:
             model = self
@@ -194,7 +195,7 @@ class LightGBM(ModelBase):
             predicts = self.model.predict(X)
         return predicts
 
-
+    
     def is_possible_predict_proba(self):
         """
         Return:
@@ -218,6 +219,24 @@ class LightGBM(ModelBase):
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
         return self.model.predict(X)
+
+
+    def is_possible_feature_importance(self):
+        """
+        Return:
+            bool, whether model can predict proba
+        """
+        return True
+
+    def _get_feature_importance(self, train_x, importance_type='gain',):
+        """
+        Return:
+            list feature_importance
+        """
+        if not self.is_possible_feature_importance(): 
+            raise Exception("Model cannot get feature_importance")
+        fe_lst = self.model.feature_importance(importance_type=importance_type)
+        return (pd.DataFrame(fe_lst, index=train_x.columns))
 
 
 class LightGBMClassifier(LightGBM):

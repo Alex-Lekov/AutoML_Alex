@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.07.18]
+### Add
+- Features Generation in DataBunch
+- Features Selection in .opt
+- Generator interaction Num Features
+- Generator FrequencyEncoder Features
+- Generator Group Encoder Features
+- Normalization Data
+- Feature Importance
+
+### Fixed
+- RandomForest min_samples_split size
+- fix ModelsReview opt cv
+
 ## [0.07.04]
 
 ### Changed
@@ -16,7 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - add Docs in functions
-- auto metric directions
 
 ### Fixed
 - Try Fix .self buffer bug

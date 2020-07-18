@@ -65,10 +65,10 @@ class CatBoost(ModelBase):
 
         if opt_lvl >= 1:
             if len(self._data.X_train) > 1000:
-                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, \
+                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 2, \
                                                                     (len(self._data.X_train)//100))
             else:
-                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, 10)
+                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 2, 10)
             
 
         ################################# LVL 2 ########################################
