@@ -92,13 +92,19 @@ Library creates many new features. If you have a large dataset with a large numb
 
 # Road Map
 
+-   [x] Feature Generation
+
 -   [ ] Advanced Logging
 
 -   [ ] New Features Generators
 
+-   [ ] DL Encoders
+
 -   [ ] Save/Load and Predict on New Samples
 
 -   [ ] Add More libs (NNs)
+
+-   [ ] Add opt Pruners
 
 -   [ ] Build pipelines
 

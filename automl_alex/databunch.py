@@ -178,7 +178,7 @@ class DataBunch(object):
             encoder = cat_encoders_names[cat_encoder_name](drop_invariant=True) 
 
             if cat_encoder_name == 'HashingEncoder':
-                encoder = cat_encoders_names[cat_encoder_name](n_components=int(np.log(len(data))*100), 
+                encoder = cat_encoders_names[cat_encoder_name](n_components=int(np.log(len(data.columns))*1000), 
                                                         drop_invariant=True)
             if cat_encoder_name == 'FrequencyEncoder':
                 encoder = cat_encoders_names['OrdinalEncoder']()

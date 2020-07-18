@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 from category_encoders import HashingEncoder, SumEncoder, PolynomialEncoder, BackwardDifferenceEncoder 
-from category_encoders import OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder
+from category_encoders import OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder, BaseNEncoder
 from category_encoders import TargetEncoder, CatBoostEncoder, WOEEncoder, JamesSteinEncoder
 
 
@@ -208,6 +208,7 @@ cat_encoders_names = {
                 'HelmertEncoder': HelmertEncoder,
                 'OrdinalEncoder': OrdinalEncoder,
                 'FrequencyEncoder': FrequencyEncoder,
+                'BaseNEncoder': BaseNEncoder,
                 }
 
 target_encoders_names = {

@@ -288,7 +288,7 @@ class AutoML(BestSingleModel):
         # calc ~ time for opt
         #min_stack_model_timeout = 1000
         predict_timeout = 30*stack_top # time for predict
-        select_models_timeout = (timeout - predict_timeout)
+        select_models_timeout = (timeout - predict_timeout - 300)
         if select_models_timeout < 200:
             raise Exception(f"Please give me more time to optimize or reduce the number of stack models ('stack_top')")
 
@@ -297,8 +297,11 @@ class AutoML(BestSingleModel):
         else:
             self.stack_models_names = stack_models_names
 
+        ####################################################
+        # STEP 1
+        # Model 1
         if verbose > 0:
-            print("\n Opt StackingModels")
+            print("\n Opt BestModels")
             time.sleep(0.2) # clean print 
     
         # Model
@@ -330,24 +333,73 @@ class AutoML(BestSingleModel):
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-        self.stack_models_cfgs = history.head(stack_top)
+        stack_models_1_cfgs = history.head(stack_top)
 
         if verbose > 0:
-            print("\n Predict from StackingModels")
+            print("\n Predict from Models_1")
             time.sleep(0.2) # clean print 
         # Predict
-        predicts = model.predict(models_cfgs=self.stack_models_cfgs)
-        self.stack_models_predicts = predicts
+        predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs)
         
         # Score:
         if verbose > 0:
-            score_mean_models = self.metric(self._data.y_train, predicts['predict_train'].mean())
-            print(f'\n StackModels Mean {self.metric.__name__} Score Train: ', 
+            score_mean_models = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
+            print(f'\n Models_1 Mean {self.metric.__name__} Score Train: ', 
                 round(score_mean_models, self._metric_round))
             time.sleep(0.1) # clean print 
 
-        pred_test = predicts['predict_test'].mean()
-        pred_train = predicts['predict_train'].mean()
+        #############################################################
+        # STEP 2
+        # Model 2
+        model_2 = LinearModel(databunch=self._data,
+                                opt_lvl=self._opt_lvl,
+                                cv=self._cv,
+                                score_cv_folds = self._score_cv_folds,
+                                auto_parameters = self._auto_parameters,
+                                metric=self.metric,
+                                direction=self.direction,
+                                metric_round=self._metric_round,
+                                combined_score_opt=self._combined_score_opt,
+                                gpu=self._gpu, 
+                                random_state=self._random_state,
+                                type_of_estimator=self.type_of_estimator)
+
+        # Opt
+        history_2 = model_2.opt(
+            timeout=300, 
+            auto_parameters=auto_parameters,
+            feature_selection=feature_selection,
+            verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
+
+        history_2 = history_2.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
+        stack_model_2_cfgs = history_2.head(stack_top//2)
+
+        if verbose > 0:
+            print("\n Predict from Models_2")
+            time.sleep(0.2) # clean print 
+        # Predict
+        predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs)
+        
+        # Score:
+        if verbose > 0:
+            score_mean_models = self.metric(self._data.y_train, predicts_2['predict_train'].mean())
+            print(f'\n Models_2 Mean {self.metric.__name__} Score Train: ', 
+                round(score_mean_models, self._metric_round))
+            time.sleep(0.1) # clean print 
+
+        ###############################################################
+        # STEP 3
+        self.stack_models_predicts = pd.concat([predicts_1, predicts_2], ignore_index=True, sort=False)
+        self.stack_models_cfgs = pd.concat([stack_models_1_cfgs, stack_model_2_cfgs], ignore_index=True, sort=False)
+
+        pred_test = self.stack_models_predicts['predict_test'].mean()
+        pred_train = self.stack_models_predicts['predict_train'].mean()
+
+        if verbose > 0:
+            score_mean_models = self.metric(self._data.y_train, pred_train)
+            print(f'\n StackModels {self.metric.__name__} Score Train: ', \
+                round(score_mean_models, self._metric_round))
+            time.sleep(0.1) # clean print 
 
         return (pred_test, pred_train)
 
