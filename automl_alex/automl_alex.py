@@ -10,7 +10,7 @@ from .encoders import *
 ##################################### BestSingleModel ################################################
 
 
-class BestSingleModel(XGBoost):
+class BestSingleModel(LightGBM):
     """
     Trying to find which model work best on our data
     Args:
