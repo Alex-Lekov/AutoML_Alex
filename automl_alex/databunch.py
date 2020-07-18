@@ -5,6 +5,9 @@ from sklearn.preprocessing import StandardScaler
 
 from .encoders import *
 
+# disable chained assignments
+pd.options.mode.chained_assignment = None 
+
 
 class DataBunch(object):
     """

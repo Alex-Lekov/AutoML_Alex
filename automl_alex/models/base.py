@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_style(style="darkgrid")
 
+# disable chained assignments
+pd.options.mode.chained_assignment = None 
+
 from automl_alex.databunch import DataBunch
 from automl_alex.encoders import *
 
