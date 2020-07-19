@@ -342,7 +342,7 @@ class ModelBase(object):
         select_columns_ = {k: v for k, v in select_columns.items() if v is True}
         return(select_columns_.keys())
 
-    def _opt_core(self, timeout, early_stoping, feature_selection, iterations=iterations, verbose=1):
+    def _opt_core(self, timeout, early_stoping, feature_selection, iterations, verbose=1):
         """
         Description of _opt_core:
             in progress...

@@ -321,16 +321,17 @@ class DataBunch(object):
 
         # Generate FrequencyEncoder num features
         if frequency_enc_num_features:
-            if verbose > 0:
-                print('> Generate Frequency Encode num features')
-            encoder = cat_encoders_names['FrequencyEncoder']()
-            data_encodet = encoder.fit_transform(data[num_features])
-            data_encodet = data_encodet.add_prefix('FrequencyEncoder' + '_')
-            data = pd.concat([data.reset_index(drop=True), 
-                    data_encodet.reset_index(drop=True)], 
-                    axis=1,)
-            if verbose > 0:
-                print(' + ', data_encodet.shape[1], ' Frequency Encode Num Features ',)
+            if num_features:
+                if verbose > 0:
+                    print('> Generate Frequency Encode num features')
+                encoder = cat_encoders_names['FrequencyEncoder']()
+                data_encodet = encoder.fit_transform(data[num_features])
+                data_encodet = data_encodet.add_prefix('FrequencyEncoder' + '_')
+                data = pd.concat([data.reset_index(drop=True), 
+                        data_encodet.reset_index(drop=True)], 
+                        axis=1,)
+                if verbose > 0:
+                    print(' + ', data_encodet.shape[1], ' Frequency Encode Num Features ',)
 
         # Nans
         if clean_nan:
@@ -340,7 +341,7 @@ class DataBunch(object):
 
         # Generator interaction Num Features
         if num_generator_features:
-            if num_features:
+            if len(num_features) > 1:
                 if verbose > 0:
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[num_features], 
