@@ -342,7 +342,7 @@ class ModelBase(object):
         select_columns_ = {k: v for k, v in select_columns.items() if v is True}
         return(select_columns_.keys())
 
-    def _opt_core(self, timeout, early_stoping, feature_selection, verbose=1):
+    def _opt_core(self, timeout, early_stoping, feature_selection, iterations=iterations, verbose=1):
         """
         Description of _opt_core:
             in progress...
@@ -366,18 +366,19 @@ class ModelBase(object):
         if verbose > 0: 
             print(f'One iteration takes ~ {round(iter_time,1)} sec')
         
-        possible_iters = timeout // (iter_time)
+        if iterations is None:
+            possible_iters = timeout // (iter_time)
 
-        if possible_iters < 100:
-            print("Not enough time to find the optimal parameters. \n \
-                Possible iters < 100. \n \
-                Please, Increase the 'timeout' parameter for normal optimization.")
-            raise Exception('Not enough time to find the optimal parameters')
+            if possible_iters < 100:
+                print("Not enough time to find the optimal parameters. \n \
+                    Possible iters < 100. \n \
+                    Please, Increase the 'timeout' parameter for normal optimization.")
+                raise Exception('Not enough time to find the optimal parameters')
 
-        # Auto_parameters
-        if self._auto_parameters:
-            early_stoping, self._cv, self._score_cv_folds, self._opt_lvl, self._cold_start = \
-                self.__auto_parameters_calc(possible_iters, verbose)
+            # Auto_parameters
+            if self._auto_parameters:
+                early_stoping, self._cv, self._score_cv_folds, self._opt_lvl, self._cold_start = \
+                    self.__auto_parameters_calc(possible_iters, verbose)
         
         config = self.fit(print_metric=False,)
         self.best_score = config['score_opt'].iloc[0]
@@ -456,6 +457,12 @@ class ModelBase(object):
             disable_tqdm = False
         else:
             disable_tqdm = True
+            
+        study_params = {}
+        if iterations is not None:
+            study_params['n_trials'] = iterations
+        else:
+            study_params['timeout'] = timeout
 
         with tqdm(
             file=sys.stdout,
@@ -464,10 +471,10 @@ class ModelBase(object):
             ) as pbar:
             try:
                 self.study.optimize(
-                    objective, 
-                    timeout=timeout, 
+                    objective,  
                     callbacks=[es_callback], 
                     show_progress_bar=False,
+                    **study_params,
                     )
             except EarlyStoppingExceeded:
                 if verbose == 1: 
@@ -481,6 +488,7 @@ class ModelBase(object):
 
     def opt(self,
             timeout=100, # optimization time in seconds
+            iterations=None,
             auto_parameters=None,
             cv_folds=None,
             cold_start=None,
@@ -527,7 +535,8 @@ class ModelBase(object):
             timeout, 
             early_stoping, 
             feature_selection,
-            verbose)
+            iterations=iterations,
+            verbose=verbose,)
 
         return(history)
 

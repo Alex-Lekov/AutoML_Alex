@@ -55,6 +55,7 @@ class BestSingleModel(LightGBM):
 
     def opt(self, 
         timeout=1000, 
+        iterations=None,
         early_stoping=100, 
         cold_start=100,
         direction='maximize',
@@ -93,7 +94,8 @@ class BestSingleModel(LightGBM):
             timeout, 
             early_stoping, 
             feature_selection,
-            verbose)
+            iterations=iterations,
+            verbose=verbose,)
         return(history)
 
     def _predict_preproc_model(self, model_cfg, model,):
@@ -366,7 +368,7 @@ class AutoML(BestSingleModel):
 
         # Opt
         history_2 = model_2.opt(
-            timeout=300, 
+            iterations=50, 
             auto_parameters=auto_parameters,
             feature_selection=feature_selection,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
