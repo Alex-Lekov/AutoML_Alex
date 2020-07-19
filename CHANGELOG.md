@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## [0.07.20]
+
+### Add
+- Iterations in .opt
+
+### Fixed
+- timelemit in AutoML
+- Num Features Generator in empty Num Features list
+
+
 ## [0.07.18]
+
 ### Add
 - Features Generation in DataBunch
 - Features Selection in .opt
@@ -14,9 +26,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Normalization Data
 - Feature Importance
 
+
 ### Fixed
 - RandomForest min_samples_split size
 - fix ModelsReview opt cv
+
 
 ## [0.07.04]
 
@@ -25,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - remove norm data
 - rebuild cross_val
 - preparation for the addition of FEs
+
 
 ## [0.06.14]
 
@@ -49,7 +64,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - predicts from configs
-
 
 
 ## [0.05.11]

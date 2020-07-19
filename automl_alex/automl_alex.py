@@ -10,7 +10,7 @@ from .encoders import *
 ##################################### BestSingleModel ################################################
 
 
-class BestSingleModel(XGBoost):
+class BestSingleModel(LightGBM):
     """
     Trying to find which model work best on our data
     Args:
@@ -55,6 +55,7 @@ class BestSingleModel(XGBoost):
 
     def opt(self, 
         timeout=1000, 
+        iterations=None,
         early_stoping=100, 
         cold_start=100,
         direction='maximize',
@@ -93,7 +94,8 @@ class BestSingleModel(XGBoost):
             timeout, 
             early_stoping, 
             feature_selection,
-            verbose)
+            iterations=iterations,
+            verbose=verbose,)
         return(history)
 
     def _predict_preproc_model(self, model_cfg, model,):
@@ -288,7 +290,7 @@ class AutoML(BestSingleModel):
         # calc ~ time for opt
         #min_stack_model_timeout = 1000
         predict_timeout = 30*stack_top # time for predict
-        select_models_timeout = (timeout - predict_timeout - 300)
+        select_models_timeout = (timeout - predict_timeout - 200)
         if select_models_timeout < 200:
             raise Exception(f"Please give me more time to optimize or reduce the number of stack models ('stack_top')")
 
@@ -352,10 +354,6 @@ class AutoML(BestSingleModel):
         # STEP 2
         # Model 2
         model_2 = LinearModel(databunch=self._data,
-                                opt_lvl=self._opt_lvl,
-                                cv=self._cv,
-                                score_cv_folds = self._score_cv_folds,
-                                auto_parameters = self._auto_parameters,
                                 metric=self.metric,
                                 direction=self.direction,
                                 metric_round=self._metric_round,
@@ -366,8 +364,12 @@ class AutoML(BestSingleModel):
 
         # Opt
         history_2 = model_2.opt(
-            timeout=300, 
-            auto_parameters=auto_parameters,
+            iterations=50, 
+            cv_folds=10,
+            score_cv_folds = 5,
+            opt_lvl=2,
+            auto_parameters=False,
+            cold_start=25,
             feature_selection=feature_selection,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 

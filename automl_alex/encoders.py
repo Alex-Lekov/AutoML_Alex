@@ -5,6 +5,8 @@ from category_encoders import HashingEncoder, SumEncoder, PolynomialEncoder, Bac
 from category_encoders import OneHotEncoder, HelmertEncoder, OrdinalEncoder, CountEncoder, BaseNEncoder
 from category_encoders import TargetEncoder, CatBoostEncoder, WOEEncoder, JamesSteinEncoder
 
+# disable chained assignments
+pd.options.mode.chained_assignment = None
 
 ################################################################
             #               Simple Encoders 
