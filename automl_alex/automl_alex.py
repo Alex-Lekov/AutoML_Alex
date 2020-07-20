@@ -391,7 +391,7 @@ class AutoML(BestSingleModel):
 
         ###############################################################
         # STEP 3
-        if self.direction is 'maximize':
+        if self.direction == 'maximize':
             add_model_2 = (score_mean_models_1 <= (score_mean_models_2+(score_mean_models_1/10)))
         else:
             add_model_2 = (score_mean_models_1 >= (score_mean_models_2-(score_mean_models_1/10)))
