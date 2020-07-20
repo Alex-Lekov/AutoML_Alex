@@ -344,10 +344,10 @@ class AutoML(BestSingleModel):
         predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs)
         
         # Score:
+        score_mean_models_1 = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
         if verbose > 0:
-            score_mean_models = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
             print(f'\n Models_1 Mean {self.metric.__name__} Score Train: ', 
-                round(score_mean_models, self._metric_round))
+                round(score_mean_models_1, self._metric_round))
             time.sleep(0.1) # clean print 
 
         #############################################################
@@ -383,17 +383,27 @@ class AutoML(BestSingleModel):
         predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs)
         
         # Score:
+        score_mean_models_2 = self.metric(self._data.y_train, predicts_2['predict_train'].mean())
         if verbose > 0:
-            score_mean_models = self.metric(self._data.y_train, predicts_2['predict_train'].mean())
             print(f'\n Models_2 Mean {self.metric.__name__} Score Train: ', 
-                round(score_mean_models, self._metric_round))
+                round(score_mean_models_2, self._metric_round))
             time.sleep(0.1) # clean print 
 
         ###############################################################
         # STEP 3
-        self.stack_models_predicts = pd.concat([predicts_1, predicts_2], ignore_index=True, sort=False)
-        self.stack_models_cfgs = pd.concat([stack_models_1_cfgs, stack_model_2_cfgs], ignore_index=True, sort=False)
-
+        if self.direction is 'maximize':
+            add_model_2 = (score_mean_models_1 <= (score_mean_models_2+(score_mean_models_1/10)))
+        else:
+            add_model_2 = (score_mean_models_1 >= (score_mean_models_2-(score_mean_models_1/10)))
+        
+        if add_model_2:
+            self.stack_models_predicts = pd.concat([predicts_1, predicts_2], ignore_index=True, sort=False)
+            self.stack_models_cfgs = pd.concat([stack_models_1_cfgs, stack_model_2_cfgs], ignore_index=True, sort=False)
+        else:
+            self.stack_models_predicts = predicts_1
+            self.stack_models_cfgs = stack_models_1_cfgs
+        
+            
         pred_test = self.stack_models_predicts['predict_test'].mean()
         pred_train = self.stack_models_predicts['predict_train'].mean()
 
