@@ -275,7 +275,7 @@ class AutoML(BestSingleModel):
             score_cv_folds=None,
             auto_parameters=True,
             stack_models_names=None,
-            stack_top=10,
+            stack_top=6,
             feature_selection=True,
             verbose=1,):
         if self.direction is None:
