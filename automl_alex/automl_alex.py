@@ -391,26 +391,27 @@ class AutoML(BestSingleModel):
 
         ###############################################################
         # STEP 3
-        if self.direction == 'maximize':
-            add_model_2 = (score_mean_models_1 <= (score_mean_models_2+(score_mean_models_1/10)))
-        else:
-            add_model_2 = (score_mean_models_1 >= (score_mean_models_2-(score_mean_models_1/10)))
-        
-        if add_model_2:
-            self.stack_models_predicts = pd.concat([predicts_1, predicts_2], ignore_index=True, sort=False)
+        tmp_stack_models_predicts = pd.concat([predicts_1, predicts_2], ignore_index=True, sort=False)
+        score_mean_stack_models = self.metric(self._data.y_train, tmp_stack_models_predicts['predict_train'].mean())
+        if verbose > 0:
+            print(f'\n StackModels {self.metric.__name__} Score Train: ', \
+                round(score_mean_stack_models, self._metric_round))
+            time.sleep(0.1) # clean print 
+            
+        if score_mean_stack_models >= score_mean_models_1:
+            self.stack_models_predicts = tmp_stack_models_predicts
             self.stack_models_cfgs = pd.concat([stack_models_1_cfgs, stack_model_2_cfgs], ignore_index=True, sort=False)
         else:
             self.stack_models_predicts = predicts_1
             self.stack_models_cfgs = stack_models_1_cfgs
         
-            
         pred_test = self.stack_models_predicts['predict_test'].mean()
         pred_train = self.stack_models_predicts['predict_train'].mean()
 
         if verbose > 0:
-            score_mean_models = self.metric(self._data.y_train, pred_train)
-            print(f'\n StackModels {self.metric.__name__} Score Train: ', \
-                round(score_mean_models, self._metric_round))
+            final_score_mean_models = self.metric(self._data.y_train, pred_train)
+            print(f'\n Final Model {self.metric.__name__} Score Train: ', \
+                round(final_score_mean_models, self._metric_round))
             time.sleep(0.1) # clean print 
 
         return (pred_test, pred_train)
