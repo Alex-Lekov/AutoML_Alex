@@ -14,5 +14,5 @@ all_models = {
         'ExtraTrees': ExtraTrees,
         'XGBoost': XGBoost,
         'CatBoost': CatBoost,
-        #'MLP': MLP,
+        'MLP': MLP,
         }

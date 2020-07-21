@@ -237,19 +237,19 @@ class ModelBase(object):
 
         if possible_iters > 100:
             cv = 5
-            score_cv_folds = 2
+            score_cv_folds = 3
             opt_lvl = 1
             cold_start = possible_iters // 2
             early_stoping = 100
 
         if possible_iters > 200:
-            score_cv_folds = 3
+            score_cv_folds = 4
             opt_lvl = 2
             cold_start = (possible_iters / score_cv_folds) // 3
 
         if possible_iters > 300:
             cv = 10
-            score_cv_folds = 3
+            score_cv_folds = 4
             cold_start = (possible_iters / score_cv_folds) // 5
 
         if possible_iters > 900:
@@ -265,7 +265,7 @@ class ModelBase(object):
 
         if possible_iters > 25000:
             opt_lvl = 5
-            score_cv_folds = 15
+            score_cv_folds = 20
             cold_start = (possible_iters / score_cv_folds) // 30
             early_stoping = cold_start * 2
         return(early_stoping, cv, score_cv_folds, opt_lvl, cold_start,)
@@ -357,10 +357,10 @@ class ModelBase(object):
             history_trials_dataframe (pd.DataFrame)
         """
         # X
-        X=self._data.X_train
+        #X=self._data.X_train
         # time model
         start_time = time.time()
-        score, score_std = self.cross_val_score(X=X, folds=self._cv, score_folds=2, print_metric=False,)
+        score, score_std = self.cross_val_score(X=self._data.X_train, folds=self._cv, score_folds=2, print_metric=False,)
         iter_time = (time.time() - start_time)
 
         if verbose > 0: 
@@ -394,18 +394,22 @@ class ModelBase(object):
             # generate model
             opt_model = self._opt_model(trial=trial)
             # feature selector
+            data_kwargs = {}
+            select_columns = opt_model._data.X_train.columns.values
             if feature_selection:
                 select_columns = self._opt_feature_selector(
                     opt_model._data.X_train.columns, 
                     trial=trial)
-                X=opt_model._data.X_train[select_columns]
+                data_kwargs['X'] = opt_model._data.X_train[select_columns]
+                data_kwargs['y'] = opt_model._data.y_train
             # score
             score, score_std = opt_model.cross_val_score(
-                X=X,
                 folds=opt_model._cv, 
                 score_folds=opt_model._score_cv_folds, 
                 print_metric=False,
+                **data_kwargs,
                 )
+
             # _combined_score_opt
             if self._combined_score_opt:
                 score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
@@ -422,7 +426,7 @@ class ModelBase(object):
                 'model_param': opt_model.model_param,
                 'wrapper_params': opt_model.wrapper_params,
                 'cat_encoders': opt_model._data.cat_encoder_names,
-                'columns': X.columns.values,
+                'columns': select_columns,
                 'cv_folds': opt_model._cv,
                                 })
             
@@ -677,7 +681,7 @@ class ModelBase(object):
             train_x, val_x, X_test = model.preproc_data_in_cv(train_x, train_y, val_x, X_test) 
             
             # Fit
-            model._fit(
+            model._fit(model=model,
                 X_train=train_x.reset_index(drop=True), 
                 y_train=train_y.reset_index(drop=True), 
                 X_test=val_x.reset_index(drop=True), 
