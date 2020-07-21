@@ -810,7 +810,7 @@ class ModelBase(object):
         model.wrapper_params = model_cfg['wrapper_params']
         return(model)
 
-    def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=3, print_metric=True,):
+    def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=2, print_metric=True,):
         """
         Description of _predict_from_cfg
 
@@ -857,7 +857,7 @@ class ModelBase(object):
                 model=None, 
                 databunch=None, 
                 cv_folds=None, 
-                n_repeats=3, 
+                n_repeats=2, 
                 models_cfgs=None, 
                 print_metric=True, 
                 verbose=1,) -> pd.DataFrame:
