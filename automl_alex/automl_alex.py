@@ -397,28 +397,69 @@ class AutoML(BestSingleModel):
         
         score_mean_stack_models = self.metric(self._data.y_train, self.stack_models_predicts['predict_train'].mean())
         if verbose > 0:
-            print(f'\n Mean_Models {self.metric.__name__} Score Train: ', \
+            print(f'\n Mean Models {self.metric.__name__} Score Train: ', \
                 round(score_mean_stack_models, self._metric_round))
             time.sleep(0.1) # clean print 
-        
+            
+        # Stacking
         X_train_predicts = pd.DataFrame([*self.stack_models_predicts['predict_train']]).T
         X_test_predicts = pd.DataFrame([*self.stack_models_predicts['predict_test']]).T
         
-        if self.type_of_estimator == 'classifier':
-            stack_model = linear_model.LogisticRegression(verbose=0,)
-            stack_model.fit(X_train_predicts, self._data.y_train,)
-            pred_train = stack_model.predict_proba(X_train_predicts)[:, 1]
-            pred_test = stack_model.predict_proba(X_test_predicts)[:, 1]
+        self._data.X_train = X_train_predicts
+        self._data.X_test = X_test_predicts
+        
+        stack_model = LinearModel(databunch=self._data,
+                                metric=self.metric,
+                                direction=self.direction,
+                                metric_round=self._metric_round,
+                                combined_score_opt=self._combined_score_opt,
+                                gpu=self._gpu, 
+                                random_state=self._random_state,
+                                type_of_estimator=self.type_of_estimator)
+
+        # Opt
+        history_stack_model = stack_model.opt(
+            iterations=150, 
+            cv_folds=10,
+            score_cv_folds = 10,
+            opt_lvl=3,
+            auto_parameters=False,
+            cold_start=33,
+            feature_selection=True,
+            verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
+
+        # Predict
+        history_stack_model = history_stack_model.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
+        predict_stack_model = stack_model.predict(models_cfgs=history_stack_model.head(2))
+        
+        # Score:
+        score_final_stack_model = self.metric(self._data.y_train, predict_stack_model['predict_train'].mean())
+        if verbose > 0:
+            print(f'\n Stacking model {self.metric.__name__} Score Train: ', 
+                round(score_final_stack_model, self._metric_round))
+            time.sleep(0.1) # clean print
             
-        elif self.type_of_estimator == 'regression':
-            stack_model = linear_model.LinearRegression(verbose=0,)
-            stack_model.fit(X_train_predicts, self._data.y_train,)
-            pred_train = stack_model.predict(X_train_predicts)
-            pred_test = stack_model.predict(X_test_predicts)
+        pred_test = predict_stack_model['predict_test'].mean()
+        pred_train = predict_stack_model['predict_train'].mean()
+        
+        if self.direction == 'maximize':
+            if score_mean_stack_models >= score_final_stack_model and score_mean_stack_models >= score_mean_models_1:
+                pred_test = stack_models_predicts['predict_test'].mean()
+                pred_train = stack_models_predicts['predict_train'].mean()
+            if score_mean_models_1 >= score_final_stack_model and score_mean_models_1 >= score_mean_stack_models:
+                pred_test = predicts_1['predict_test'].mean()
+                pred_train = predicts_1['predict_train'].mean()
+        else:
+            if score_mean_stack_models <= score_final_stack_model and score_mean_stack_models <= score_mean_models_1:
+                pred_test = stack_models_predicts['predict_test'].mean()
+                pred_train = stack_models_predicts['predict_train'].mean()
+            if score_mean_models_1 <= score_final_stack_model and score_mean_models_1 <= score_mean_stack_models:
+                pred_test = predicts_1['predict_test'].mean()
+                pred_train = predicts_1['predict_train'].mean()
         
         final_score_model = self.metric(self._data.y_train, pred_train)
         if verbose > 0:
-            print(f'\n Final Stack Model {self.metric.__name__} Score Train: ', \
+            print(f'\n Final Model {self.metric.__name__} Score Train: ', \
                 round(final_score_model, self._metric_round))
             time.sleep(0.1) # clean print 
 
