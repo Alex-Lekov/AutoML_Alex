@@ -274,7 +274,7 @@ class AutoML(BestSingleModel):
             cv=None,
             score_cv_folds=None,
             auto_parameters=True,
-            stack_top=4,
+            stack_top=6,
             feature_selection=True,
             verbose=1,):
         if self.direction is None:
@@ -359,6 +359,9 @@ class AutoML(BestSingleModel):
         #############################################################
         # STEP 2
         # Model 2
+        self.history_trials = []
+        self.history_trials_dataframe = pd.DataFrame()
+        
         model_2 = BestSingleModel(databunch=self._data,
                                   cv=10,
                                   score_cv_folds = 10,
@@ -423,6 +426,9 @@ class AutoML(BestSingleModel):
         print('New X_train: ', self._data.X_train.shape, 
               ' y_train: ', self._data.y_train.shape, 
             '| X_test shape: ', self._data.X_test.shape)
+
+        self.history_trials = []
+        self.history_trials_dataframe = pd.DataFrame()
         
         stack_model_1 = BestSingleModel(databunch=self._data,
                                         cv=10,
@@ -442,7 +448,7 @@ class AutoML(BestSingleModel):
             opt_lvl=3,
             auto_parameters=False,
             cold_start=25,
-            feature_selection=False,
+            feature_selection=True,
             models_names=['LinearModel', 'MLP'],
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 

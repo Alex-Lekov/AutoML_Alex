@@ -340,7 +340,12 @@ class ModelBase(object):
         for colum in columns:
             select_columns[colum] = trial.suggest_categorical(colum, [True, False])
         select_columns_ = {k: v for k, v in select_columns.items() if v is True}
-        return(select_columns_.keys())
+        
+        if select_columns_:
+            result = select_columns_.keys()
+        else:
+            result = columns
+        return(result)
 
     def _opt_core(self, timeout, early_stoping, feature_selection, iterations, verbose=1):
         """
