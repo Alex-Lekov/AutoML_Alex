@@ -346,6 +346,8 @@ class AutoML(BestSingleModel):
         # Predict
         predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs)
         
+        self.predicts_model_1_full_x = model.predict(models_cfgs=stack_models_1_cfgs, on_cv=False)
+        
         # Score:
         score_mean_models_1 = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
         if verbose > 0:
@@ -355,6 +357,7 @@ class AutoML(BestSingleModel):
             print('Step 2: Model 2')
             print('_'*50)
             time.sleep(0.1) # clean print 
+        
 
         #############################################################
         # STEP 2
@@ -380,7 +383,7 @@ class AutoML(BestSingleModel):
             auto_parameters=False,
             cold_start=25,
             feature_selection=True,
-            models_names=['LinearModel', 'LinearSVM', 'MLP', 'KNeighbors'],
+            models_names=['LinearModel', 'MLP',],
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history_2 = history_2.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
@@ -449,7 +452,7 @@ class AutoML(BestSingleModel):
             auto_parameters=False,
             cold_start=25,
             feature_selection=True,
-            models_names=['LinearModel', 'MLP'],
+            models_names=['LinearModel',],
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         # Predict
@@ -486,6 +489,8 @@ class AutoML(BestSingleModel):
             print(f'\n Final Model {self.metric.__name__} Score Train: ', \
                 round(final_score_model, self._metric_round))
             time.sleep(0.1) # clean print 
+            
+        pred_test = (pred_test * 0.75) + (self.predicts_model_1_full_x['predict_test'].mean() * 0.25)
 
         return (pred_test, pred_train)
 

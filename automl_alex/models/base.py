@@ -237,19 +237,19 @@ class ModelBase(object):
 
         if possible_iters > 100:
             cv = 5
-            score_cv_folds = 3
+            score_cv_folds = 2
             opt_lvl = 1
             cold_start = possible_iters // 2
             early_stoping = 100
 
         if possible_iters > 200:
-            score_cv_folds = 4
+            score_cv_folds = 2
             opt_lvl = 2
             cold_start = (possible_iters / score_cv_folds) // 3
 
         if possible_iters > 300:
             cv = 10
-            score_cv_folds = 4
+            score_cv_folds = 3
             cold_start = (possible_iters / score_cv_folds) // 5
 
         if possible_iters > 900:
@@ -813,13 +813,48 @@ class ModelBase(object):
 
             }
         return(pd.DataFrame([config,]))
+    
+    def _predict_on_full_dataset(self, X=None, y=None, X_test=None, model=None,):
+        if model is None:
+            model = self
+        if X is None:
+            X = model._data.X_train
+        if y is None:
+            y = model._data.y_train
+        if X_test is None:
+            X_test = model._data.X_test
+        if X_test is None:
+            raise Exception("No X_test for predict")
+        
+        # TargetEncoders
+        X, X_test, _ = model.preproc_data_in_cv(X, y, X_test, None) 
+            
+        # Fit
+        model._fit(model=model,
+            X_train=X.reset_index(drop=True), 
+            y_train=y.reset_index(drop=True), 
+            )
+        
+        # Predict
+        if (model.metric.__name__ in predict_proba_metrics) and (model.is_possible_predict_proba()):
+            y_pred = model._predict_proba(X)
+            y_pred_test = model._predict_proba(X_test)
+        else:
+            y_pred = model._predict(X)
+            y_pred_test = model._predict(X_test)
+        
+        result = {
+            'Test_predict': y_pred_test,
+            'Train_predict': y_pred,
+            }
+        return(result)
 
     def _predict_preproc_model(self, model_cfg, model,):
         model.model_param = model_cfg['model_param']
         model.wrapper_params = model_cfg['wrapper_params']
         return(model)
 
-    def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=2, print_metric=True,):
+    def _predict_from_cfg(self, index, model, model_cfg, on_cv, cv_folds, databunch, n_repeats=2, print_metric=True,):
         """
         Description of _predict_from_cfg
 
@@ -838,16 +873,23 @@ class ModelBase(object):
         """
         model = model._predict_preproc_model(model_cfg=model_cfg, model=model,)
         #print(model_cfg)
-        res = model.cross_val(
-                            X=databunch.X_train[model_cfg['columns']],
-                            X_test=databunch.X_test[model_cfg['columns']],
-                            model=model, 
-                            folds=cv_folds,
-                            metric_round=model._metric_round,
-                            print_metric=print_metric,
-                            n_repeats=n_repeats,
-                            predict=True,
-                            )
+        if on_cv:
+            res = model.cross_val(
+                                X=databunch.X_train[model_cfg['columns']],
+                                X_test=databunch.X_test[model_cfg['columns']],
+                                model=model, 
+                                folds=cv_folds,
+                                metric_round=model._metric_round,
+                                print_metric=print_metric,
+                                n_repeats=n_repeats,
+                                predict=True,
+                                )
+        else:
+            res = model._predict_on_full_dataset(
+                X=databunch.X_train[model_cfg['columns']],
+                X_test=databunch.X_test[model_cfg['columns']],
+                model=model,
+                )
         predict = {
                     'model_name': f'{index}_' + model_cfg['model_name'], 
                     'predict_test': res['Test_predict'],
@@ -864,7 +906,8 @@ class ModelBase(object):
 
     def predict(self, 
                 model=None, 
-                databunch=None, 
+                databunch=None,
+                on_cv=True, 
                 cv_folds=None, 
                 n_repeats=2, 
                 models_cfgs=None, 
@@ -905,7 +948,8 @@ class ModelBase(object):
             predict = self._predict_from_cfg(
                 index,
                 model=model,
-                model_cfg=model_cfg, 
+                model_cfg=model_cfg,
+                on_cv=on_cv,
                 cv_folds=cv_folds,
                 databunch=databunch, 
                 n_repeats=n_repeats, 
