@@ -243,7 +243,7 @@ class ModelBase(object):
             early_stoping = 100
 
         if possible_iters > 200:
-            score_cv_folds = 3
+            score_cv_folds = 2
             opt_lvl = 2
             cold_start = (possible_iters / score_cv_folds) // 3
 
@@ -265,7 +265,7 @@ class ModelBase(object):
 
         if possible_iters > 25000:
             opt_lvl = 5
-            score_cv_folds = 15
+            score_cv_folds = 20
             cold_start = (possible_iters / score_cv_folds) // 30
             early_stoping = cold_start * 2
         return(early_stoping, cv, score_cv_folds, opt_lvl, cold_start,)
@@ -340,7 +340,12 @@ class ModelBase(object):
         for colum in columns:
             select_columns[colum] = trial.suggest_categorical(colum, [True, False])
         select_columns_ = {k: v for k, v in select_columns.items() if v is True}
-        return(select_columns_.keys())
+        
+        if select_columns_:
+            result = select_columns_.keys()
+        else:
+            result = columns
+        return(result)
 
     def _opt_core(self, timeout, early_stoping, feature_selection, iterations, verbose=1):
         """
@@ -357,10 +362,10 @@ class ModelBase(object):
             history_trials_dataframe (pd.DataFrame)
         """
         # X
-        X=self._data.X_train
+        #X=self._data.X_train
         # time model
         start_time = time.time()
-        score, score_std = self.cross_val_score(X=X, folds=self._cv, score_folds=2, print_metric=False,)
+        score, score_std = self.cross_val_score(X=self._data.X_train, folds=self._cv, score_folds=2, print_metric=False,)
         iter_time = (time.time() - start_time)
 
         if verbose > 0: 
@@ -394,18 +399,22 @@ class ModelBase(object):
             # generate model
             opt_model = self._opt_model(trial=trial)
             # feature selector
+            data_kwargs = {}
+            select_columns = opt_model._data.X_train.columns.values
             if feature_selection:
                 select_columns = self._opt_feature_selector(
                     opt_model._data.X_train.columns, 
                     trial=trial)
-                X=opt_model._data.X_train[select_columns]
+                data_kwargs['X'] = opt_model._data.X_train[select_columns]
+                data_kwargs['y'] = opt_model._data.y_train
             # score
             score, score_std = opt_model.cross_val_score(
-                X=X,
                 folds=opt_model._cv, 
                 score_folds=opt_model._score_cv_folds, 
                 print_metric=False,
+                **data_kwargs,
                 )
+
             # _combined_score_opt
             if self._combined_score_opt:
                 score_opt = self.__calc_combined_score_opt__(self.direction, score, score_std)
@@ -422,7 +431,7 @@ class ModelBase(object):
                 'model_param': opt_model.model_param,
                 'wrapper_params': opt_model.wrapper_params,
                 'cat_encoders': opt_model._data.cat_encoder_names,
-                'columns': X.columns.values,
+                'columns': select_columns,
                 'cv_folds': opt_model._cv,
                                 })
             
@@ -677,7 +686,7 @@ class ModelBase(object):
             train_x, val_x, X_test = model.preproc_data_in_cv(train_x, train_y, val_x, X_test) 
             
             # Fit
-            model._fit(
+            model._fit(model=model,
                 X_train=train_x.reset_index(drop=True), 
                 y_train=train_y.reset_index(drop=True), 
                 X_test=val_x.reset_index(drop=True), 
@@ -804,13 +813,48 @@ class ModelBase(object):
 
             }
         return(pd.DataFrame([config,]))
+    
+    def _predict_on_full_dataset(self, X=None, y=None, X_test=None, model=None,):
+        if model is None:
+            model = self
+        if X is None:
+            X = model._data.X_train
+        if y is None:
+            y = model._data.y_train
+        if X_test is None:
+            X_test = model._data.X_test
+        if X_test is None:
+            raise Exception("No X_test for predict")
+        
+        # TargetEncoders
+        X, X_test, _ = model.preproc_data_in_cv(X, y, X_test, None) 
+            
+        # Fit
+        model._fit(model=model,
+            X_train=X.reset_index(drop=True), 
+            y_train=y.reset_index(drop=True), 
+            )
+        
+        # Predict
+        if (model.metric.__name__ in predict_proba_metrics) and (model.is_possible_predict_proba()):
+            y_pred = model._predict_proba(X)
+            y_pred_test = model._predict_proba(X_test)
+        else:
+            y_pred = model._predict(X)
+            y_pred_test = model._predict(X_test)
+        
+        result = {
+            'Test_predict': y_pred_test,
+            'Train_predict': y_pred,
+            }
+        return(result)
 
     def _predict_preproc_model(self, model_cfg, model,):
         model.model_param = model_cfg['model_param']
         model.wrapper_params = model_cfg['wrapper_params']
         return(model)
 
-    def _predict_from_cfg(self, index, model, model_cfg, cv_folds, databunch, n_repeats=3, print_metric=True,):
+    def _predict_from_cfg(self, index, model, model_cfg, on_cv, cv_folds, databunch, n_repeats=2, print_metric=True,):
         """
         Description of _predict_from_cfg
 
@@ -829,16 +873,23 @@ class ModelBase(object):
         """
         model = model._predict_preproc_model(model_cfg=model_cfg, model=model,)
         #print(model_cfg)
-        res = model.cross_val(
-                            X=databunch.X_train[model_cfg['columns']],
-                            X_test=databunch.X_test[model_cfg['columns']],
-                            model=model, 
-                            folds=cv_folds,
-                            metric_round=model._metric_round,
-                            print_metric=print_metric,
-                            n_repeats=n_repeats,
-                            predict=True,
-                            )
+        if on_cv:
+            res = model.cross_val(
+                                X=databunch.X_train[model_cfg['columns']],
+                                X_test=databunch.X_test[model_cfg['columns']],
+                                model=model, 
+                                folds=cv_folds,
+                                metric_round=model._metric_round,
+                                print_metric=print_metric,
+                                n_repeats=n_repeats,
+                                predict=True,
+                                )
+        else:
+            res = model._predict_on_full_dataset(
+                X=databunch.X_train[model_cfg['columns']],
+                X_test=databunch.X_test[model_cfg['columns']],
+                model=model,
+                )
         predict = {
                     'model_name': f'{index}_' + model_cfg['model_name'], 
                     'predict_test': res['Test_predict'],
@@ -855,9 +906,10 @@ class ModelBase(object):
 
     def predict(self, 
                 model=None, 
-                databunch=None, 
+                databunch=None,
+                on_cv=True, 
                 cv_folds=None, 
-                n_repeats=3, 
+                n_repeats=2, 
                 models_cfgs=None, 
                 print_metric=True, 
                 verbose=1,) -> pd.DataFrame:
@@ -896,7 +948,8 @@ class ModelBase(object):
             predict = self._predict_from_cfg(
                 index,
                 model=model,
-                model_cfg=model_cfg, 
+                model_cfg=model_cfg,
+                on_cv=on_cv,
                 cv_folds=cv_folds,
                 databunch=databunch, 
                 n_repeats=n_repeats, 

@@ -134,7 +134,7 @@ class CatBoost(ModelBase):
 
         train_pool = Pool(X_train, label=y_train,)
 
-        if model.wrapper_params['early_stopping'] and (X_test is not None):
+        if model.wrapper_params['early_stopping'] and (y_test is not None):
             validate_pool = Pool(X_test, label=y_test,)
             model.model = model._init_model(model_param=model.model_param)
             model.model.fit(train_pool, 
