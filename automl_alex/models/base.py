@@ -231,10 +231,15 @@ class ModelBase(object):
             opt_lvl (int)
             cold_start (int)
         """
-
         if verbose > 0: 
                 print('> Start Auto calibration parameters')
-
+        
+        early_stoping = 50
+        cv = 5
+        score_cv_folds = 1
+        opt_lvl = 1
+        cold_start = 10
+            
         if possible_iters > 100:
             cv = 5
             score_cv_folds = 2

@@ -292,17 +292,12 @@ class AutoML(BestSingleModel):
 
         # calc ~ time for opt
         #min_stack_model_timeout = 1000
-        predict_timeout = 30*stack_top # time for predict
+        predict_timeout = int((timeout/100)*20) # time for predict 20% of timeout
         select_models_timeout = (timeout - predict_timeout)
-        model_1_timeout = select_models_timeout - (select_models_timeout//3)
         model_2_timeout = select_models_timeout//3
-        if (model_1_timeout < 200) or (model_2_timeout < 200):
-            raise Exception(f"Please give me more time to optimize or reduce the number of stack models ('stack_top')")
-
-        # if stack_models_names is None:
-        #     self.stack_models_names = all_models.keys()
-        # else:
-        #     self.stack_models_names = stack_models_names
+        model_1_timeout = select_models_timeout - model_2_timeout
+        if (model_1_timeout < 300) or (model_2_timeout < 300):
+            raise Exception("Please, give me more time to optimize!")
 
         ####################################################
         # STEP 1
@@ -328,6 +323,8 @@ class AutoML(BestSingleModel):
                                 type_of_estimator=self.type_of_estimator)
 
         # Opt
+        start_opt_model_1_time = time.time()
+        
         history = model.opt(
             timeout=model_1_timeout, 
             early_stoping=early_stoping,
@@ -338,40 +335,81 @@ class AutoML(BestSingleModel):
             score_cv_folds=score_cv_folds,
             auto_parameters=auto_parameters,
             feature_selection=feature_selection,
-            models_names=['LightGBM', 'RandomForest', 'ExtraTrees', 'XGBoost', 'CatBoost'],
+            models_names=['RandomForest', 'ExtraTrees', 'XGBoost', 'CatBoost'],
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
+        
+        total_opt_model_1_time = (time.time() - start_opt_model_1_time)
 
+        # Predict
         history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-        stack_models_1_cfgs = history.head(stack_top)
 
         if verbose > 0:
             print("\n Predict from Models_1")
             time.sleep(0.2) # clean print 
-        # Predict
-        predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs)
+    
+        # Predict on Full dataset and Time lemit calc
+        start_predict_model_1_time = time.time()
+        self.predicts_model_1_full_x = model.predict(models_cfgs=history.head(3), on_cv=False)
+        predict_model_1_time = (time.time() - start_predict_model_1_time)
         
-        self.predicts_model_1_full_x = model.predict(models_cfgs=stack_models_1_cfgs, on_cv=False)
+        if auto_parameters:
+            if verbose > 0:
+                print("\n > Calc predict policy on Models_1:")
+            # Calc predict policy
+            timeout_predict = (timeout - (total_opt_model_1_time + model_2_timeout + predict_model_1_time))
+            iter_predict_time = predict_model_1_time / 3
+            posible_repeats = int(timeout_predict // (iter_predict_time * model._cv))
+            n_repeats = 1
+            stack_top_repeats = 1
+
+            if posible_repeats > 1:
+                stack_top_repeats = posible_repeats
+            if posible_repeats > 5:
+                stack_top_repeats = int(posible_repeats//2)
+                n_repeats = 2
+            if posible_repeats > 11:
+                stack_top_repeats = int(posible_repeats//3)
+                n_repeats = 3
+            stack_top = stack_top_repeats
+            
+            if verbose > 0:
+                print(" | posible_repeats: ", posible_repeats, " | stack_top: ", stack_top_repeats, " | n_repeats: ", n_repeats, )
+        
+            # Predict on CV
+            stack_models_1_cfgs = history.head(stack_top_repeats)
+            predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs, n_repeats=n_repeats)
+        
+        # Predict on CV
+        else:
+            stack_models_1_cfgs = history.head(stack_top)
+            predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs, n_repeats=2)
         
         # Score:
         score_mean_models_1 = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
         if verbose > 0:
             print(f'\n Models_1 Mean {self.metric.__name__} Score Train: ', 
                 round(score_mean_models_1, self._metric_round))
+        
+        end_model_1_time = (time.time() - start_opt_model_1_time)
+        #############################################################
+        # STEP 2
+        # Model 2
+        if verbose > 0:
             print('_'*50)
             print('Step 2: Model 2')
             print('_'*50)
             time.sleep(0.1) # clean print 
-        
-
-        #############################################################
-        # STEP 2
-        # Model 2
+            
         self.history_trials = []
         self.history_trials_dataframe = pd.DataFrame()
         
+        model_2_timeout = (timeout - end_model_1_time) - predict_timeout
+        if model_2_timeout < 200:
+            model_2_timeout = 200
+        
         model_2 = BestSingleModel(databunch=self._data,
                                   cv=10,
-                                  score_cv_folds = 10,
+                                  score_cv_folds = 4,
                                 metric=self.metric,
                                 direction=self.direction,
                                 metric_round=self._metric_round,
@@ -383,22 +421,25 @@ class AutoML(BestSingleModel):
         # Opt
         history_2 = model_2.opt(
             timeout=model_2_timeout, 
+            early_stoping=early_stoping,
             opt_lvl=3,
-            auto_parameters=False,
+            auto_parameters=True,
             cold_start=25,
             feature_selection=True,
-            models_names=['LinearModel', 'MLP',],
+            models_names=['LinearModel', 'LightGBM',],
             iteration_check=False,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history_2 = history_2.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
         stack_model_2_cfgs = history_2.head(stack_top//2)
+        if stack_top == 1:
+            stack_model_2_cfgs = history_2.head(1)
 
         if verbose > 0:
             print("\n Predict from Models_2")
             time.sleep(0.2) # clean print 
         # Predict
-        predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs)
+        predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs,)
         
         # Score:
         score_mean_models_2 = self.metric(self._data.y_train, predicts_2['predict_train'].mean())

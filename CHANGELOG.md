@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [0.07.26]
+
+### Add
+- Calc predict policy in AutoML
+
+
 ## [0.07.25]
 
 ### Add
