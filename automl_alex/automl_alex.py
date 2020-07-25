@@ -65,6 +65,7 @@ class BestSingleModel(LightGBM):
         auto_parameters=True,
         models_names=None, #list models_names for opt
         feature_selection=True,
+        iteration_check=True,
         verbose=1,
         ):
         '''
@@ -95,6 +96,7 @@ class BestSingleModel(LightGBM):
             early_stoping, 
             feature_selection,
             iterations=iterations,
+            iteration_check=iteration_check,
             verbose=verbose,)
         return(history)
 
@@ -167,6 +169,7 @@ class ModelsReview(BestSingleModel):
         auto_parameters=False,
         feature_selection=True,
         direction=None,
+        iteration_check=False,
         verbose=1,
         models_names=None,
         ):
@@ -212,6 +215,7 @@ class ModelsReview(BestSingleModel):
                         cold_start=50, 
                         opt_lvl=3,
                         feature_selection=feature_selection,
+                        iteration_check=iteration_check,
                         verbose= (lambda x: 0 if x <= 1 else 1)(verbose),
                         )
             if verbose > 0:
@@ -384,6 +388,7 @@ class AutoML(BestSingleModel):
             cold_start=25,
             feature_selection=True,
             models_names=['LinearModel', 'MLP',],
+            iteration_check=False,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
         history_2 = history_2.drop_duplicates(subset=['model_score', 'score_std'], keep='last')

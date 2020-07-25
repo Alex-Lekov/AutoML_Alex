@@ -347,7 +347,7 @@ class ModelBase(object):
             result = columns
         return(result)
 
-    def _opt_core(self, timeout, early_stoping, feature_selection, iterations, verbose=1):
+    def _opt_core(self, timeout, early_stoping, feature_selection, iterations, iteration_check, verbose=1):
         """
         Description of _opt_core:
             in progress...
@@ -374,7 +374,7 @@ class ModelBase(object):
         if iterations is None:
             possible_iters = timeout // (iter_time)
 
-            if possible_iters < 100:
+            if (possible_iters < 100) and iteration_check:
                 print("Not enough time to find the optimal parameters. \n \
                     Possible iters < 100. \n \
                     Please, Increase the 'timeout' parameter for normal optimization.")
@@ -506,6 +506,7 @@ class ModelBase(object):
             direction=None,
             early_stoping=100,
             feature_selection=True,
+            iteration_check=True,
             verbose=1,):
         """
         Description of opt:
@@ -545,6 +546,7 @@ class ModelBase(object):
             early_stoping, 
             feature_selection,
             iterations=iterations,
+            iteration_check=iteration_check,
             verbose=verbose,)
 
         return(history)
