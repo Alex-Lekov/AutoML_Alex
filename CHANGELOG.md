@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Add
 - Calc predict policy in AutoML
 
+### Fix
+- timelemit in AutoML (deleted Catboost in optimization)
+
 
 ## [0.07.25]
 
