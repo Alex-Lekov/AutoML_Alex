@@ -383,7 +383,7 @@ class AutoML(BestSingleModel):
             total_time_model_0_1 = (time.time() - start_model_0_time)
             timeout_predict = (timeout - (total_time_model_0_1 + model_2_timeout + (predict_timeout//3)))
             iter_predict_time = predict_model_1_time / 3
-            posible_repeats = int(timeout_predict // (iter_predict_time * model._cv))
+            posible_repeats = int(timeout_predict // (iter_predict_time * model_1._cv))
             n_repeats = 1
             stack_top_repeats = 1
 
