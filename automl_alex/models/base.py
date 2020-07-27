@@ -817,7 +817,6 @@ class ModelBase(object):
             'cat_encoder': model._data.cat_encoder_names,
             'columns': model._data.X_train.columns.values,
             'cv_folds': model._cv,
-
             }
         return(pd.DataFrame([config,]))
     
@@ -906,7 +905,18 @@ class ModelBase(object):
 
     def _predict_get_default_model_cfg(self, model):
         if len(model.history_trials_dataframe) < 1:
-            model_cfgs = model.fit(print_metric=False)
+            config = {
+            'score_opt': 0,
+            'model_score': 0,
+            'score_std': 0,
+            'model_name': model.__name__,
+            'model_param': model.model_param,
+            'wrapper_params': model.wrapper_params,
+            'cat_encoder': model._data.cat_encoder_names,
+            'columns': model._data.X_train.columns.values,
+            'cv_folds': model._cv,
+            }
+            model_cfgs = pd.DataFrame([config,])
         else: 
             model_cfgs = model.history_trials_dataframe.head(1)
         return(model_cfgs)

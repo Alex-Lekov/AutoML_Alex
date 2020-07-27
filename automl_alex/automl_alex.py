@@ -294,22 +294,46 @@ class AutoML(BestSingleModel):
         #min_stack_model_timeout = 1000
         predict_timeout = int((timeout/100)*20) # time for predict 20% of timeout
         select_models_timeout = (timeout - predict_timeout)
-        model_2_timeout = select_models_timeout//3
+        model_2_timeout = select_models_timeout//4
         model_1_timeout = select_models_timeout - model_2_timeout
         if (model_1_timeout < 300) or (model_2_timeout < 300):
             raise Exception("Please, give me more time to optimize!")
 
         ####################################################
         # STEP 1
-        # Model 1
+        # Model 0
+        start_model_0_time = time.time()
         if verbose > 0:
             print('_'*50)
-            print('Step 1: Model 1')
+            print('Step 1: Model 0')
             print('_'*50)
+            time.sleep(0.2) # clean print 
+        # Catboost is good, but it works very slowly, 
+        # so I only make predictions with standard parameters (it works well with standard parameters)
+        model_0 = CatBoost(databunch=self._data, 
+                            cv=5,
+                            score_cv_folds=1,
+                            metric=self.metric,
+                            direction=self.direction,
+                            metric_round=self._metric_round,
+                            combined_score_opt=self._combined_score_opt,
+                            gpu=self._gpu, 
+                            random_state=self._random_state,
+                            type_of_estimator=self.type_of_estimator)
+        
+        self.predicts_model_0_full_x = model_0.predict(on_cv=False,)
+        
+        total_model_0_time = (time.time() - start_model_0_time)
+        model_1_timeout = model_1_timeout - total_model_0_time
+        
+        # Model 1
+        if verbose > 0:
+            print('-'*50)
+            print('Model 1')
             time.sleep(0.2) # clean print 
     
         # Model
-        model = BestSingleModel(databunch=self._data,
+        model_1 = BestSingleModel(databunch=self._data,
                                 opt_lvl=self._opt_lvl,
                                 cv=self._cv,
                                 score_cv_folds = self._score_cv_folds,
@@ -325,7 +349,7 @@ class AutoML(BestSingleModel):
         # Opt
         start_opt_model_1_time = time.time()
         
-        history = model.opt(
+        history = model_1.opt(
             timeout=model_1_timeout, 
             early_stoping=early_stoping,
             cold_start=cold_start,
@@ -335,7 +359,7 @@ class AutoML(BestSingleModel):
             score_cv_folds=score_cv_folds,
             auto_parameters=auto_parameters,
             feature_selection=feature_selection,
-            models_names=['RandomForest', 'ExtraTrees', 'XGBoost', 'CatBoost'],
+            models_names=['RandomForest', 'ExtraTrees', 'XGBoost', 'LightGBM',],
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
         
         total_opt_model_1_time = (time.time() - start_opt_model_1_time)
@@ -349,14 +373,15 @@ class AutoML(BestSingleModel):
     
         # Predict on Full dataset and Time lemit calc
         start_predict_model_1_time = time.time()
-        self.predicts_model_1_full_x = model.predict(models_cfgs=history.head(3), on_cv=False)
+        self.predicts_model_1_full_x = model_1.predict(models_cfgs=history.head(3), on_cv=False)
         predict_model_1_time = (time.time() - start_predict_model_1_time)
         
         if auto_parameters:
             if verbose > 0:
                 print("\n > Calc predict policy on Models_1:")
             # Calc predict policy
-            timeout_predict = (timeout - (total_opt_model_1_time + model_2_timeout + predict_model_1_time))
+            total_time_model_0_1 = (time.time() - start_model_0_time)
+            timeout_predict = (timeout - (total_time_model_0_1 + model_2_timeout + (predict_timeout//3)))
             iter_predict_time = predict_model_1_time / 3
             posible_repeats = int(timeout_predict // (iter_predict_time * model._cv))
             n_repeats = 1
@@ -370,6 +395,9 @@ class AutoML(BestSingleModel):
             if posible_repeats > 11:
                 stack_top_repeats = int(posible_repeats//3)
                 n_repeats = 3
+            if posible_repeats > 30:
+                stack_top_repeats = 10
+                n_repeats = 3
             stack_top = stack_top_repeats
             
             if verbose > 0:
@@ -377,12 +405,12 @@ class AutoML(BestSingleModel):
         
             # Predict on CV
             stack_models_1_cfgs = history.head(stack_top_repeats)
-            predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs, n_repeats=n_repeats)
+            predicts_1 = model_1.predict(models_cfgs=stack_models_1_cfgs, n_repeats=n_repeats)
         
         # Predict on CV
         else:
             stack_models_1_cfgs = history.head(stack_top)
-            predicts_1 = model.predict(models_cfgs=stack_models_1_cfgs, n_repeats=2)
+            predicts_1 = model_1.predict(models_cfgs=stack_models_1_cfgs, n_repeats=2)
         
         # Score:
         score_mean_models_1 = self.metric(self._data.y_train, predicts_1['predict_train'].mean())
@@ -395,9 +423,8 @@ class AutoML(BestSingleModel):
         # STEP 2
         # Model 2
         if verbose > 0:
-            print('_'*50)
-            print('Step 2: Model 2')
-            print('_'*50)
+            print('-'*50)
+            print('Model 2')
             time.sleep(0.1) # clean print 
             
         self.history_trials = []
@@ -426,7 +453,7 @@ class AutoML(BestSingleModel):
             auto_parameters=True,
             cold_start=25,
             feature_selection=True,
-            models_names=['LinearModel', 'LightGBM',],
+            models_names=['LinearModel', 'MLP',],
             iteration_check=False,
             verbose= (lambda x: 0 if x <= 1 else 1)(verbose), )
 
@@ -439,7 +466,7 @@ class AutoML(BestSingleModel):
             print("\n Predict from Models_2")
             time.sleep(0.2) # clean print 
         # Predict
-        predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs,)
+        predicts_2 = model_2.predict(models_cfgs=stack_model_2_cfgs, n_repeats=1)
         
         # Score:
         score_mean_models_2 = self.metric(self._data.y_train, predicts_2['predict_train'].mean())
@@ -458,7 +485,7 @@ class AutoML(BestSingleModel):
             print(f'\n Mean Models {self.metric.__name__} Score Train: ', \
                 round(score_mean_stack_models, self._metric_round))
             print('_'*50)
-            print('Step 3: Stacking')
+            print('Step 2: Stacking')
             print('_'*50)
             time.sleep(0.1) # clean print 
             
@@ -536,7 +563,9 @@ class AutoML(BestSingleModel):
                 round(final_score_model, self._metric_round))
             time.sleep(0.1) # clean print 
             
-        pred_test = (pred_test * 0.75) + (self.predicts_model_1_full_x['predict_test'].mean() * 0.25)
+        pred_test = (pred_test * 0.7) + \
+            (self.predicts_model_1_full_x['predict_test'].mean() * 0.2) + \
+            (self.predicts_model_0_full_x['predict_test'].mean() * 0.1)
 
         return (pred_test, pred_train)
 
