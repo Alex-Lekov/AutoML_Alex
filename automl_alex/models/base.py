@@ -231,10 +231,15 @@ class ModelBase(object):
             opt_lvl (int)
             cold_start (int)
         """
-
         if verbose > 0: 
                 print('> Start Auto calibration parameters')
-
+        
+        early_stoping = 50
+        cv = 5
+        score_cv_folds = 1
+        opt_lvl = 1
+        cold_start = 10
+            
         if possible_iters > 100:
             cv = 5
             score_cv_folds = 2
@@ -347,7 +352,7 @@ class ModelBase(object):
             result = columns
         return(result)
 
-    def _opt_core(self, timeout, early_stoping, feature_selection, iterations, verbose=1):
+    def _opt_core(self, timeout, early_stoping, feature_selection, iterations, iteration_check, verbose=1):
         """
         Description of _opt_core:
             in progress...
@@ -374,7 +379,7 @@ class ModelBase(object):
         if iterations is None:
             possible_iters = timeout // (iter_time)
 
-            if possible_iters < 100:
+            if (possible_iters < 100) and iteration_check:
                 print("Not enough time to find the optimal parameters. \n \
                     Possible iters < 100. \n \
                     Please, Increase the 'timeout' parameter for normal optimization.")
@@ -506,6 +511,7 @@ class ModelBase(object):
             direction=None,
             early_stoping=100,
             feature_selection=True,
+            iteration_check=True,
             verbose=1,):
         """
         Description of opt:
@@ -545,6 +551,7 @@ class ModelBase(object):
             early_stoping, 
             feature_selection,
             iterations=iterations,
+            iteration_check=iteration_check,
             verbose=verbose,)
 
         return(history)
@@ -810,7 +817,6 @@ class ModelBase(object):
             'cat_encoder': model._data.cat_encoder_names,
             'columns': model._data.X_train.columns.values,
             'cv_folds': model._cv,
-
             }
         return(pd.DataFrame([config,]))
     
@@ -899,7 +905,18 @@ class ModelBase(object):
 
     def _predict_get_default_model_cfg(self, model):
         if len(model.history_trials_dataframe) < 1:
-            model_cfgs = model.fit(print_metric=False)
+            config = {
+            'score_opt': 0,
+            'model_score': 0,
+            'score_std': 0,
+            'model_name': model.__name__,
+            'model_param': model.model_param,
+            'wrapper_params': model.wrapper_params,
+            'cat_encoder': model._data.cat_encoder_names,
+            'columns': model._data.X_train.columns.values,
+            'cv_folds': model._cv,
+            }
+            model_cfgs = pd.DataFrame([config,])
         else: 
             model_cfgs = model.history_trials_dataframe.head(1)
         return(model_cfgs)
