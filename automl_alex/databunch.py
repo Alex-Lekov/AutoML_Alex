@@ -70,7 +70,7 @@ class DataBunch(object):
                 self.X_test_source = pd.DataFrame(X_test)
                 
         if y_train is not None:
-            self.y_train = y_train
+            self.y_train = pd.DataFrame(y_train)
         else:
             raise Exception("No target data!")
         
