@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.07.26]
 
+### Fix
+- if y_train is not pd.DataFrame
+
+## [0.07.26]
+
 ### Add
 - Calc predict policy in AutoML
 
