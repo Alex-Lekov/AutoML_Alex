@@ -80,7 +80,7 @@ class LinearModel(ModelBase):
             model = self
         if (X_train is None) or (y_train is None):
             X_train = model._data.X_train
-            y_train = model._data.y_train
+            y_train = model._data.y_train.values.ravel()
             
         model.model = model._init_model(model_param=model.model_param)
         model.model.fit(X_train, y_train,)
