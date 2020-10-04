@@ -8,7 +8,7 @@ filterwarnings("ignore", category=ConvergenceWarning, message="^Maximum number o
 filterwarnings("ignore", category=ConvergenceWarning, message="^Liblinear failed to converge")
         
 
-################################## LogRegClassifier ##########################################################
+################################## LinearModel ##########################################################
 
 class LinearModel(ModelBase):
     """
@@ -32,7 +32,7 @@ class LinearModel(ModelBase):
             params: : parameters for model.
         """
         if self.type_of_estimator == 'classifier':
-            model = linear_model.LogisticRegression(**model_param)
+            model = linear_model.LogisticRegression(**model_param, verbose=0,)
         elif self.type_of_estimator == 'regression':
             model = linear_model.LinearRegression(**model_param)
         return(model)

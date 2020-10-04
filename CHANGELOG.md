@@ -4,8 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.04]
 
-## [0.07.26]
+### Fix
+- dell verbose in LinearRegression
+
+## [0.08.05]
 
 ### Fix
 - if y_train is not pd.DataFrame
