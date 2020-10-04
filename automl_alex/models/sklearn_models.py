@@ -22,7 +22,7 @@ class LinearModel(ModelBase):
         """
         Default model_param
         """
-        model_param = {'verbose':0,}
+        model_param = {}
         return(model_param)
 
     def _init_model(self, model_param=None):
@@ -32,7 +32,7 @@ class LinearModel(ModelBase):
             params: : parameters for model.
         """
         if self.type_of_estimator == 'classifier':
-            model = linear_model.LogisticRegression(**model_param, verbose=0,)
+            model = linear_model.LogisticRegression(**model_param)
         elif self.type_of_estimator == 'regression':
             model = linear_model.LinearRegression(**model_param)
         return(model)

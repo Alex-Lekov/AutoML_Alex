@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.10.04]
 
 ### Fix
-- dell verbose in LinearRegression
+- verbose in LinearRegression
 
 ## [0.08.05]
 
