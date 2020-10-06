@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.10.05]
+## [0.10.07]
 
 ### Fix
 - DataConversionWarning in sklearn_models model.fit(X_train, y_train,)

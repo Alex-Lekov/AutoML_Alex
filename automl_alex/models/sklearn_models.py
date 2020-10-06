@@ -1,11 +1,13 @@
 from sklearn import ensemble, neural_network, linear_model, svm, neighbors
 from .base import *
+import numpy as np
 
 from warnings import simplefilter, filterwarnings
-from sklearn.exceptions import ConvergenceWarning
+from sklearn.exceptions import ConvergenceWarning, DataConversionWarning
 simplefilter("ignore", category=ConvergenceWarning)
 filterwarnings("ignore", category=ConvergenceWarning, message="^Maximum number of iteration reached")
 filterwarnings("ignore", category=ConvergenceWarning, message="^Liblinear failed to converge")
+simplefilter("ignore", category=DataConversionWarning)
         
 
 ################################## LinearModel ##########################################################
@@ -80,7 +82,7 @@ class LinearModel(ModelBase):
             model = self
         if (X_train is None) or (y_train is None):
             X_train = model._data.X_train
-            y_train = model._data.y_train.values.ravel()
+            y_train = np.array(model._data.y_train.values.ravel())
             
         model.model = model._init_model(model_param=model.model_param)
         model.model.fit(X_train, y_train,)
