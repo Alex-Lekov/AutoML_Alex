@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.11.22]
+## [0.11.24]
 
 ### ADD
 - multivariate TPE sampler. This algorithm captures dependencies among hyperparameters better than the previous algorithm
