@@ -445,13 +445,14 @@ class ModelBase(object):
                 self._tqdm_opt_print(pbar)
             return score_opt
         
-        sampler=optuna.samplers.TPESampler(consider_prior=True, 
-                                            prior_weight=1.0, 
-                                            consider_magic_clip=True, 
-                                            consider_endpoints=False, 
+        sampler=optuna.samplers.TPESampler(#consider_prior=True, 
+                                            #prior_weight=1.0, 
+                                            #consider_magic_clip=True, 
+                                            #consider_endpoints=False, 
                                             n_startup_trials=self._cold_start, 
-                                            n_ei_candidates=50, 
-                                            seed=self._random_state)
+                                            #n_ei_candidates=50, 
+                                            seed=self._random_state,
+                                            multivariate=True,)
         if self.study is None:
             self.study = optuna.create_study(direction=self.direction, sampler=sampler,)
 
@@ -680,8 +681,8 @@ class ModelBase(object):
                 )
 
         folds_scores = []
-        stacking_y_pred_train = np.zeros(X.shape[0])
-        stacking_y_pred_test = np.zeros(X_test.shape[0])
+        stacking_y_pred_train = np.zeros(len(X))
+        stacking_y_pred_test = np.zeros(len(X_test))
         feature_importance_df = pd.DataFrame(np.zeros(len(X.columns)), index=X.columns)
 
         for i, (train_idx, valid_idx) in enumerate(skf.split(X, y)):

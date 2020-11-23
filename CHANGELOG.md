@@ -4,11 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.11.24]
 
-## [0.07.26]
+### ADD
+- multivariate TPE sampler. This algorithm captures dependencies among hyperparameters better than the previous algorithm
+
+### Fix
+- "ValueError non-broadcastable output operand..." in AutoMLRegressor
+
+
+## [0.10.07]
+
+### Fix
+- DataConversionWarning in sklearn_models model.fit(X_train, y_train,)
+
+
+## [0.10.04]
+
+### Fix
+- verbose in LinearRegression
+
+
+## [0.08.05]
 
 ### Fix
 - if y_train is not pd.DataFrame
+
 
 ## [0.07.26]
 

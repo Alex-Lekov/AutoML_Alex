@@ -80,7 +80,7 @@ def test_BestSingleModelClassifier(get_data):
 def test_AutoMLClassifier(get_data):
     data = get_data
     test_model = AutoMLClassifier(databunch=data, random_state=RANDOM_SEED)
-    predict_test, predict_train = test_model.opt(timeout=1000, verbose=0,)
+    predict_test, predict_train = test_model.opt(timeout=1500, verbose=0,)
     assert predict_test is not None
     score = sklearn.metrics.roc_auc_score(data.y_test, predict_test)
     assert score is not None
