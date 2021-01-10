@@ -149,7 +149,7 @@ class ModelsReview(BestSingleModel):
             # Model
             model_tmp = all_models[model_name](databunch=self._data, 
                                             cv=self._cv,
-                                            score_cv_folds = self._cv,
+                                            score_cv_folds = self._score_cv_folds,
                                             metric=self.metric,
                                             direction=self.direction,
                                             metric_round=self._metric_round,

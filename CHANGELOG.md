@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.01.11]
+
+### Fix
+- score_cv_folds fix in ModelsReview
+- normalization
+
+
 ## [0.11.24]
 
 ### ADD

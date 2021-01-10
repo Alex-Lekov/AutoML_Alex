@@ -114,6 +114,7 @@ class ModelBase(object):
                                     num_generator_features=num_generator_features,
                                     group_generator_features=group_generator_features,
                                     frequency_enc_num_features=frequency_enc_num_features,
+                                    normalization=normalization,
                                     verbose=verbose,
                                     random_state=random_state,)
             else: 
