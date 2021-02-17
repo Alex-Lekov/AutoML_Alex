@@ -175,6 +175,40 @@ class LightGBM(ModelBase):
         
         return model
 
+    def fit(self, X_train=None, y_train=None, X_test=None, y_test=None,):
+        """
+        Args:
+            X (pd.DataFrame, shape (n_samples, n_features)): the input data
+            y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
+        Return:
+            model (Class)
+        """
+        dtrain = lgb.Dataset(X_train, y_train,)
+        params = self.model_param
+        num_iterations = params.pop('num_iterations')
+
+        if model.wrapper_params['early_stopping'] and (X_test is not None):
+            dtest = lgb.Dataset(X_test, y_test,)
+            model.model = lgb.train(params,
+                                    dtrain,
+                                    num_boost_round=num_iterations,
+                                    valid_sets=(dtrain, dtest),
+                                    verbose_eval=False,
+                                    )
+        else:
+            early_stopping_rounds = params.pop('early_stopping_rounds')
+            model.model = lgb.train(
+                params, 
+                dtrain, 
+                num_boost_round=num_iterations, 
+                verbose_eval=False,
+                )
+
+        dtrain=None
+        dtest=None
+        
+        return model
+
 
     def _predict(self, X=None):
         """
