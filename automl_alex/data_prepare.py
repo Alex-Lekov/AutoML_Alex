@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from itertools import combinations
 import pickle
+import gc
 
 from .encoders import *
 from sklearn.preprocessing import StandardScaler
@@ -98,9 +99,11 @@ class DataPrepare(object):
                 clean_nan=True,
                 drop_invariant=True,
                 num_generator_features=False,
+                operations_num_generator=['/','*','-',],
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
                 normalization=True,
+                reduce_memory=True,
                 random_state=42,
                 verbose=1):
         """
@@ -122,7 +125,9 @@ class DataPrepare(object):
         self._clean_nan = clean_nan
         self._drop_invariant = drop_invariant
         self._num_generator_features = num_generator_features
+        self._operations_num_generator = operations_num_generator
         self._normalization = normalization
+        self._reduce_memory = reduce_memory
         self.cat_features = cat_features
 
         self.binary_encoder = None
@@ -290,6 +295,7 @@ class DataPrepare(object):
 
                 data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
+                data_encodet = reduce_mem_usage(data_encodet)
                 if self.verbose > 0:
                     print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
                 data = data.join(data_encodet.reset_index(drop=True))
@@ -301,7 +307,8 @@ class DataPrepare(object):
             if self.check_num_nans(data):
                 self.clean_nan_encoder = CleanNans()
                 self.clean_nan_encoder = self.clean_nan_encoder.fit(data[self.num_features])
-                data = self.clean_nan_encoder.transform(data)
+                if self._reduce_memory:
+                    data = self.clean_nan_encoder.transform(data)
                 if self.verbose:
                     print('> CleanNans, total nans columns:', \
                         len(self.clean_nan_encoder.nan_columns))
@@ -316,7 +323,9 @@ class DataPrepare(object):
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
                                                             self.num_features,
-                                                            operations=['/','*','-',],)
+                                                            operations=self._num_generator_features,)
+                if self._reduce_memory:
+                    fe_df = reduce_mem_usage(fe_df)
                 data = data.join(fe_df.reset_index(drop=True))
                 if self.verbose > 0:
                     print(' ADD features:', fe_df.shape[1],)
@@ -341,6 +350,9 @@ class DataPrepare(object):
             print('#'*50)
             print('Final data shape: ', data.shape,)
             print('Total ADD columns:', end_columns-start_columns)
+        # reduce_mem_usage
+        if self._reduce_memory:
+            data = reduce_mem_usage(data, verbose=self.verbose)
         return data
 
     def transform(self, data) -> pd.DataFrame:
@@ -389,6 +401,8 @@ class DataPrepare(object):
             for cat_encoder_name in self.cat_encoder_names:
                 data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
+                if self._reduce_memory:
+                    data_encodet = reduce_mem_usage(data_encodet)
                 if self.verbose > 0:
                     print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
                 data = data.join(data_encodet.reset_index(drop=True))
@@ -408,7 +422,9 @@ class DataPrepare(object):
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
                                                             self.num_features,
-                                                            operations=['/','*','-',],)
+                                                            operations=self._num_generator_features,)
+                if self._reduce_memory:
+                    fe_df = reduce_mem_usage(fe_df)
                 data = data.join(fe_df.reset_index(drop=True))
                 if self.verbose > 0:
                     print(' ADD features:', fe_df.shape[1],)
@@ -432,6 +448,9 @@ class DataPrepare(object):
             print('#'*50)
             print('Final data shape: ', data.shape,)
             print('Total ADD columns:', end_columns-start_columns)
+        # reduce_mem_usage
+        if self._reduce_memory:
+            data = reduce_mem_usage(data, verbose=self.verbose)
         return data
 
     def save(self, name):
@@ -440,3 +459,45 @@ class DataPrepare(object):
 
     def load(self, name):
         return(pickle.load(open(name+'.pkl', 'rb')))
+
+    
+
+def reduce_mem_usage(df, verbose=0):
+    """ iterate through all the columns of a dataframe and modify the data type
+        to reduce memory usage.        
+    """
+    if verbose > 0:
+        start_mem = df.memory_usage().sum() / 1024**2
+        print('Memory usage of dataframe is {:.2f} MB'.format(start_mem))
+    
+    for col in df.columns:
+        col_type = df[col].dtype
+        
+        if col_type != object:
+            c_min = df[col].min()
+            c_max = df[col].max()
+            if str(col_type)[:3] == 'int':
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+                elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                    df[col] = df[col].astype(np.int64)  
+            else:
+                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                    df[col] = df[col].astype(np.float16)
+                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                    df[col] = df[col].astype(np.float32)
+                else:
+                    df[col] = df[col].astype(np.float64)
+        else:
+            df[col] = df[col].astype('category')
+
+    if verbose > 0:
+        end_mem = df.memory_usage().sum() / 1024**2
+        print('Memory usage after optimization is: {:.2f} MB'.format(end_mem))
+        print('Decreased by {:.1f}%'.format(100 * (start_mem - end_mem) / start_mem))
+    
+    return df

@@ -10,8 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 A big update that changes the logic of work
 ### NEW
 - Now processing the dataset is separated from the model for ease of use when you want to process the dataset yourself
+- Separate transform allows us to save and transfer processing to new data
 ### ADD
-- saving the model
+- Save & Load processing
+- Save & Load model
+- Reduce memory usage processing
 
 
 ## [1.01.11]
