@@ -3,143 +3,173 @@ from tqdm import tqdm
 import pandas as pd
 import time
 from .models import *
-from .databunch import DataBunch
 from .encoders import *
-from sklearn.preprocessing import StandardScaler
 
 
 ##################################### BestSingleModel ################################################
 
 
-class BestSingleModel(LightGBM):
-    """
-    Trying to find which model work best on our data
-    Args:
-        params (dict or None): parameters for model.
-            If None default params are fetched.
-    """
-    def _make_model(self, model_name, databunch=None, model_param=None, wrapper_params=None,):
-        '''
-        Make new model and choose model library from 'model_name'
-        '''
-        if databunch is None:
-            databunch=self._data
+# class BestSingleModel(LightGBM):
+#     """
+#     Trying to find which model work best on our data
+#     Args:
+#         params (dict or None): parameters for model.
+#             If None default params are fetched.
+#     """
+#     def _make_model(self, model_name, databunch=None, model_param=None, wrapper_params=None,):
+#         '''
+#         Make new model and choose model library from 'model_name'
+#         '''
+#         if databunch is None:
+#             databunch=self._data
 
-        model = all_models[model_name](
-            databunch=databunch, 
-            cv = self._cv,
-            score_cv_folds = self._score_cv_folds,
-            opt_lvl=self._opt_lvl,
-            metric=self.metric,
-            combined_score_opt=self._combined_score_opt,
-            metric_round=self._metric_round,
-            model_param=model_param, 
-            wrapper_params=wrapper_params,
-            gpu=self._gpu, 
-            random_state=self._random_state,
-            type_of_estimator=self.type_of_estimator
-            )
-        return(model)
+#         model = all_models[model_name](
+#             databunch=databunch, 
+#             cv = self._cv,
+#             score_cv_folds = self._score_cv_folds,
+#             opt_lvl=self._opt_lvl,
+#             metric=self.metric,
+#             combined_score_opt=self._combined_score_opt,
+#             metric_round=self._metric_round,
+#             model_param=model_param, 
+#             wrapper_params=wrapper_params,
+#             gpu=self._gpu, 
+#             random_state=self._random_state,
+#             type_of_estimator=self.type_of_estimator
+#             )
+#         return(model)
 
-    def _opt_model(self, trial):
-        '''
-        now we can choose models in optimization
-        '''
-        model_name = trial.suggest_categorical('model_name', self.models_names)
-        model = self._make_model(model_name,)
-        model.model_param = model.get_model_opt_params(trial=trial, 
-            model=model, 
-            opt_lvl=model._opt_lvl, 
-            metric_name=model.metric.__name__,
-            )
-        return(model)
+#     def _opt_model(self, trial):
+#         '''
+#         now we can choose models in optimization
+#         '''
+#         model_name = trial.suggest_categorical('model_name', self.models_names)
+#         model = self._make_model(model_name,)
+#         model.model_param = model.get_model_opt_params(trial=trial, 
+#             model=model, 
+#             opt_lvl=model._opt_lvl, 
+#             metric_name=model.metric.__name__,
+#             )
+#         return(model)
 
-    def opt(self, 
-        timeout=1000, 
-        iterations=None,
-        early_stoping=100, 
-        cold_start=100,
-        direction='maximize',
-        opt_lvl=3,
-        cv=None,
-        score_cv_folds=None,
-        auto_parameters=True,
-        models_names=None, #list models_names for opt
-        feature_selection=True,
-        iteration_check=True,
-        verbose=1,
-        ):
-        '''
-        Custom opt func whis list:models_names
-        now we can choose models in optimization
-        '''
-        if cold_start is not None:
-            self._cold_start = cold_start
-        if self.direction is None:
-            self.direction = direction
-        if opt_lvl is not None:
-            self._opt_lvl = opt_lvl
-        if cv is not None:
-            self._cv = cv
-        if score_cv_folds is not None:
-            self._score_cv_folds = score_cv_folds
-        if auto_parameters is not None:
-            self._auto_parameters = auto_parameters
+#     def opt(self, 
+#         timeout=1000, 
+#         iterations=None,
+#         early_stoping=100, 
+#         cold_start=100,
+#         direction='maximize',
+#         opt_lvl=3,
+#         cv=None,
+#         score_cv_folds=None,
+#         auto_parameters=True,
+#         models_names=None, #list models_names for opt
+#         feature_selection=True,
+#         iteration_check=True,
+#         verbose=1,
+#         ):
+#         '''
+#         Custom opt func whis list:models_names
+#         now we can choose models in optimization
+#         '''
+#         if cold_start is not None:
+#             self._cold_start = cold_start
+#         if self.direction is None:
+#             self.direction = direction
+#         if opt_lvl is not None:
+#             self._opt_lvl = opt_lvl
+#         if cv is not None:
+#             self._cv = cv
+#         if score_cv_folds is not None:
+#             self._score_cv_folds = score_cv_folds
+#         if auto_parameters is not None:
+#             self._auto_parameters = auto_parameters
 
-        if models_names is None:
-            self.models_names = all_models.keys()
-        else:
-            self.models_names = models_names
+#         if models_names is None:
+#             self.models_names = all_models.keys()
+#         else:
+#             self.models_names = models_names
             
-        # Opt
-        history = self._opt_core(
-            timeout, 
-            early_stoping, 
-            feature_selection,
-            iterations=iterations,
-            iteration_check=iteration_check,
-            verbose=verbose,)
-        return(history)
+#         # Opt
+#         history = self._opt_core(
+#             timeout, 
+#             early_stoping, 
+#             feature_selection,
+#             iterations=iterations,
+#             iteration_check=iteration_check,
+#             verbose=verbose,)
+#         return(history)
 
-    def _predict_preproc_model(self, model_cfg, model,):
-        """
-        custom function for predict, now we can choose model library
-        """
-        model = self._make_model(model_cfg['model_name'], databunch=self._data)
-        model.model_param = model_cfg['model_param']
-        model.wrapper_params = model_cfg['wrapper_params']
-        return(model)
-
-
-class BestSingleModelClassifier(BestSingleModel):
-    type_of_estimator='classifier'
+#     def _predict_preproc_model(self, model_cfg, model,):
+#         """
+#         custom function for predict, now we can choose model library
+#         """
+#         model = self._make_model(model_cfg['model_name'], databunch=self._data)
+#         model.model_param = model_cfg['model_param']
+#         model.wrapper_params = model_cfg['wrapper_params']
+#         return(model)
 
 
-class BestSingleModelRegressor(BestSingleModel):
-    type_of_estimator='regression'
+# class BestSingleModelClassifier(BestSingleModel):
+#     type_of_estimator='classifier'
+
+
+# class BestSingleModelRegressor(BestSingleModel):
+#     type_of_estimator='regression'
 
 
 ##################################### ModelsReview ################################################
 
 
-class ModelsReview(BestSingleModel):
+class ModelsReview(object):
     """
     ModelsReview...
     """
     __name__ = 'ModelsReview'
 
-    def fit(self, 
+    def __init__(self,  
+                    type_of_estimator=None, # classifier or regression
+                    metric=None,
+                    metric_round=4,
+                    gpu=False, 
+                    random_state=42
+                    ):
+        self._gpu = gpu
+        self._random_state = random_state
+        if type_of_estimator is not None:
+            self.type_of_estimator = type_of_estimator
+
+        if metric is None:
+            if self.type_of_estimator == 'classifier':
+                self._metric = sklearn.metrics.roc_auc_score
+            elif self.type_of_estimator == 'regression':
+                self._metric = sklearn.metrics.mean_squared_error
+        else:
+            self._metric = metric
+        
+        self._metric_round = metric_round
+    
+
+    def fit(self,
+        X_train=None, 
+        y_train=None, 
+        X_test=None, 
+        y_test=None,
         models_names=None,
         verbose=1,
         ):
         """
         Fit models (in list models_names) whis default params
         """
-        history_fits = pd.DataFrame()
+
+        result = pd.DataFrame(columns=['Model_Name', 'Score', 'Time_Fit_Sec'])
+        score_ls = []
+        time_ls = []
         if models_names is None:
             self.models_names = all_models.keys()
         else:
             self.models_names = models_names
+
+        result['Model_Name'] = self.models_names
         
         if verbose > 0:
             disable_tqdm = False
@@ -147,109 +177,29 @@ class ModelsReview(BestSingleModel):
             disable_tqdm = True
         for model_name in tqdm(self.models_names, disable=disable_tqdm):
             # Model
-            model_tmp = all_models[model_name](databunch=self._data, 
-                                            cv=self._cv,
-                                            score_cv_folds = self._score_cv_folds,
-                                            metric=self.metric,
-                                            direction=self.direction,
-                                            metric_round=self._metric_round,
-                                            combined_score_opt=self._combined_score_opt,
+            start_time = time.time()
+            model_tmp = all_models[model_name](
                                             gpu=self._gpu, 
                                             random_state=self._random_state,
                                             type_of_estimator=self.type_of_estimator)
             # fit
-            config = model_tmp.fit()
-            history_fits = history_fits.append(config, ignore_index=True)
-            model_tmp = None
-            self.history_trials_dataframe = history_fits
-        return(history_fits)
+            model_tmp = model_tmp.fit(X_train, y_train)
+            # Predict
+            if (self._metric.__name__ in predict_proba_metrics) and (model_tmp.is_possible_predict_proba()):
+                y_pred = model_tmp.predict_proba(X_test)
+            else:
+                y_pred = model_tmp.predict(X_test)
 
-    def opt(self, 
-        timeout=1000, 
-        early_stoping=100, 
-        auto_parameters=False,
-        feature_selection=True,
-        direction=None,
-        iteration_check=False,
-        verbose=1,
-        models_names=None,
-        ):
-        if direction is not None:
-            self.direction = direction
-        if self.direction is None:
-            raise Exception('Need direction for optimaze!')
-
-        if models_names is None:
-            self.models_names = all_models.keys()
-        else:
-            self.models_names = models_names
-
-        self.history_trials_dataframe = pd.DataFrame()
-        self.top1_models_cfgs = pd.DataFrame()
-        self.top10_models_cfgs = pd.DataFrame()
-
-        timeout_per_model = timeout//len(self.models_names)
-        
-        if verbose > 0:
-            disable_tqdm = False
-        else: disable_tqdm = True
-        for model_name in tqdm(self.models_names, disable=disable_tqdm):
-            start_unixtime = time.time()
-            # Model
-            model_tmp = all_models[model_name](databunch=self._data, 
-                                            opt_lvl=self._opt_lvl,
-                                            cv=self._cv,
-                                            score_cv_folds = self._score_cv_folds,
-                                            metric=self.metric,
-                                            direction=self.direction,
-                                            metric_round=self._metric_round,
-                                            combined_score_opt=self._combined_score_opt,
-                                            gpu=self._gpu, 
-                                            random_state=self._random_state,
-                                            type_of_estimator=self.type_of_estimator)
-            # Opt
-            time.sleep(0.1)
-            history = model_tmp.opt(timeout=timeout_per_model,
-                        early_stoping=early_stoping, 
-                        auto_parameters=False, # try to set the rules ourselves
-                        score_cv_folds=3,
-                        cold_start=50, 
-                        opt_lvl=3,
-                        feature_selection=feature_selection,
-                        iteration_check=iteration_check,
-                        verbose= (lambda x: 0 if x <= 1 else 1)(verbose),
-                        )
-            if verbose > 0:
-                best_score = history.head(1)['model_score'].iloc[0]
-                print('\n', model_name, ' Best Score: ', best_score)
-
-            history = history.drop_duplicates(subset=['model_score', 'score_std'], keep='last')
-            # Trials
-            self.history_trials_dataframe = self.history_trials_dataframe.append(
-                history,
-                ignore_index=True,
-                )
-
-            # Top1:
-            self.top1_models_cfgs = self.top1_models_cfgs.append(
-                history.head(1), 
-                ignore_index=True,
-                )
-
-            # Top10:
-            self.top10_models_cfgs = self.top10_models_cfgs.append(
-                history.head(10), 
-                ignore_index=True,
-                )
-
-            # time dinamic
-            sec_iter = start_unixtime - time.time()
-            sec_dev = timeout_per_model - sec_iter
-            if sec_dev > 10:
-                timeout_per_model = timeout_per_model + (sec_dev // (len(self.models_names)))
+            score_model = round(self._metric(y_test, y_pred), self._metric_round)
+            score_ls.append(score_model)
+            iter_time = round((time.time() - start_time),2)
+            time_ls.append(iter_time)
             model_tmp = None
 
-        return(self.history_trials_dataframe)
+        result['Score'] = score_ls
+        result['Time_Fit_Sec'] = time_ls
+        self.result = result
+        return(result)
 
 class ModelsReviewClassifier(ModelsReview):
     type_of_estimator='classifier'

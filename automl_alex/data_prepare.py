@@ -4,6 +4,7 @@ from itertools import combinations
 import pickle
 
 from .encoders import *
+from sklearn.preprocessing import StandardScaler
 
 # disable chained assignments
 pd.options.mode.chained_assignment = None 
@@ -95,9 +96,11 @@ class DataPrepare(object):
                 clean_and_encod_data=True,
                 cat_encoder_names=['HelmertEncoder','CountEncoder'],
                 clean_nan=True,
-                num_generator_features=True,
+                drop_invariant=True,
+                num_generator_features=False,
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
+                normalization=True,
                 random_state=42,
                 verbose=1):
         """
@@ -108,6 +111,7 @@ class DataPrepare(object):
             clean_and_encod_data=True (undefined):
             cat_encoder_names=None (list or None):
             clean_nan=True (undefined):
+            drop_invariant=True (bool): boolean for whether or not to drop columns with 0 variance.
             num_generator_features=True (undefined):
             random_state=42 (undefined):
         """
@@ -116,7 +120,9 @@ class DataPrepare(object):
         self.verbose = verbose
         self._clean_and_encod_data = clean_and_encod_data
         self._clean_nan = clean_nan
+        self._drop_invariant = drop_invariant
         self._num_generator_features = num_generator_features
+        self._normalization = normalization
         self.cat_features = cat_features
 
         self.binary_encoder = None
@@ -201,34 +207,46 @@ class DataPrepare(object):
                 fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
         return(fe_df)
 
-    def fit(self, data,):
+    def fit_transform(self, data,):
         """
-        Fit DataPrepare.
+        Fit and transforms the dataset.
 
         Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): 
+            data (pd.DataFrame, shape = (n_samples, n_features)): 
                 the input data
         Returns:
-            self
+            data (pd.Dataframe, shape = (n_train, n_features)):
+                The dataset with clean numerical and encoded categorical features.
         """
         ########### check_data_format ######################
         self.check_data_format(data)
 
-        if self.verbose > 0:   
+        if self.verbose > 0:
+            start_columns = len(data.columns)
             print('Source data shape: ', data.shape,)
             print('#'*50)
-            print('! START FIT preprocessing Data')
+            print('! START preprocessing Data')
 
         data = data.reset_index(drop=True)
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        ########### Drop invariant  features ######################
+        if self._drop_invariant:
+            self._drop_invariant_features = \
+                data.columns[data.nunique(dropna=False) < 2]
+            if len(self._drop_invariant_features) > 0:
+                data.drop(self._drop_invariant_features, axis=1, inplace=True)
+
         ########### Detect type of features ######################
 
         if self.cat_features is None:
             self.cat_features = self.auto_detect_cat_features(data)
-            if self.verbose > 0:
+            if (self.verbose > 0) and (self.cat_features is not None):
                 print('- Auto detect cat features: ', len(self.cat_features))
 
         self.binary_features = data.columns[data.nunique(dropna=False) <= 2]
         self.num_features = list(set(data.select_dtypes('number').columns) - set(self.binary_features))
+        self.object_features = list(set(data.columns[(data.dtypes == 'object') | (data.dtypes == 'category')]) - set(self.binary_features))
 
 
         ########### Binary Features ######################
@@ -238,24 +256,25 @@ class DataPrepare(object):
 
             self.binary_encoder = OrdinalEncoder()
             self.binary_encoder = self.binary_encoder.fit(data[self.binary_features])
+            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0).astype('category')
+            
 
         ########### Categorical Features ######################
         if self.cat_features is not None:
             # Clean Categorical Features
-            if self.verbose > 0:
-                    print('> Clean Categorical Features')
-            self.cat_clean_ord_encoder = OrdinalEncoder()
-            self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.cat_features])
-            data[self.cat_features] = self.cat_clean_ord_encoder.transform(data[self.cat_features])
+            if self.object_features is not None:
+                if self.verbose > 0:
+                        print('> Clean Categorical Features')
+                self.cat_clean_ord_encoder = OrdinalEncoder()
+                self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
+                data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
 
 
             # Encode Categorical Features
             if self.verbose > 0:
-                    print('> Encode Categorical Features.')
+                    print('> Transform Categorical Features.')
 
             for cat_encoder_name in self.cat_encoder_names:
-                if self.verbose > 0:
-                    print(' +', cat_encoder_name)
 
                 if cat_encoder_name not in cat_encoders_names.keys():
                     raise Exception(f"{cat_encoder_name} not support!")
@@ -269,6 +288,12 @@ class DataPrepare(object):
                 self.fit_cat_encoders[cat_encoder_name] = \
                     self.fit_cat_encoders[cat_encoder_name].fit(data[self.cat_features])
 
+                data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
+                data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
+                if self.verbose > 0:
+                    print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
+                data = data.join(data_encodet.reset_index(drop=True))
+
         ########### Numerical Features ######################
 
         # CleanNans
@@ -276,6 +301,7 @@ class DataPrepare(object):
             if self.check_num_nans(data):
                 self.clean_nan_encoder = CleanNans()
                 self.clean_nan_encoder = self.clean_nan_encoder.fit(data[self.num_features])
+                data = self.clean_nan_encoder.transform(data)
                 if self.verbose:
                     print('> CleanNans, total nans columns:', \
                         len(self.clean_nan_encoder.nan_columns))
@@ -283,11 +309,39 @@ class DataPrepare(object):
                 if self.verbose:
                     print('  No nans features')
 
+        # Generator interaction Num Features
+        if self._num_generator_features:
+            if len(self.num_features) > 1:
+                if self.verbose > 0:
+                    print('> Generate interaction Num Features')
+                fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
+                                                            self.num_features,
+                                                            operations=['/','*','-',],)
+                data = data.join(fe_df.reset_index(drop=True))
+                if self.verbose > 0:
+                    print(' ADD features:', fe_df.shape[1],)
+        
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
+        data.fillna(data.median(), inplace=True)
+
+        ########### Normalization ######################
+
+        # Normalization Data
+        if self._normalization:
+            if self.verbose > 0:
+                print('> Normalization Features')
+            columns_name = data.columns.values
+            self.scaler = StandardScaler().fit(data)
+            data = self.scaler.transform(data)
+            data = pd.DataFrame(data, columns=columns_name)
+
         ########### Final ######################
-        if self.verbose:
+        if self.verbose > 0:
+            end_columns = len(data.columns)
             print('#'*50)
-            print('! END FIT preprocessing Data')
-        return self
+            print('Final data shape: ', data.shape,)
+            print('Total ADD columns:', end_columns-start_columns)
+        return data
 
     def transform(self, data) -> pd.DataFrame:
         """Transform dataset.
@@ -298,12 +352,21 @@ class DataPrepare(object):
             data (pd.Dataframe, shape = (n_train, n_features)):
                 The dataset with clean numerical and encoded categorical features.
         """
+        ########### check_data_format ######################
+        self.check_data_format(data)
+
         if self.verbose > 0:
             start_columns = len(data.columns)
             print('#'*50)
             print('! Start Transform Data')
 
         data = data.reset_index(drop=True)
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        ########### Drop invariant  features ######################
+        if self._drop_invariant:
+            if len(self._drop_invariant_features) > 0:
+                data.drop(self._drop_invariant_features, axis=1, inplace=True)
 
         ########### Binary Features ######################
         
@@ -315,9 +378,10 @@ class DataPrepare(object):
         ########### Categorical Features ######################
         if self.cat_features is not None:
             # Clean Categorical Features
-            if self.verbose > 0:
-                print('> Clean Categorical Features')
-            data[self.cat_features] = self.cat_clean_ord_encoder.transform(data[self.cat_features])
+            if self.object_features is not None:
+                if self.verbose > 0:
+                    print('> Clean Categorical Features')
+                data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
 
             # Encode Categorical Features
             if self.verbose > 0:
@@ -344,7 +408,7 @@ class DataPrepare(object):
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
                                                             self.num_features,
-                                                            operations=['/','*','-','+'],)
+                                                            operations=['/','*','-',],)
                 data = data.join(fe_df.reset_index(drop=True))
                 if self.verbose > 0:
                     print(' ADD features:', fe_df.shape[1],)
@@ -352,6 +416,15 @@ class DataPrepare(object):
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
         data.fillna(0, inplace=True)
 
+        ########### Normalization ######################
+
+        # Normalization Data
+        if self._normalization:
+            if self.verbose > 0:
+                print('> Normalization Features')
+            columns_name = data.columns.values
+            data = self.scaler.transform(data)
+            data = pd.DataFrame(data, columns=columns_name)
 
         ########### Final ######################
         if self.verbose > 0:
@@ -360,18 +433,6 @@ class DataPrepare(object):
             print('Final data shape: ', data.shape,)
             print('Total ADD columns:', end_columns-start_columns)
         return data
-
-    def fit_transform(self, data,) -> pd.DataFrame:
-        """Fits and transforms the dataset.
-        Args:
-            data (pd.DataFrame, shape = (n_samples, n_features)): 
-                the input data
-        Returns:
-            data (pd.Dataframe, shape = (n_train, n_features)):
-                The dataset with clean numerical and encoded categorical features.
-        """
-        self.fit(data)
-        return self.transform(data)
 
     def save(self, name):
         pickle.dump(self, open(name+'.pkl', 'wb'), protocol=4)

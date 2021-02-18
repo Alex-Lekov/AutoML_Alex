@@ -12,30 +12,15 @@ class CatBoost(ModelBase):
     """
     __name__ = 'CatBoost'
 
-    def _init_default_wrapper_params(self,):
-        """
-        Default wrapper_params
-        """
-        wrapper_params = {
-            'early_stopping': True,
-            }
-        return(wrapper_params)
-
     def _init_default_model_param(self, model_param=None):
         """
         Default model_param
         """
         if model_param is None:
             model_param = {'verbose': 0, 
-                                'early_stopping_rounds': 50,
                                 'task_type': 'GPU' if self._gpu else 'CPU',
                                 'random_seed': self._random_state,
                                 }
-            if self.wrapper_params['early_stopping']:
-                model_param['iterations'] = 1000
-                if self.metric is not None:
-                    if self.metric.__name__ == 'roc_auc_score':
-                        model_param['eval_metric'] = 'AUC'
         return(model_param)
 
 
@@ -53,20 +38,20 @@ class CatBoost(ModelBase):
 
 
     #@staticmethod
-    def get_model_opt_params(self, trial, model, opt_lvl, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
         """
         Return:
             dict of DistributionWrappers
         """
-        model_param = model._init_default_model_param()
+        model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
         if opt_lvl == 1:
             model_param['depth'] = trial.suggest_categorical('cb_depth', [6, 10])
 
         if opt_lvl >= 1:
-            if len(self._data.X_train) > 1000:
+            if len_data > 1000:
                 model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 2, \
-                                                                    (len(self._data.X_train)//100))
+                                                                    (len_data//100))
             else:
                 model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 2, 10)
             
@@ -84,14 +69,14 @@ class CatBoost(ModelBase):
             model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 8, 10])
 
         if opt_lvl >= 3:
-            if model.type_of_estimator == 'classifier':
+            if self.type_of_estimator == 'classifier':
                 model_param['objective'] = trial.suggest_categorical('cb_objective', 
                         [
                         'Logloss', 
                         'CrossEntropy',
                         ])
 
-            elif model.type_of_estimator == 'regression':
+            elif self.type_of_estimator == 'regression':
                 model_param['objective'] = trial.suggest_categorical('cb_objective', 
                     [
                     'MAE',
@@ -101,7 +86,7 @@ class CatBoost(ModelBase):
                     ])
 
             if model_param['objective'] == 'Logloss':
-                if model.metric.__name__ not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
+                if metric_name not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
                     model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('cb_scale_pos_weight', 0.1, 1., 0.1)
         
 
@@ -110,46 +95,28 @@ class CatBoost(ModelBase):
             model_param['depth'] = trial.suggest_int('cb_depth', 2, 16)
             model_param['l2_leaf_reg'] = trial.suggest_loguniform('cb_l2_leaf_reg', 1e-8, .1)
             model_param['learning_rate'] = trial.suggest_int('cb_learning_rate', 1, 100)/1000
-            
-            if not model.wrapper_params['early_stopping']:
-                model_param['iterations'] = trial.suggest_int('cb_iterations', 1, 10)*100
+            model_param['iterations'] = trial.suggest_int('cb_iterations', 1, 10)*100
 
         ################################# Other ########################################
         return(model_param)
 
-    def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
+    def fit(self, X_train=None, y_train=None,):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self
+            self (Class)
         """
-        if model is None:
-            model = self
-
-        if (X_train is None) or (y_train is None):
-            X_train = model._data.X_train
-            y_train = model._data.y_train
-
         train_pool = Pool(X_train, label=y_train,)
 
-        if model.wrapper_params['early_stopping'] and (y_test is not None):
-            validate_pool = Pool(X_test, label=y_test,)
-            model.model = model._init_model(model_param=model.model_param)
-            model.model.fit(train_pool, 
-                            eval_set = validate_pool,
-                            use_best_model = True,
-                            verbose = False,
-                            plot=False,)
-        else:
-            params = model.model_param.copy()
-            early_stopping_rounds = params.pop('early_stopping_rounds')
-            model.model = model._init_model(model_param=params)
-            model.model.fit(train_pool, verbose=False, plot=False,)
-        return model
+        params = self.model_param.copy()
+        self.model = self._init_model(model_param=params)
+        self.model.fit(train_pool, verbose=False, plot=False,)
+        train_pool=None
+        return self
 
-    def _predict(self, X=None):
+    def predict(self, X=None):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
@@ -158,9 +125,6 @@ class CatBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
-
-        if X is None:
-            X = self._data.X_test
 
         if self.type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
@@ -175,21 +139,35 @@ class CatBoost(ModelBase):
         """
         return True
 
-    def _predict_proba(self, X=None):
+    def predict_proba(self, X=None):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
         Return:
             np.array, shape (n_samples, n_classes)
         """
-        if X is None:
-            X = self._data.X_test
-
         if self.model is None:
             raise Exception("No fit models")
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
         return self.model.predict_proba(X)[:, 1]
+
+    def _is_possible_feature_importance(self):
+        """
+        Return:
+            bool, whether model can predict proba
+        """
+        return True
+
+    def get_feature_importance(self, train_x,):
+        """
+        Return:
+            list feature_importance
+        """
+        if not self._is_possible_feature_importance(): 
+            raise Exception("Model cannot get feature_importance")
+        fe_lst = self.model.get_feature_importance()
+        return (pd.DataFrame(fe_lst, index=train_x.columns, columns=['value']))
 
 
 class CatBoostClassifier(CatBoost):
