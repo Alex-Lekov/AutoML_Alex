@@ -289,7 +289,7 @@ class DataBunch(object):
         
         self.encodet_features_names = encodet_features_names
         self.num_features_names = num_features
-        self.binary_features_names = []
+        self.binary_features = []
 
         # LabelEncoded Binary Features
         for feature in data.columns:
