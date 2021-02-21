@@ -15,6 +15,7 @@ A big update that changes the logic of work
 - Save & Load processing
 - Save & Load model
 - Reduce memory usage processing
+- Detect and remove outliers
 
 
 ## [1.01.11]

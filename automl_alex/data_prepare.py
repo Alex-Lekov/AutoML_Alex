@@ -16,7 +16,7 @@ class CleanNans(object):
     Сlass for cleaning Nans
     """
 
-    def __init__(self, method='median'):
+    def __init__(self, method='median', verbose=0):
         """
         Fill Nans and add column, that there were nans in this column
         
@@ -24,6 +24,7 @@ class CleanNans(object):
             method : ['median', 'mean',]
         """
         self.method = method
+        self.verbose = verbose
 
     def fit(self, data, cols=None):
         """
@@ -39,6 +40,12 @@ class CleanNans(object):
             data = data[cols]
         
         data = data._get_numeric_data()
+
+        if self.verbose:
+            for col in data.columns:
+                pct_missing = np.mean(data[col].isnull())
+                if pct_missing > 0.25:
+                    print('! Attention {} - {}% Nans!'.format(col, round(pct_missing*100)))
         
         self.nan_columns = list(data.columns[data.isnull().sum() > 0])
         if not self.nan_columns:     
@@ -88,17 +95,195 @@ class CleanNans(object):
 
         return self.transform(data)
 
+
+class CleanOutliers(object):
+    """
+    Сlass for detect and remove outliers from your data. 
+    I would like to provide two methods solution based on "z score" and solution based on "IQR".
+
+    Something important when dealing with outliers is that one should try to use estimators as robust as possible. 
+    try different values threshold and method
+    """
+    weight = {}
+
+    def __init__(self, method='IQR', threshold=2, verbose=0):
+        """
+        Fill Nans and add column, that there were nans in this column
+        
+        Args:
+            method : ['IQR', 'z_score',]
+        """
+        self.method = method
+        self.threshold = threshold
+        self.verbose = verbose
+
+    def IQR(self, data, col, threshold=1.5):
+        '''
+        outlier detection by Interquartile Ranges Rule, also known as Tukey's test. 
+        calculate the IQR ( 75th quantile - 25th quantile) 
+        and the 25th 75th quantile. 
+        Any value beyond:
+            upper bound = 75th quantile + （IQR * threshold）
+            lower bound = 25th quantile - （IQR * threshold）   
+        are regarded as outliers. Default threshold is 1.5.
+        '''
+        
+        quantile1,quantile3 = np.percentile(data[col],[25,75])
+        iqr_val = quantile3 - quantile1
+        lower_bound = quantile1 - (threshold*iqr_val)
+        upper_bound = quantile3 + (threshold*iqr_val)
+        return(lower_bound, upper_bound)
+
+    
+    def fit_z_score(self, data, col,):
+        '''
+        Z score is an important measurement or score that tells how many Standard deviation above or below a number is from the mean of the dataset
+        Any positive Z score means the no. of standard deviation above the mean and a negative score means no. of standard deviation below the mean
+        Z score is calculate by subtracting each value with the mean of data and dividing it by standard deviation
+        '''
+        median_y = data[col].median()
+        median_absolute_deviation_y = (np.abs(data[col]-median_y)).median()
+        return(median_y, median_absolute_deviation_y)
+
+    def get_z_score(self, median, mad, data, col, threshold=3):
+        '''
+        Its Modified z_score
+
+        The goal of taking Z-scores is to remove the effects of the location and scale of the data, 
+        allowing different datasets to be compared directly. 
+        The intuition behind the Z-score method of outlier detection is that, once we’ve centred and rescaled the data, 
+        anything that is too far from zero (the threshold is usually a Z-score of 3 or -3) should be considered an outlier.
+
+        The Z-score method relies on the mean and standard deviation of a group of data to measure central tendency and dispersion. 
+        This is troublesome, because the mean and standard deviation are highly affected by outliers – they are not robust. 
+        In fact, the skewing that outliers bring is one of the biggest reasons for finding and removing outliers from a dataset!
+
+        Another drawback of the Z-score method is that it behaves strangely in small datasets – in fact, the Z-score method will never detect an outlier if the dataset has fewer than 12 items in it. 
+        This motivated the development of a modified Z-score method, which does not suffer from the same limitation
+
+        A further benefit of the modified Z-score method is that it uses the median and MAD rather than the mean and standard deviation. 
+        The median and MAD are robust measures of central tendency and dispersion, respectively.
+
+        Default threshold is 3.
+        '''
+        modified_z_scores = 0.7413 *((data[col] - median)/mad)
+        abs_z_scores = np.abs(modified_z_scores)
+        filtered_entries = (abs_z_scores > threshold)
+        return(filtered_entries)
+
+
+    def fit(self, data, cols=None):
+        """
+        Fit CleanOutliers.
+
+        Args:
+            data (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            self
+        """
+        if cols is not None:
+            chek_columns = cols
+        else:
+            chek_columns = data._get_numeric_data().columns
+
+        self.weight = {}
+
+        for column in chek_columns:
+            if self.method == 'IQR':
+                lower_bound, upper_bound = self.IQR(data,col=column,threshold=self.threshold)
+                self.weight[column] = [lower_bound, upper_bound]
+                #print(self.weight)
+                if self.verbose:
+                    total_outliers = len(data[column][(data[column] < lower_bound) | (data[column] > upper_bound)])
+
+            elif self.method == 'z_score':
+                median, mad = self.fit_z_score(data, col=column)
+                self.weight[column] = [median, mad]
+                if self.verbose:
+                    filtered_entries = self.get_z_score(median, mad, data, column, threshold=self.threshold)
+                    total_outliers = filtered_entries.sum()
+            else:
+                raise ValueError('Wrong method')
+
+            if self.verbose:
+                if total_outliers > 0:
+                    print(f'Num of outlier detected: {total_outliers} in Feature {column}')
+                    print(f'Proportion of outlier detected: {round((100/(len(data)/total_outliers)),1)} %')
+
+        return self
+
+    def transform(self, data,) -> pd.DataFrame:
+        """Transforms the dataset.
+        Args:
+            data (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            pandas.Dataframe of shape = (n_train, n_features)
+                The dataset.
+        """
+        #print(self.weight)
+        for weight_values in self.weight:
+            if self.method == 'IQR':
+                data.loc[data[weight_values] < self.weight[weight_values][0], weight_values] = self.weight[weight_values][0]
+                data.loc[data[weight_values] > self.weight[weight_values][1], weight_values] = self.weight[weight_values][1]
+
+                feature_name = weight_values+'_Is_Outliers_'+self.method
+                data[feature_name] = 0
+                data.loc[
+                    (data[weight_values] < self.weight[weight_values][0]) | (data[weight_values] > self.weight[weight_values][1]), \
+                    feature_name
+                    ] = 1
+
+            elif self.method == 'z_score':
+                filtered_entries = self.get_z_score(
+                    self.weight[weight_values][0], 
+                    self.weight[weight_values][1], 
+                    data, 
+                    weight_values, 
+                    threshold=self.threshold
+                    )
+                data.loc[filtered_entries, weight_values] = data[weight_values].median()
+
+                feature_name = weight_values+'_Is_Outliers_'+self.method
+                data[feature_name] = 0
+                data.loc[filtered_entries, feature_name] = 1
+
+        return data
+
+    def fit_transform(self, data, cols=None) -> pd.DataFrame:
+        """Fit and transforms the dataset.
+        Args:
+            data (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            pandas.Dataframe of shape = (n_train, n_features)
+                The dataset.
+        """
+        self.fit(data, cols)
+
+        return self.transform(data)
+
+
 class DataPrepare(object):
     """
     Сlass for cleaning, encoding and processing your dataset
     """
+    clean_outliers_enc = None
+    binary_encoder = None
+    clean_nan_encoder = None
+    cat_clean_ord_encoder = None
+    fit_cat_encoders={}
+
     def __init__(self, 
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_names=['HelmertEncoder','CountEncoder'],
+                cat_encoder_names=['HelmertEncoder','OneHotEncoder'],
                 clean_nan=True,
+                clean_outliers=True,
+                outliers_threshold=2,
                 drop_invariant=True,
-                num_generator_features=False,
+                num_generator_features=True,
                 operations_num_generator=['/','*','-',],
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
@@ -123,18 +308,14 @@ class DataPrepare(object):
         self.verbose = verbose
         self._clean_and_encod_data = clean_and_encod_data
         self._clean_nan = clean_nan
+        self._clean_outliers = clean_outliers
+        self._outliers_threshold = outliers_threshold
         self._drop_invariant = drop_invariant
         self._num_generator_features = num_generator_features
         self._operations_num_generator = operations_num_generator
         self._normalization = normalization
         self._reduce_memory = reduce_memory
         self.cat_features = cat_features
-
-        self.binary_encoder = None
-        self.clean_nan_encoder = None
-        self.cat_clean_ord_encoder = None
-
-        self.fit_cat_encoders={}
 
     def check_data_format(self, data):
         """
@@ -261,7 +442,7 @@ class DataPrepare(object):
 
             self.binary_encoder = OrdinalEncoder()
             self.binary_encoder = self.binary_encoder.fit(data[self.binary_features])
-            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0).astype('category')
+            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0)
             
 
         ########### Categorical Features ######################
@@ -273,6 +454,11 @@ class DataPrepare(object):
                 self.cat_clean_ord_encoder = OrdinalEncoder()
                 self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
                 data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
+
+                self.cat_clean_count_encoder = CountEncoder()
+                self.cat_clean_count_encoder = self.cat_clean_count_encoder.fit(data[self.object_features])
+                data[self.object_features] = self.cat_clean_count_encoder.transform(data[self.object_features])
+
 
 
             # Encode Categorical Features
@@ -295,20 +481,27 @@ class DataPrepare(object):
 
                 data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
-                data_encodet = reduce_mem_usage(data_encodet)
+                if self._reduce_memory: 
+                    data_encodet = reduce_mem_usage(data_encodet)
                 if self.verbose > 0:
                     print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
                 data = data.join(data_encodet.reset_index(drop=True))
 
         ########### Numerical Features ######################
+        # CleanOutliers
+        if self._clean_outliers:
+            if self.verbose:
+                print('> CleanOutliers',)
+            self.clean_outliers_enc = CleanOutliers(threshold=self._outliers_threshold, verbose=self.verbose)
+            self.clean_outliers_enc = self.clean_outliers_enc.fit(data, cols=self.num_features)
+            data = self.clean_outliers_enc.transform(data)
 
         # CleanNans
         if self._clean_nan:
             if self.check_num_nans(data):
-                self.clean_nan_encoder = CleanNans()
+                self.clean_nan_encoder = CleanNans(verbose=self.verbose)
                 self.clean_nan_encoder = self.clean_nan_encoder.fit(data[self.num_features])
-                if self._reduce_memory:
-                    data = self.clean_nan_encoder.transform(data)
+                data = self.clean_nan_encoder.transform(data)
                 if self.verbose:
                     print('> CleanNans, total nans columns:', \
                         len(self.clean_nan_encoder.nan_columns))
@@ -323,7 +516,7 @@ class DataPrepare(object):
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
                                                             self.num_features,
-                                                            operations=self._num_generator_features,)
+                                                            operations=self._operations_num_generator,)
                 if self._reduce_memory:
                     fe_df = reduce_mem_usage(fe_df)
                 data = data.join(fe_df.reset_index(drop=True))
@@ -331,7 +524,7 @@ class DataPrepare(object):
                     print(' ADD features:', fe_df.shape[1],)
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
-        data.fillna(data.median(), inplace=True)
+        data.fillna(0, inplace=True)
 
         ########### Normalization ######################
 
@@ -383,7 +576,7 @@ class DataPrepare(object):
         ########### Binary Features ######################
         
         if self.binary_encoder:
-            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0).astype('category')
+            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0)
             if self.verbose:
                 print('> Clean Binary Features')
 
@@ -394,6 +587,7 @@ class DataPrepare(object):
                 if self.verbose > 0:
                     print('> Clean Categorical Features')
                 data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
+                data[self.object_features] = self.cat_clean_count_encoder.transform(data[self.object_features])
 
             # Encode Categorical Features
             if self.verbose > 0:
@@ -409,6 +603,10 @@ class DataPrepare(object):
         
 
         ########### Numerical Features ######################
+        # CleanOutliers
+        if self._clean_outliers:
+            data = self.clean_outliers_enc.transform(data)
+
         # CleanNans
         if self.clean_nan_encoder:
             data = self.clean_nan_encoder.transform(data)
@@ -422,7 +620,7 @@ class DataPrepare(object):
                     print('> Generate interaction Num Features')
                 fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
                                                             self.num_features,
-                                                            operations=self._num_generator_features,)
+                                                            operations=self._operations_num_generator,)
                 if self._reduce_memory:
                     fe_df = reduce_mem_usage(fe_df)
                 data = data.join(fe_df.reset_index(drop=True))
@@ -460,7 +658,6 @@ class DataPrepare(object):
     def load(self, name):
         return(pickle.load(open(name+'.pkl', 'rb')))
 
-    
 
 def reduce_mem_usage(df, verbose=0):
     """ iterate through all the columns of a dataframe and modify the data type
@@ -473,7 +670,7 @@ def reduce_mem_usage(df, verbose=0):
     for col in df.columns:
         col_type = df[col].dtype
         
-        if col_type != object:
+        if (str(col_type)[:3] == 'int') or (str(col_type)[:5] == 'float'):
             c_min = df[col].min()
             c_max = df[col].max()
             if str(col_type)[:3] == 'int':
@@ -492,8 +689,6 @@ def reduce_mem_usage(df, verbose=0):
                     df[col] = df[col].astype(np.float32)
                 else:
                     df[col] = df[col].astype(np.float64)
-        else:
-            df[col] = df[col].astype('category')
 
     if verbose > 0:
         end_mem = df.memory_usage().sum() / 1024**2
