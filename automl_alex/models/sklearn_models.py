@@ -113,13 +113,6 @@ class LinearModel(ModelBase):
             raise Exception("Model cannot predict probability distribution")
         return self.model.predict_proba(X)[:, 1]
 
-    def _is_possible_feature_importance(self):
-        """
-        Return:
-            bool, whether model can predict proba
-        """
-        return False
-
 
 class LogisticRegressionClassifier(LinearModel):
     type_of_estimator='classifier'

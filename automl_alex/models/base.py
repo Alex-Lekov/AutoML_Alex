@@ -5,6 +5,7 @@ import time
 import optuna
 from tqdm import tqdm
 import pickle
+import joblib
 
 import sklearn
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
@@ -366,6 +367,18 @@ class ModelBase(object):
         return(self)
 
 
+    def metric_direction_detected(self, metric, y):
+        zero_y = np.zeros(len(y))
+        zero_score = metric(y, zero_y)
+        best_score = metric(y, y)
+
+        if best_score > zero_score:
+            direction = 'maximize'
+        else:
+            direction = 'minimize'
+        return(direction)
+
+
     def _opt_feature_selector(self, columns, trial):
         """
         Description of _opt_feature_selector
@@ -403,9 +416,9 @@ class ModelBase(object):
         Returns:
             history_trials_dataframe (pd.DataFrame)
         """
-        # X
-        #X=self._data.X_train
+
         # time model
+        time.sleep(0.1)
         start_time = time.time()
         score, score_std = self.cross_validation(X=X, y=y, folds=self._folds, score_folds=1, print_metric=False,)
         iter_time = (time.time() - start_time)
@@ -548,7 +561,6 @@ class ModelBase(object):
             timeout=200, # optimization time in seconds
             metric=None,
             metric_round=4,
-            direction=None,
             combined_score_opt=False,
             iterations=None,
             cold_start=30,
@@ -578,8 +590,10 @@ class ModelBase(object):
         Returns:
             history_trials (pd.DataFrame)
         """
+
         if metric is not None:
             self.metric = metric
+            self.direction = self.metric_direction_detected(self.metric, y)
         else:
             if self.type_of_estimator == 'classifier':
                 self.metric = sklearn.metrics.roc_auc_score
@@ -587,12 +601,6 @@ class ModelBase(object):
             elif self.type_of_estimator == 'regression':
                 self.metric = sklearn.metrics.mean_squared_error
                 self.direction = 'minimize'
-
-        if direction is not None:
-            self.direction = direction
-
-        if self.direction is None:
-            raise Exception('Need direction for optimize!')
 
         print(self.type_of_estimator,
             'optimize:',self.direction)
@@ -673,11 +681,11 @@ class ModelBase(object):
         return(optuna.visualization.plot_slice(self.study, params=params))
     
     def save(self, name):
-        pickle.dump(self, open(name+'.pkl', 'wb'), protocol=4)
+        joblib.dump(self, name+'.pkl')
         print('Save Model')
 
     def load(self, name):
-        return(pickle.load(open(name+'.pkl', 'rb')))
+        return(joblib.load(name+'.pkl'))
     
 
 

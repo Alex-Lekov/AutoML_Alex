@@ -278,7 +278,7 @@ class DataPrepare(object):
     def __init__(self, 
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_names=['HelmertEncoder','OneHotEncoder'],
+                cat_encoder_names=['HelmertEncoder',],
                 clean_nan=True,
                 clean_outliers=True,
                 outliers_threshold=2,
@@ -287,7 +287,7 @@ class DataPrepare(object):
                 operations_num_generator=['/','*','-',],
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
-                normalization=True,
+                normalization=False,
                 reduce_memory=True,
                 random_state=42,
                 verbose=1):
@@ -446,21 +446,21 @@ class DataPrepare(object):
             
 
         ########### Categorical Features ######################
+        #if self.cat_features is not None:
+        # Clean Categorical Features
+        if self.object_features is not None:
+            if self.verbose > 0:
+                    print('> Clean Categorical Features')
+            self.cat_clean_ord_encoder = OrdinalEncoder()
+            self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
+            data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
+
+            self.cat_clean_count_encoder = CountEncoder()
+            self.cat_clean_count_encoder = self.cat_clean_count_encoder.fit(data[self.object_features])
+            data[self.object_features] = self.cat_clean_count_encoder.transform(data[self.object_features])
+
+
         if self.cat_features is not None:
-            # Clean Categorical Features
-            if self.object_features is not None:
-                if self.verbose > 0:
-                        print('> Clean Categorical Features')
-                self.cat_clean_ord_encoder = OrdinalEncoder()
-                self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
-                data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
-
-                self.cat_clean_count_encoder = CountEncoder()
-                self.cat_clean_count_encoder = self.cat_clean_count_encoder.fit(data[self.object_features])
-                data[self.object_features] = self.cat_clean_count_encoder.transform(data[self.object_features])
-
-
-
             # Encode Categorical Features
             if self.verbose > 0:
                     print('> Transform Categorical Features.')
@@ -524,7 +524,8 @@ class DataPrepare(object):
                     print(' ADD features:', fe_df.shape[1],)
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
-        data.fillna(0, inplace=True)
+        self.data_median_dict = data.median()
+        data.fillna(self.data_median_dict, inplace=True)
 
         ########### Normalization ######################
 
@@ -548,7 +549,8 @@ class DataPrepare(object):
             data = reduce_mem_usage(data, verbose=self.verbose)
         return data
 
-    def transform(self, data) -> pd.DataFrame:
+
+    def transform(self, data, verbose=None) -> pd.DataFrame:
         """Transform dataset.
         Args:
             data (pd.DataFrame, shape = (n_samples, n_features)): 
@@ -557,6 +559,9 @@ class DataPrepare(object):
             data (pd.Dataframe, shape = (n_train, n_features)):
                 The dataset with clean numerical and encoded categorical features.
         """
+        if verbose is not None:
+            self.verbose = verbose
+
         ########### check_data_format ######################
         self.check_data_format(data)
 
@@ -628,7 +633,7 @@ class DataPrepare(object):
                     print(' ADD features:', fe_df.shape[1],)
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
-        data.fillna(0, inplace=True)
+        data.fillna(self.data_median_dict, inplace=True)
 
         ########### Normalization ######################
 
@@ -676,16 +681,16 @@ def reduce_mem_usage(df, verbose=0):
             if str(col_type)[:3] == 'int':
                 if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
                     df[col] = df[col].astype(np.int8)
-                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
-                    df[col] = df[col].astype(np.int16)
+                #elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                #    df[col] = df[col].astype(np.int16)
                 elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
                     df[col] = df[col].astype(np.int32)
                 elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
                     df[col] = df[col].astype(np.int64)  
             else:
-                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
-                    df[col] = df[col].astype(np.float16)
-                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                #if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                #    df[col] = df[col].astype(np.float16)
+                if c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
                     df[col] = df[col].astype(np.float32)
                 else:
                     df[col] = df[col].astype(np.float64)

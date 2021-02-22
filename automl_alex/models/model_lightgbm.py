@@ -30,7 +30,7 @@ class LightGBM(ModelBase):
         return(model_param)
 
 
-    def fit(self, X_train=None, y_train=None,):
+    def fit(self, X_train=None, y_train=None, model_param=None):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -39,11 +39,12 @@ class LightGBM(ModelBase):
             self (Class)
         """
         dtrain = lgb.Dataset(X_train, y_train,)
-        params = self.model_param.copy()
-        num_iterations = params.pop('num_iterations')
+        if model_param is None:
+            model_param = self.model_param.copy()
+        num_iterations = model_param.pop('num_iterations')
 
         self.model = lgb.train(
-            params, 
+            model_param, 
             dtrain, 
             num_boost_round=num_iterations,
             )
