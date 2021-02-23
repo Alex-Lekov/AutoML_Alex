@@ -17,7 +17,7 @@ class LightGBM(ModelBase):
         Default model_param
         """
         model_param = {'random_seed': self._random_state,
-                            'num_iterations': 300,
+                            'num_iterations': 500,
                             'verbose': -1,
                             'device_type': 'gpu' if self._gpu else 'cpu',
                             }
@@ -38,6 +38,7 @@ class LightGBM(ModelBase):
         Return:
             self (Class)
         """
+        y_train = self.y_format(y_train)
         dtrain = lgb.Dataset(X_train, y_train,)
         if model_param is None:
             model_param = self.model_param.copy()
@@ -133,7 +134,7 @@ class LightGBM(ModelBase):
         if opt_lvl == 2:
             model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 11)/100
             model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50,)
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 5,)*100
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 3, 10,)*100
 
         if opt_lvl >= 2:
             model_param['bagging_fraction'] = trial.suggest_discrete_uniform('lgbm_bagging_fraction', 0.4, 1., 0.1)
@@ -144,7 +145,7 @@ class LightGBM(ModelBase):
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
             model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 100)/1000
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 11,)*100
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 5,)*1000
         
         if opt_lvl >= 3:
             model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100,)

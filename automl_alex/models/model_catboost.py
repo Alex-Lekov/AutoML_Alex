@@ -108,6 +108,7 @@ class CatBoost(ModelBase):
         Return:
             self (Class)
         """
+        y_train = self.y_format(y_train)
         train_pool = Pool(X_train, label=y_train,)
 
         params = self.model_param.copy()

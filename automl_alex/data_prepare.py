@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 from itertools import combinations
-import pickle
+import joblib
 import gc
+from pathlib import Path
+import shutil
 
 from .encoders import *
 from sklearn.preprocessing import StandardScaler
@@ -278,16 +280,17 @@ class DataPrepare(object):
     def __init__(self, 
                 cat_features=None,
                 clean_and_encod_data=True,
-                cat_encoder_names=['HelmertEncoder',],
+                cat_encoder_names=['HelmertEncoder','CountEncoder'],
                 clean_nan=True,
                 clean_outliers=True,
+                outliers_method='IQR', # method : ['IQR', 'z_score',]
                 outliers_threshold=2,
                 drop_invariant=True,
                 num_generator_features=True,
                 operations_num_generator=['/','*','-',],
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
-                normalization=False,
+                normalization=True,
                 reduce_memory=True,
                 random_state=42,
                 verbose=1):
@@ -311,6 +314,7 @@ class DataPrepare(object):
         self._clean_outliers = clean_outliers
         self._outliers_threshold = outliers_threshold
         self._drop_invariant = drop_invariant
+        self._outliers_method = outliers_method
         self._num_generator_features = num_generator_features
         self._operations_num_generator = operations_num_generator
         self._normalization = normalization
@@ -455,10 +459,6 @@ class DataPrepare(object):
             self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
             data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
 
-            self.cat_clean_count_encoder = CountEncoder()
-            self.cat_clean_count_encoder = self.cat_clean_count_encoder.fit(data[self.object_features])
-            data[self.object_features] = self.cat_clean_count_encoder.transform(data[self.object_features])
-
 
         if self.cat_features is not None:
             # Encode Categorical Features
@@ -492,7 +492,10 @@ class DataPrepare(object):
         if self._clean_outliers:
             if self.verbose:
                 print('> CleanOutliers',)
-            self.clean_outliers_enc = CleanOutliers(threshold=self._outliers_threshold, verbose=self.verbose)
+            self.clean_outliers_enc = CleanOutliers(
+                threshold=self._outliers_threshold, 
+                method=self._outliers_method,
+                verbose=self.verbose)
             self.clean_outliers_enc = self.clean_outliers_enc.fit(data, cols=self.num_features)
             data = self.clean_outliers_enc.transform(data)
 
@@ -528,15 +531,22 @@ class DataPrepare(object):
         data.fillna(self.data_median_dict, inplace=True)
 
         ########### Normalization ######################
-
-        # Normalization Data
         if self._normalization:
             if self.verbose > 0:
                 print('> Normalization Features')
-            columns_name = data.columns.values
-            self.scaler = StandardScaler().fit(data)
-            data = self.scaler.transform(data)
-            data = pd.DataFrame(data, columns=columns_name)
+            self.normalization_features = data.columns[data.nunique(dropna=False) > 2].values
+            self.scaler = StandardScaler().fit(data[self.normalization_features])
+            data_tmp = self.scaler.transform(data[self.normalization_features])
+            data_tmp = pd.DataFrame(data_tmp, columns=self.normalization_features)
+            data[self.normalization_features] = data_tmp
+            data_tmp = None
+
+        ########### reduce_mem_usage ######################
+        if self._reduce_memory:
+            if self.verbose > 0:
+                print('> Reduce_Memory')
+            data = reduce_mem_usage(data, verbose=self.verbose)
+        data.fillna(0, inplace=True)
 
         ########### Final ######################
         if self.verbose > 0:
@@ -544,9 +554,7 @@ class DataPrepare(object):
             print('#'*50)
             print('Final data shape: ', data.shape,)
             print('Total ADD columns:', end_columns-start_columns)
-        # reduce_mem_usage
-        if self._reduce_memory:
-            data = reduce_mem_usage(data, verbose=self.verbose)
+            print('#'*50)
         return data
 
 
@@ -586,14 +594,13 @@ class DataPrepare(object):
                 print('> Clean Binary Features')
 
         ########### Categorical Features ######################
+        # Clean Categorical Features
+        if self.object_features is not None:
+            if self.verbose > 0:
+                print('> Clean Categorical Features')
+            data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
+        
         if self.cat_features is not None:
-            # Clean Categorical Features
-            if self.object_features is not None:
-                if self.verbose > 0:
-                    print('> Clean Categorical Features')
-                data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
-                data[self.object_features] = self.cat_clean_count_encoder.transform(data[self.object_features])
-
             # Encode Categorical Features
             if self.verbose > 0:
                 print('> Transform Categorical Features.')
@@ -605,7 +612,6 @@ class DataPrepare(object):
                 if self.verbose > 0:
                     print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
                 data = data.join(data_encodet.reset_index(drop=True))
-        
 
         ########### Numerical Features ######################
         # CleanOutliers
@@ -636,14 +642,20 @@ class DataPrepare(object):
         data.fillna(self.data_median_dict, inplace=True)
 
         ########### Normalization ######################
-
-        # Normalization Data
         if self._normalization:
             if self.verbose > 0:
                 print('> Normalization Features')
-            columns_name = data.columns.values
-            data = self.scaler.transform(data)
-            data = pd.DataFrame(data, columns=columns_name)
+            data_tmp= self.scaler.transform(data[self.normalization_features])
+            data_tmp = pd.DataFrame(data_tmp, columns=self.normalization_features)
+            data[self.normalization_features] = data_tmp
+            data_tmp=None
+
+        ########### reduce_mem_usage ######################
+        if self._reduce_memory:
+            if self.verbose > 0:
+                print('> Reduce_Memory')
+            data = reduce_mem_usage(data, verbose=self.verbose)
+        data.fillna(0, inplace=True)
 
         ########### Final ######################
         if self.verbose > 0:
@@ -651,17 +663,39 @@ class DataPrepare(object):
             print('#'*50)
             print('Final data shape: ', data.shape,)
             print('Total ADD columns:', end_columns-start_columns)
-        # reduce_mem_usage
-        if self._reduce_memory:
-            data = reduce_mem_usage(data, verbose=self.verbose)
+            print('#'*50)
         return data
 
-    def save(self, name):
-        pickle.dump(self, open(name+'.pkl', 'wb'), protocol=4)
+
+    def save(self, name='DataPrepare_dump', dir='./'):
+        dir_tmp = "./DataPrepare_tmp/"
+        Path(dir_tmp).mkdir(parents=True, exist_ok=True)
+        for cat_encoder_name in self.cat_encoder_names:
+            joblib.dump(self.fit_cat_encoders[cat_encoder_name], \
+                dir_tmp+cat_encoder_name+'.pkl')
+
+        joblib.dump(self, dir_tmp+'DataPrepare'+'.pkl')
+
+        shutil.make_archive(dir+name, 'zip', dir_tmp)
+
+        shutil.rmtree(dir_tmp)
         print('Save DataPrepare')
 
-    def load(self, name):
-        return(pickle.load(open(name+'.pkl', 'rb')))
+
+    def load(self, name='DataPrepare_dump', dir='./'):
+        dir_tmp = "DataPrepare_tmp/"
+        Path(dir_tmp).mkdir(parents=True, exist_ok=True)
+
+        shutil.unpack_archive(dir+name+'.zip', dir_tmp)
+
+        de = joblib.load(dir_tmp+'DataPrepare'+'.pkl')
+
+        for cat_encoder_name in de.cat_encoder_names:
+            de.fit_cat_encoders[cat_encoder_name] = joblib.load(dir_tmp+cat_encoder_name+'.pkl')
+
+        shutil.rmtree(dir_tmp)
+        print('Load DataPrepare')
+        return(de)
 
 
 def reduce_mem_usage(df, verbose=0):

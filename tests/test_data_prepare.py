@@ -48,6 +48,7 @@ def test_default(get_data):
 def test_default_datasets(get_data):
     for data_id in [179,1461,31,1471,151,1067,1046,1489,1494]:
         dataset = fetch_openml(data_id=data_id, as_frame=True)
+        print(' !!! ID DATASET:', data_id)
         X_train, X_test, y_train, y_test = train_test_split(dataset.data, 
                                                             dataset.target,
                                                             test_size=0.2, 
@@ -63,6 +64,36 @@ def test_default_datasets(get_data):
         assert isinstance(c_test, pd.DataFrame)
         assert not c_test.empty
         assert not (c_test.isnull().any().any())
+
+def test_save_load(get_data):
+    for data_id in [179,1461,31,1471,151,1067,1046,1489,1494]:
+        dataset = fetch_openml(data_id=data_id, as_frame=True)
+        X_train, X_test, y_train, y_test = train_test_split(dataset.data, 
+                                                            dataset.target,
+                                                            test_size=0.2, 
+                                                            random_state=RANDOM_SEED,)
+
+        de = DataPrepare()
+        X_train = de.fit_transform(X_train)
+        assert isinstance(X_train, pd.DataFrame)
+        assert not X_train.empty
+        assert not (X_train.isnull().any().any())
+
+        c_test = de.transform(X_test)
+        assert isinstance(c_test, pd.DataFrame)
+        assert not c_test.empty
+        assert not (c_test.isnull().any().any())
+
+        de.save('de')
+        de = None
+        de_new = DataPrepare()
+        de_new = de_new.load('de')
+
+        c_test_new = de_new.transform(X_test)
+        assert isinstance(c_test_new, pd.DataFrame)
+        assert not c_test_new.empty
+        assert not (c_test_new.isnull().any().any())
+
 
 def test_encoders(get_data):
     X_train, X_test = get_data

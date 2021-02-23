@@ -8,7 +8,7 @@ simplefilter("ignore", category=ConvergenceWarning)
 filterwarnings("ignore", category=ConvergenceWarning, message="^Maximum number of iteration reached")
 filterwarnings("ignore", category=ConvergenceWarning, message="^Liblinear failed to converge")
 simplefilter("ignore", category=DataConversionWarning)
-        
+
 
 ################################## LinearModel ##########################################################
 
@@ -78,6 +78,7 @@ class LinearModel(ModelBase):
         Return:
             self (Class)
         """
+        y_train = self.y_format(y_train)
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
         return self
@@ -478,7 +479,6 @@ class RandomForestRegressor(RandomForest):
 
 
 ########################################### ExtraTrees #####################################################
-
 
 class ExtraTrees(RandomForest):
     """

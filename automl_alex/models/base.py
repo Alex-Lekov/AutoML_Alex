@@ -78,7 +78,7 @@ class ModelBase(object):
         raise NotImplementedError("Pure virtual class.")
 
 
-    def _is_possible_predict_proba(self):
+    def is_possible_predict_proba(self):
         """
         Return:
             bool, whether model can predict proba
@@ -95,6 +95,12 @@ class ModelBase(object):
             np.array, shape (n_samples, n_classes): predicted probabilities
         """
         raise NotImplementedError("Pure virtual class.")
+
+    def y_format(self, y):
+        if isinstance(y, pd.DataFrame):
+            y = np.array(y[y.columns[0]].values)
+        return y
+
 
 
     def cross_validation(

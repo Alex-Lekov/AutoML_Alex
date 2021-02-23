@@ -6,6 +6,7 @@ import joblib
 from .models import *
 from .data_prepare import *
 from .encoders import *
+from pathlib import Path
 
 
 ##################################### BestSingleModel ################################################
@@ -163,7 +164,8 @@ class AutoML(object):
         start_step_1 = time.time()
 
         self.de = DataPrepare(
-            cat_encoder_names=['OneHotEncoder',],
+            cat_encoder_names=['HelmertEncoder','CountEncoder','HashingEncoder'],
+            #outliers_threshold=3,
             normalization=False,
             random_state=self._random_state, 
             verbose=verbose
@@ -176,6 +178,8 @@ class AutoML(object):
         # STEP 2
         # Model 1
         start_step_2 = time.time()
+        if verbose > 0:
+            print('> Start Fit Base Models')
 
         self.model_1 = CatBoost(
             type_of_estimator=self.type_of_estimator, 
@@ -183,14 +187,14 @@ class AutoML(object):
             gpu=self._gpu,
             )
         self.model_1 = self.model_1.fit(X, y)
-        #self.model_1.save('model_1')
 
         total_step_2 = (time.time() - start_step_2)
 
+
         ####################################################
         # STEP 3
-        # Model 3
-        start_step_4 = time.time()
+        # Model 4
+        start_step_3 = time.time()
         if verbose > 0:
             print(50*'#')
             print('> Start Opt Model')
@@ -198,7 +202,7 @@ class AutoML(object):
         time_to_opt = (timeout - (time.time()-start_step_1)) - 60
         time.sleep(0.1)
 
-        self.model_3 = LightGBM(
+        self.model_4 = LightGBM(
             type_of_estimator=self.type_of_estimator, 
             random_state=self._random_state,
             gpu=self._gpu,
@@ -219,52 +223,46 @@ class AutoML(object):
                 'verbose':verbose}
 
         try:
-            history = self.model_3.opt(**params)
+            history = self.model_4.opt(**params)
             
-            self._select_features_model_3 = history['columns'].iloc[0]
-            self.best_params_model_3 = history['model_param'].iloc[0]
+            self._select_features_model_4 = list(history['columns'].iloc[0].values)
+            self.best_params_model_4 = history['model_param'].iloc[0]
 
         except:
-            self._select_features_model_3 = X.columns
-            self.best_params_model_3 = self.model_3._init_default_model_param()
+            self._select_features_model_4 = list(X.columns.values)
+            self.best_params_model_4 = self.model_4._init_default_model_param()
             print("Not enough time to find the optimal parameters. \n \
                     Please, Increase the 'timeout' parameter for normal optimization.")
 
-        self.model_3 = LightGBM(
+        self.model_4 = LightGBM(
             type_of_estimator=self.type_of_estimator, 
             random_state=self._random_state,
             gpu=self._gpu,
             )
-        self.model_3.model_param = self.best_params_model_3
-        self.model_3 = self.model_3.fit(X[self._select_features_model_3], y, model_param=self.best_params_model_3)
+        self.model_4.model_param = self.best_params_model_4
+        self.model_4 = self.model_4.fit(X[self._select_features_model_4], y, model_param=self.best_params_model_4)
 
-        total_step_4 = (time.time() - start_step_4)
+        total_step_3 = (time.time() - start_step_3)
 
+        
         ####################################################
         # STEP 4
-        # Model 4-5
-        start_step_5 = time.time()
-        time.sleep(0.1)
+        # Model 2 - 3
+        self.scaler = StandardScaler().fit(X)
+        X = self.scaler.transform(X)
 
-        columns_names = X.columns.values
-        self._scaler = StandardScaler().fit(X)
-        X = self._scaler.transform(X)
-        X = pd.DataFrame(X, columns=columns_names)
-        time.sleep(0.1)
-        
-        self.model_4 = LinearModel(
+        # self.model_2 = LinearModel(
+        #     type_of_estimator=self.type_of_estimator, 
+        #     random_state=self._random_state,
+        #     )
+        # self.model_2 = self.model_2.fit(X, y)
+
+        # Model 3
+        self.model_3 = MLP(
             type_of_estimator=self.type_of_estimator, 
             random_state=self._random_state
             )
-        self.model_4 = self.model_4.fit(X, y)
-
-        self.model_5 = MLP(
-            type_of_estimator=self.type_of_estimator, 
-            random_state=self._random_state
-            )
-        self.model_5 = self.model_5.fit(X, y)
-
-        total_step_5 = (time.time() - start_step_5)
+        self.model_3 = self.model_3.fit(X, y)
 
         if verbose > 0:
             print(50*'#')
@@ -286,11 +284,7 @@ class AutoML(object):
         ####################################################
         # STEP 1
         # DATA PREPROC
-        start_step_1 = time.time()
-
         X = self.de.transform(X, verbose=verbose)
-
-        total_step_1 = (time.time() - start_step_1)
 
         ####################################################
         # STEP 2
@@ -298,41 +292,44 @@ class AutoML(object):
 
         if self.type_of_estimator == 'classifier':
             predict_model_1 = self.model_1.predict_proba(X)
-
-            predict_model_3 = self.model_3.predict_proba(X[self._select_features_model_3])
-
-            X = self._scaler.transform(X)
-            predict_model_4 = self.model_4.predict_proba(X)
-            predict_model_5 = self.model_5.predict_proba(X)
-
+            predict_model_4 = self.model_4.predict_proba(X[self._select_features_model_4])
+            X = self.scaler.transform(X)
+            predict_model_2 = self.model_2.predict_proba(X)
+            predict_model_3 = self.model_3.predict_proba(X)
         else:
             predict_model_1 = self.model_1.predict(X)
-
-            predict_model_3 = self.model_3.predict(X[self._select_features_model_3])
-
-            X = self._scaler.transform(X)
-            predict_model_4 = self.model_4.predict(X)
-            predict_model_5 = self.model_5.predict(X)
+            predict_model_4 = self.model_4.predict(X[self._select_features_model_4])
+            X = self.scaler.transform(X)
+            #predict_model_2 = self.model_2.predict(X)
+            predict_model_3 = self.model_3.predict(X)
 
         ####################################################
         # STEP 3
         # Blend
-        predicts = (
-            (predict_model_1*2)
-            +predict_model_3
-            +predict_model_4
-            +predict_model_5
-            )/5
+        predicts = ((predict_model_1*2)+predict_model_3+predict_model_4)/4
         return predicts
 
 
-    # def save(self, name):
-    #     joblib.dump(self, name+'.pkl')
-    #     print('Save Model')
+    def save(self, name='AutoML_dump', dir='./'):
+        dir_tmp = dir+"AutoML_tmp/"
+        Path(dir_tmp).mkdir(parents=True, exist_ok=True)
+        self.de.save(name='DataPrepare_dump', dir=dir_tmp)
+        joblib.dump(self, dir_tmp+'AutoML'+'.pkl')
+        shutil.make_archive(dir+name, 'zip', dir_tmp)
+        shutil.rmtree(dir_tmp)
+        print('Save AutoML')
 
 
-    # def load(self, name):
-    #     return(joblib.load(name+'.pkl'))
+    def load(self, name='AutoML_dump', dir='./'):
+        dir_tmp = dir+"AutoML_tmp/"
+        Path(dir_tmp).mkdir(parents=True, exist_ok=True)
+        shutil.unpack_archive(dir+name+'.zip', dir_tmp)
+        model = joblib.load(dir_tmp+'AutoML'+'.pkl')
+        model.de = DataPrepare()
+        model.de = model.de.load('DataPrepare_dump', dir=dir_tmp)
+        shutil.rmtree(dir_tmp)
+        print('Load AutoML')
+        return(model)
 
 
 class AutoMLClassifier(AutoML):
