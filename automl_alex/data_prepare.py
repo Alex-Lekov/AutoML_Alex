@@ -667,7 +667,7 @@ class DataPrepare(object):
         return data
 
 
-    def save(self, name='DataPrepare_dump', dir='./'):
+    def save(self, name='DataPrepare_dump', folder='./'):
         dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         for cat_encoder_name in self.cat_encoder_names:
@@ -676,17 +676,17 @@ class DataPrepare(object):
 
         joblib.dump(self, dir_tmp+'DataPrepare'+'.pkl')
 
-        shutil.make_archive(dir+name, 'zip', dir_tmp)
+        shutil.make_archive(folder+name, 'zip', dir_tmp)
 
         shutil.rmtree(dir_tmp)
         print('Save DataPrepare')
 
 
-    def load(self, name='DataPrepare_dump', dir='./'):
-        dir_tmp = "DataPrepare_tmp/"
+    def load(self, name='DataPrepare_dump', folder='./'):
+        dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
 
-        shutil.unpack_archive(dir+name+'.zip', dir_tmp)
+        shutil.unpack_archive(folder+name+'.zip', dir_tmp)
 
         de = joblib.load(dir_tmp+'DataPrepare'+'.pkl')
 

@@ -31,9 +31,9 @@ def data_prepare(data):
     return(data)
 
 
-def load_model(model_name, dir):
+def load_model(model_name, folder):
     model = AutoMLClassifier()
-    model = model.load(model_name, dir=dir)
+    model = model.load(model_name, folder=folder)
     return(model)
 
 
