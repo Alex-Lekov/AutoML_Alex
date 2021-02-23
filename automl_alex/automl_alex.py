@@ -190,7 +190,6 @@ class AutoML(object):
 
         total_step_2 = (time.time() - start_step_2)
 
-
         ####################################################
         # STEP 3
         # Model 4
@@ -244,7 +243,6 @@ class AutoML(object):
 
         total_step_3 = (time.time() - start_step_3)
 
-        
         ####################################################
         # STEP 4
         # Model 2 - 3
@@ -310,23 +308,23 @@ class AutoML(object):
         return predicts
 
 
-    def save(self, name='AutoML_dump', dir='./'):
-        dir_tmp = dir+"AutoML_tmp/"
+    def save(self, name='AutoML_dump', folder='./'):
+        dir_tmp = folder+"AutoML_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
-        self.de.save(name='DataPrepare_dump', dir=dir_tmp)
+        self.de.save(name='DataPrepare_dump', folder=dir_tmp)
         joblib.dump(self, dir_tmp+'AutoML'+'.pkl')
         shutil.make_archive(dir+name, 'zip', dir_tmp)
         shutil.rmtree(dir_tmp)
         print('Save AutoML')
 
 
-    def load(self, name='AutoML_dump', dir='./'):
-        dir_tmp = dir+"AutoML_tmp/"
+    def load(self, name='AutoML_dump', folder='./'):
+        dir_tmp = folder+"AutoML_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         shutil.unpack_archive(dir+name+'.zip', dir_tmp)
         model = joblib.load(dir_tmp+'AutoML'+'.pkl')
         model.de = DataPrepare()
-        model.de = model.de.load('DataPrepare_dump', dir=dir_tmp)
+        model.de = model.de.load('DataPrepare_dump', folder=dir_tmp)
         shutil.rmtree(dir_tmp)
         print('Load AutoML')
         return(model)
