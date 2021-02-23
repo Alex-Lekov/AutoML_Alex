@@ -1,0 +1,9 @@
+version: '3.3'
+services:
+  automl:
+    build: .
+    restart: "no"
+    volumes:
+    - ./:/opt/automl/
+    working_dir: /opt/automl/
+    command: python3 -u ./main.py

@@ -7,7 +7,7 @@ from .base import *
 all_models = {
         'LightGBM': LightGBM,
         'KNeighbors': KNeighbors,
-        'LinearSVM': LinearSVM,
+        #'LinearSVM': LinearSVM,
         'LinearModel': LinearModel,
         'SGD': SGD,
         'RandomForest': RandomForest,

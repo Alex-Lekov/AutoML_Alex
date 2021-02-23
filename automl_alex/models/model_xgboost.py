@@ -11,27 +11,15 @@ class XGBoost(ModelBase):
     """
     __name__ = 'XGBoost'
 
-    def _init_default_wrapper_params(self,):
-        """
-        Default wrapper_params
-        """
-        wrapper_params = {
-            'early_stopping':False,
-            }
-        return(wrapper_params)
-
     def _init_default_model_param(self,):
         """
         Default model_param
         """
         model_param = {
                         'verbosity': 0,
-                        'early_stopping_rounds': 100,
-                        'n_estimators': 200,
+                        'n_estimators': 300,
                         'random_state': self._random_state,
                         }
-        if self.wrapper_params['early_stopping']:
-            model_param['n_estimators'] = 1000
         return(model_param)
 
     def _init_model(self, model_param=None):
@@ -47,12 +35,12 @@ class XGBoost(ModelBase):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, model, opt_lvl, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
         """
         Return:
             dict of DistributionWrappers
         """
-        model_param = model._init_default_model_param()
+        model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
         if opt_lvl == 1:
             model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 2, 8,)
@@ -73,8 +61,8 @@ class XGBoost(ModelBase):
             model_param['booster'] = trial.suggest_categorical('xgb_booster', ['gbtree', 'dart', 'gblinear'])
             
             if model_param['booster'] == 'dart' or model_param['booster'] == 'gbtree':
-                if len(model._data.X_train) > 1000:
-                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, (len(model._data.X_train)//100))
+                if len_data > 1000:
+                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, (len_data//100))
                 else:
                     model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, 10)
                 model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 1, 20)
@@ -88,12 +76,11 @@ class XGBoost(ModelBase):
                 model_param['rate_drop'] = trial.suggest_loguniform('xgb_rate_drop', 1e-8, 1.0)
                 model_param['skip_drop'] = trial.suggest_loguniform('xgb_skip_drop', 1e-8, 1.0)
 
-            if not model.wrapper_params['early_stopping']:
-                model_param['n_estimators'] = trial.suggest_int('xgb_n_estimators', 1, 10,)*100
+            model_param['n_estimators'] = trial.suggest_int('xgb_n_estimators', 1, 10,)*100
 
         ################################# LVL 4 ########################################
         if opt_lvl >= 4:
-            if model.type_of_estimator == 'regression':
+            if self.type_of_estimator == 'regression':
                 model_param['objective'] = trial.suggest_categorical('xgb_objective', 
                     [
                     'reg:squarederror',
@@ -105,48 +92,32 @@ class XGBoost(ModelBase):
             model_param['regalpha_alpha'] = trial.suggest_loguniform('XG_alpha', 1e-8, 1.0)
         
         ################################# Other ########################################
-        if model.type_of_estimator == 'classifier':
-            if model.metric.__name__ not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
+        if self.type_of_estimator == 'classifier':
+            if metric_name not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
                 model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('xgb_scale_pos_weight', 0.1, 1., 0.1)
         return(model_param)
 
 
-    def _fit(self, model=None, X_train=None, y_train=None, X_test=None, y_test=None,):
+    def fit(self, X_train=None, y_train=None,):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self
+            self (Class)
         """
-        if model is None:
-            model = self
+        params = self.model_param.copy()
 
-        if (X_train is None) or (y_train is None):
-            X_train = model._data.X_train
-            y_train = model._data.y_train
+        self.model = self._init_model(model_param=params)
 
-        params = model.model_param.copy()
-        early_stopping_rounds = params.pop('early_stopping_rounds')
+        self.model.fit(
+            X_train, 
+            y_train,
+            verbose=False,
+            )
+        return self
 
-        model.model = model._init_model(model_param=params)
-        if model.wrapper_params['early_stopping'] and (X_test is not None):
-            model.model.fit(
-                X_train, 
-                y_train,
-                eval_set=(X_test, y_test,),
-                early_stopping_rounds=early_stopping_rounds,
-                verbose=False,
-                )
-        else:
-            model.model.fit(
-                X_train, 
-                y_train,
-                verbose=False,
-                )
-        return model
-
-    def _predict(self, X=None):
+    def predict(self, X=None):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
@@ -156,20 +127,11 @@ class XGBoost(ModelBase):
         if self.model is None:
             raise Exception("No fit models")
 
-        if X is None:
-            X = self._data.X_test
-
         if self.type_of_estimator == 'classifier':
-            if self.wrapper_params['early_stopping']:
-                predicts = np.round(self.model.predict(X, ntree_limit=self.model.best_ntree_limit),0)
-            else:
-                predicts = np.round(self.model.predict(X),0)
+            predicts = np.round(self.model.predict(X),0)
 
         elif self.type_of_estimator == 'regression':
-            if self.wrapper_params['early_stopping']:
-                predicts = self.model.predict(X, ntree_limit=self.model.best_ntree_limit)
-            else:
-                predicts = self.model.predict(X)
+            predicts = self.model.predict(X)
         return predicts
 
     def is_possible_predict_proba(self):
@@ -179,7 +141,7 @@ class XGBoost(ModelBase):
         """
         return True
 
-    def _predict_proba(self, X):
+    def predict_proba(self, X):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
@@ -188,18 +150,19 @@ class XGBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
-        
-        if X is None:
-            X = self._data.X_test
 
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
 
-        if self.wrapper_params['early_stopping']:
-            predicts = self.model.predict(X, ntree_limit=self.model.best_ntree_limit)
-        else:
-            predicts = self.model.predict(X)
+        predicts = self.model.predict(X)
         return predicts
+
+    def _is_possible_feature_importance(self):
+        """
+        Return:
+            bool, whether model can predict proba
+        """
+        return False
 
 
 class XGBoostClassifier(XGBoost):
