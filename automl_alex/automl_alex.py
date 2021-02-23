@@ -292,7 +292,7 @@ class AutoML(object):
             predict_model_1 = self.model_1.predict_proba(X)
             predict_model_4 = self.model_4.predict_proba(X[self._select_features_model_4])
             X = self.scaler.transform(X)
-            predict_model_2 = self.model_2.predict_proba(X)
+            #predict_model_2 = self.model_2.predict_proba(X)
             predict_model_3 = self.model_3.predict_proba(X)
         else:
             predict_model_1 = self.model_1.predict(X)

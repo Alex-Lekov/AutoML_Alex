@@ -145,7 +145,7 @@ class LightGBM(ModelBase):
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
             model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 100)/1000
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 5,)*1000
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 2, 15,)*100
         
         if opt_lvl >= 3:
             model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100,)
@@ -164,7 +164,7 @@ class LightGBM(ModelBase):
                 model_param['max_drop'] = trial.suggest_int('lgbm_max_drop', 0, 100)
                 model_param['skip_drop'] = trial.suggest_loguniform('lgbm_skip_drop', 1e-3, 1.0)
 
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 6,)*1000
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 5,)*1000
 
             if self.type_of_estimator == 'classifier':
                 model_param['objective'] = trial.suggest_categorical('lgbm_objective', 
