@@ -4,7 +4,6 @@ import sys
 import time
 import optuna
 from tqdm import tqdm
-import pickle
 import joblib
 
 import sklearn
@@ -96,6 +95,7 @@ class ModelBase(object):
         """
         raise NotImplementedError("Pure virtual class.")
 
+
     def predict_or_predict_proba(self, X):
         """
         Сheck and if it is possible get predict_proba
@@ -106,6 +106,24 @@ class ModelBase(object):
         else:
             predicts = self.predict(X)
         return(predicts)
+
+
+    def _is_possible_feature_importance(self):
+        """
+        Return:
+            bool, whether model can predict proba
+        """
+        return False
+
+
+    def get_feature_importance(self, train_x, importance_type='gain',):
+        """
+        Return:
+            list feature_importance
+        """
+        if not self._is_possible_feature_importance(): 
+            raise Exception("Model cannot get feature_importance")
+        raise NotImplementedError("Pure virtual class.")
 
 
     def score(self, 

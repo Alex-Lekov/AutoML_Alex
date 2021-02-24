@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.9-buster
 
 # Uncomment the following COPY line and the corresponding lines in the `RUN` command if you wish to
 # include your requirements in the image itself. It is suggested that you only do this if your
