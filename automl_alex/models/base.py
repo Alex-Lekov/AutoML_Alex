@@ -96,11 +96,65 @@ class ModelBase(object):
         """
         raise NotImplementedError("Pure virtual class.")
 
+
+    def score(self, 
+            X_test, 
+            y_test,
+            metric=None,
+            print_metric=False, 
+            metric_round=4, 
+            ):
+        if self.model is None:
+            raise Exception("No fit models")
+
+        if metric is None:
+            if self.type_of_estimator == 'classifier':
+                metric = sklearn.metrics.roc_auc_score
+            elif self.type_of_estimator == 'regression':
+                metric = sklearn.metrics.mean_squared_error
+
+        # Predict
+        if (metric.__name__ in predict_proba_metrics) and (self.is_possible_predict_proba()):
+            y_pred_test = self.predict_proba(X_test)
+        else:
+            y_pred_test = self.predict(X_test)
+        score = round(metric(y_test, y_pred_test),metric_round)
+
+        if print_metric:
+            print(f'{metric.__name__}: {score}')
+        return(score)
+
+
+    def fit_score(self, 
+            X_train, 
+            y_train, 
+            X_test, 
+            y_test,
+            metric=None,
+            print_metric=False, 
+            metric_round=4, 
+            ):
+        start = time.time()
+        # Fit
+        self.fit(X_train, y_train,)
+
+        total_time_fit = round((time.time() - start),2)
+        if print_metric:
+            print(f'fit time: {total_time_fit} sec')
+
+        # Score
+        score = self.score(X_test, y_test, 
+            metric=metric,
+            print_metric=print_metric, 
+            metric_round=metric_round,
+            )
+        return(score)
+
+
     def y_format(self, y):
         if isinstance(y, pd.DataFrame):
             y = np.array(y[y.columns[0]].values)
         return y
-
 
 
     def cross_validation(

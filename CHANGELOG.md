@@ -4,13 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.2.24]
+## [1.2.25]
+### Fix
+- Fix save & load in AutoML
 
-A big update that changes the logic of work
+### ADD
+- Metod .score() and .fit_score() in Models
+
+
+
+## [1.2.24]
 ### Fix
 - same Fixses in AutoML
 ### ADD
 - New info in Readme.md
+
 
 ## [1.2.23]
 

@@ -313,7 +313,7 @@ class AutoML(object):
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         self.de.save(name='DataPrepare_dump', folder=dir_tmp)
         joblib.dump(self, dir_tmp+'AutoML'+'.pkl')
-        shutil.make_archive(dir+name, 'zip', dir_tmp)
+        shutil.make_archive(folder+name, 'zip', dir_tmp)
         shutil.rmtree(dir_tmp)
         print('Save AutoML')
 
@@ -321,7 +321,7 @@ class AutoML(object):
     def load(self, name='AutoML_dump', folder='./'):
         dir_tmp = folder+"AutoML_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
-        shutil.unpack_archive(dir+name+'.zip', dir_tmp)
+        shutil.unpack_archive(folder+name+'.zip', dir_tmp)
         model = joblib.load(dir_tmp+'AutoML'+'.pkl')
         model.de = DataPrepare()
         model.de = model.de.load('DataPrepare_dump', folder=dir_tmp)
