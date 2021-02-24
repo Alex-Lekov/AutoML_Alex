@@ -288,18 +288,11 @@ class AutoML(object):
         # STEP 2
         # Models
 
-        if self.type_of_estimator == 'classifier':
-            predict_model_1 = self.model_1.predict_proba(X)
-            predict_model_4 = self.model_4.predict_proba(X[self._select_features_model_4])
-            X = self.scaler.transform(X)
-            #predict_model_2 = self.model_2.predict_proba(X)
-            predict_model_3 = self.model_3.predict_proba(X)
-        else:
-            predict_model_1 = self.model_1.predict(X)
-            predict_model_4 = self.model_4.predict(X[self._select_features_model_4])
-            X = self.scaler.transform(X)
-            #predict_model_2 = self.model_2.predict(X)
-            predict_model_3 = self.model_3.predict(X)
+        predict_model_1 = self.model_1.predict_or_predict_proba(X)
+        predict_model_4 = self.model_4.predict_or_predict_proba(X[self._select_features_model_4])
+        X = self.scaler.transform(X)
+        #predict_model_2 = self.model_2.predict_proba(X)
+        predict_model_3 = self.model_3.predict_or_predict_proba(X)
 
         ####################################################
         # STEP 3

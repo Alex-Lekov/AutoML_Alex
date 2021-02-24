@@ -96,6 +96,17 @@ class ModelBase(object):
         """
         raise NotImplementedError("Pure virtual class.")
 
+    def predict_or_predict_proba(self, X):
+        """
+        Сheck and if it is possible get predict_proba
+        """
+        if (self.is_possible_predict_proba()) and \
+                (self.type_of_estimator == 'classifier'):
+            predicts = self.predict_proba(X)
+        else:
+            predicts = self.predict(X)
+        return(predicts)
+
 
     def score(self, 
             X_test, 
@@ -114,8 +125,8 @@ class ModelBase(object):
                 metric = sklearn.metrics.mean_squared_error
 
         # Predict
-        if (metric.__name__ in predict_proba_metrics) and (self.is_possible_predict_proba()):
-            y_pred_test = self.predict_proba(X_test)
+        if (metric.__name__ in predict_proba_metrics):
+            y_pred_test = self.predict_or_predict_proba(X_test)
         else:
             y_pred_test = self.predict(X_test)
         score = round(metric(y_test, y_pred_test),metric_round)
@@ -237,10 +248,10 @@ class ModelBase(object):
             self.fit(X_train=train_x, y_train=train_y,)
 
             # Predict
-            if (metric.__name__ in predict_proba_metrics) and (self.is_possible_predict_proba()):
-                y_pred = self.predict_proba(val_x)
+            if (metric.__name__ in predict_proba_metrics):
+                y_pred = self.predict_or_predict_proba(val_x)
                 if predict:
-                    y_pred_test = self.predict_proba(X_test)
+                    y_pred_test = self.predict_or_predict_proba(X_test)
             else:
                 y_pred = self.predict(val_x)
                 if predict:
@@ -253,6 +264,7 @@ class ModelBase(object):
                 if i == 0:
                     feature_importance_df = self.get_feature_importance(train_x)
                 feature_importance_df['value'] += self.get_feature_importance(train_x)['value']
+            
             if predict:
                 stacking_y_pred_train[valid_idx] += y_pred
                 stacking_y_pred_test += y_pred_test
@@ -740,12 +752,16 @@ class ModelBase(object):
             raise Exception('No history to visualize!')
         return(optuna.visualization.plot_slice(self.study, params=params))
     
-    def save(self, name):
+    def save(self, name, verbose=1):
         joblib.dump(self, name+'.pkl')
-        print('Save Model')
+        if verbose>0:
+            print('Save Model')
 
-    def load(self, name):
-        return(joblib.load(name+'.pkl'))
+    def load(self, name,verbose=1):
+        model = joblib.load(name+'.pkl')
+        if verbose>0:
+            print('Load Model')
+        return(model)
     
 
 

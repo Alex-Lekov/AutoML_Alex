@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### ADD
 - Metod .score() and .fit_score() in Models
+- Class CrossValidation() examples in ./examples/03_Models.ipynb
 
 
 
