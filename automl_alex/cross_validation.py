@@ -1,14 +1,17 @@
 
 import pandas as pd
 import numpy as np
+import os
+import shutil
+from pathlib import Path
+import joblib
 
 import sklearn
 from sklearn.base import clone
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
-from pathlib import Path
 
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
-
+TMP_FOLDER = '.automl-alex_tmp'
 
 class CrossValidation(object):
     """
@@ -83,10 +86,17 @@ class CrossValidation(object):
                 n_repeats=n_repeats, 
                 random_state=random_state,
                 )
-        Path('.cross-v_tmp').mkdir(parents=True, exist_ok=True)
+
+
+    def _clean_temp_folder(self):
+        Path(TMP_FOLDER).mkdir(parents=True, exist_ok=True)
+        if os.path.isdir(TMP_FOLDER+'/cross-v_tmp'):
+            shutil.rmtree(TMP_FOLDER+'/cross-v_tmp')
+        os.mkdir(TMP_FOLDER+'/cross-v_tmp')
 
 
     def fit(self, X, y,):
+        self._clean_temp_folder()
         self.cv_split_idx = [(train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)]
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
@@ -95,7 +105,7 @@ class CrossValidation(object):
             # Fit
             model_tmp = self.estimator
             model_tmp = model_tmp.fit(X_train=train_x, y_train=train_y,)
-            model_tmp.save(f'.cross-v_tmp/model_fold_{i}', verbose=0)
+            model_tmp.save(f'{TMP_FOLDER}/cross-v_tmp/model_fold_{i}', verbose=0)
         self.fit_models = True
 
 
@@ -107,7 +117,7 @@ class CrossValidation(object):
 
         for i in range(self.folds*self.n_repeats):
             model_tmp = self.estimator
-            model_tmp = model_tmp.load(f'.cross-v_tmp/model_fold_{i}', verbose=0)
+            model_tmp = model_tmp.load(f'{TMP_FOLDER}/cross-v_tmp/model_fold_{i}', verbose=0)
             y_pred_test = model_tmp.predict_or_predict_proba(X_test)
             stacking_y_pred_test += y_pred_test
         predict = stacking_y_pred_test / (self.folds*self.n_repeats)
@@ -124,7 +134,7 @@ class CrossValidation(object):
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             val_x = X.iloc[valid_idx]
             model_tmp = self.estimator
-            model_tmp = model_tmp.load(f'.cross-v_tmp/model_fold_{i}', verbose=0)
+            model_tmp = model_tmp.load(f'{TMP_FOLDER}/cross-v_tmp/model_fold_{i}', verbose=0)
             y_pred = model_tmp.predict_or_predict_proba(val_x)
             stacking_y_pred_train[valid_idx] += y_pred
         
@@ -144,7 +154,7 @@ class CrossValidation(object):
 
         for i in range(self.folds*self.n_repeats):
             model_tmp = self.estimator
-            model_tmp = model_tmp.load(f'.cross-v_tmp/model_fold_{i}', verbose=0)
+            model_tmp = model_tmp.load(f'{TMP_FOLDER}/cross-v_tmp/model_fold_{i}', verbose=0)
             
             if i == 0:
                 feature_importance_df = model_tmp.get_feature_importance(X)
@@ -194,7 +204,32 @@ class CrossValidation(object):
         
         return(score, score_std)
 
-        
+
+    def save(self, name='cv_dump', folder='./', verbose=1):
+        if not self.fit_models:
+            raise Exception("No fit models")
+
+        dir_tmp = TMP_FOLDER+'/cross-v_tmp/'
+
+        joblib.dump(self, dir_tmp+'CV'+'.pkl')
+
+        shutil.make_archive(folder+name, 'zip', dir_tmp)
+        #shutil.rmtree(dir_tmp)
+        if verbose>0:
+            print('Save CrossValidation')
+
+
+    def load(self, name='cv_dump', folder='./', verbose=1):
+        self._clean_temp_folder()
+        dir_tmp = TMP_FOLDER+'/cross-v_tmp/'
+
+        shutil.unpack_archive(folder+name+'.zip', dir_tmp)
+
+        cv = joblib.load(dir_tmp+'CV'+'.pkl')
+
+        if verbose>0:
+            print('Load CrossValidation')
+        return(cv)
 
 
 
