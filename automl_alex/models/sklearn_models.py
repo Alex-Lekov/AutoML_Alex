@@ -40,7 +40,7 @@ class LinearModel(ModelBase):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data,):
         """
         Return:
             dict of DistributionWrappers
@@ -70,7 +70,7 @@ class LinearModel(ModelBase):
                     model_param['max_iter'] = 5000
         return(model_param)
 
-    def fit(self, X_train=None, y_train=None,):
+    def fit(self, X_train=None, y_train=None, cat_features=None):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -158,7 +158,7 @@ class SGD(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
         """
         Return:
             dict of DistributionWrappers
@@ -244,7 +244,7 @@ class LinearSVM(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
         """
         Return:
             dict of DistributionWrappers
@@ -317,7 +317,7 @@ class KNeighbors(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data,):
         """
         Return:
             dict of DistributionWrappers
@@ -356,10 +356,12 @@ class MLP(LinearModel):
         Default model_param
         """
         model_param = {
-                'verbose':0,
+                'verbose': 0,
+                'hidden_layer_sizes': 150,
                 'random_state': self._random_state,
-                'max_iter': 1000,
+                'max_iter': 500,
                 'early_stopping': True,
+                'n_iter_no_change': 50,
                 }
         return(model_param)
 
@@ -376,7 +378,7 @@ class MLP(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
         """
         Return:
             dict of DistributionWrappers
@@ -385,7 +387,6 @@ class MLP(LinearModel):
         # model params
         model_param.update({
                             'hidden_layer_sizes': trial.suggest_int('mlp_hidden_layer_sizes', 1, 10)*50,
-                            'solver': trial.suggest_categorical('mlp_solver', ['sgd', 'adam']),
                             'alpha': trial.suggest_uniform('mlp_alpha', 1e-6, 1.0),
                             'learning_rate': trial.suggest_categorical('mlp_learning_rate', ['adaptive', 'constant', 'invscaling']),
                             'tol': trial.suggest_uniform('mlp_tol', 1e-6, 1e-1),
@@ -436,7 +437,7 @@ class RandomForest(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data,):
         """
         Return:
             dict of DistributionWrappers

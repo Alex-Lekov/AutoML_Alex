@@ -17,7 +17,7 @@ class LightGBM(ModelBase):
         Default model_param
         """
         model_param = {'random_seed': self._random_state,
-                            'num_iterations': 500,
+                            'num_iterations': 300,
                             'verbose': -1,
                             'device_type': 'gpu' if self._gpu else 'cpu',
                             }
@@ -30,7 +30,7 @@ class LightGBM(ModelBase):
         return(model_param)
 
 
-    def fit(self, X_train=None, y_train=None, model_param=None):
+    def fit(self, X_train=None, y_train=None, cat_features=None):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
@@ -39,15 +39,20 @@ class LightGBM(ModelBase):
             self (Class)
         """
         y_train = self.y_format(y_train)
+        
         dtrain = lgb.Dataset(X_train, y_train,)
-        if model_param is None:
-            model_param = self.model_param.copy()
+        
+        model_param = self.model_param.copy()
         num_iterations = model_param.pop('num_iterations')
+
+        if cat_features is None:
+            cat_features = 'auto'
 
         self.model = lgb.train(
             model_param, 
             dtrain, 
             num_boost_round=num_iterations,
+            categorical_feature=cat_features,
             )
 
         dtrain=None
@@ -113,7 +118,7 @@ class LightGBM(ModelBase):
         return (pd.DataFrame(fe_lst, index=train_x.columns, columns=['value']))
 
 
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name,):
+    def get_model_opt_params(self, trial, opt_lvl, len_data,):
         """
         Return:
             dict of DistributionWrappers
@@ -134,7 +139,7 @@ class LightGBM(ModelBase):
         if opt_lvl == 2:
             model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 11)/100
             model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50,)
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 3, 10,)*100
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 3, 7,)*100
 
         if opt_lvl >= 2:
             model_param['bagging_fraction'] = trial.suggest_discrete_uniform('lgbm_bagging_fraction', 0.4, 1., 0.1)
@@ -145,7 +150,7 @@ class LightGBM(ModelBase):
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
             model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 100)/1000
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 2, 15,)*100
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 4, 10,)*100
         
         if opt_lvl >= 3:
             model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100,)
@@ -195,9 +200,6 @@ class LightGBM(ModelBase):
             model_param['enable_bundle'] = trial.suggest_categorical('lgbm_enable_bundle', [True, False])
 
         ################################# Other ########################################
-        if self.type_of_estimator == 'classifier':
-            if metric_name not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
-                model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('lgbm_scale_pos_weight', 0.1, 1., 0.1)
 
         return(model_param)
 

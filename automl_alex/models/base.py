@@ -452,7 +452,6 @@ class ModelBase(object):
             trial=trial, 
             opt_lvl=self._opt_lvl, 
             len_data=len_data,
-            metric_name=self.metric.__name__,
             )
         return(self)
 

@@ -12,6 +12,7 @@ class CatBoost(ModelBase):
     """
     __name__ = 'CatBoost'
 
+
     def _init_default_model_param(self, model_param=None):
         """
         Default model_param
@@ -37,8 +38,89 @@ class CatBoost(ModelBase):
         return(model)
 
 
+    def fit(self, X_train=None, y_train=None, cat_features=None):
+        """
+        Args:
+            X (pd.DataFrame, shape (n_samples, n_features)): the input data
+            y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
+            cat_features (list)
+        Return:
+            self (Class)
+        """
+        y_train = self.y_format(y_train)
+        if cat_features is not None:
+            cat_dims = [X_train.columns.get_loc(i) for i in cat_features[:]]
+            train_pool = Pool(X_train, label=y_train, cat_features=cat_dims)
+        else:
+            train_pool = Pool(X_train, label=y_train,)
+
+        params = self.model_param.copy()
+        self.model = self._init_model(model_param=params)
+        self.model.fit(train_pool, verbose=False, plot=False,)
+        train_pool=None
+        return self
+
+
+    def predict(self, X=None):
+        """
+        Args:
+            X (np.array, shape (n_samples, n_features)): the input data
+        Return:
+            np.array, shape (n_samples, n_classes)
+        """
+        if self.model is None:
+            raise Exception("No fit models")
+
+        if self.type_of_estimator == 'classifier':
+            predicts = np.round(self.model.predict(X),0)
+        elif self.type_of_estimator == 'regression':
+            predicts = self.model.predict(X)
+        return predicts
+
+
+    def is_possible_predict_proba(self):
+        """
+        Return:
+            bool, whether model can predict proba
+        """
+        return True
+
+
+    def predict_proba(self, X=None):
+        """
+        Args:
+            X (np.array, shape (n_samples, n_features)): the input data
+        Return:
+            np.array, shape (n_samples, n_classes)
+        """
+        if self.model is None:
+            raise Exception("No fit models")
+        if not self.is_possible_predict_proba(): 
+            raise Exception("Model cannot predict probability distribution")
+        return self.model.predict_proba(X)[:, 1]
+
+
+    def _is_possible_feature_importance(self):
+        """
+        Return:
+            bool, whether model can predict proba
+        """
+        return True
+
+
+    def get_feature_importance(self, train_x,):
+        """
+        Return:
+            list feature_importance
+        """
+        if not self._is_possible_feature_importance(): 
+            raise Exception("Model cannot get feature_importance")
+        fe_lst = self.model.get_feature_importance()
+        return (pd.DataFrame(fe_lst, index=train_x.columns, columns=['value']))
+
+
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data,):
         """
         Return:
             dict of DistributionWrappers
@@ -50,10 +132,10 @@ class CatBoost(ModelBase):
 
         if opt_lvl >= 1:
             if len_data > 1000:
-                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 2, \
+                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, \
                                                                     (len_data//100))
             else:
-                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 2, 10)
+                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, 10)
             
 
         ################################# LVL 2 ########################################
@@ -84,10 +166,6 @@ class CatBoost(ModelBase):
                     'Quantile',
                     'RMSE',
                     ])
-
-            if model_param['objective'] == 'Logloss':
-                if metric_name not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
-                    model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('cb_scale_pos_weight', 0.1, 1., 0.1)
         
 
         ################################# LVL 4 ########################################
@@ -99,76 +177,6 @@ class CatBoost(ModelBase):
 
         ################################# Other ########################################
         return(model_param)
-
-    def fit(self, X_train=None, y_train=None,):
-        """
-        Args:
-            X (pd.DataFrame, shape (n_samples, n_features)): the input data
-            y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
-        Return:
-            self (Class)
-        """
-        y_train = self.y_format(y_train)
-        train_pool = Pool(X_train, label=y_train,)
-
-        params = self.model_param.copy()
-        self.model = self._init_model(model_param=params)
-        self.model.fit(train_pool, verbose=False, plot=False,)
-        train_pool=None
-        return self
-
-    def predict(self, X=None):
-        """
-        Args:
-            X (np.array, shape (n_samples, n_features)): the input data
-        Return:
-            np.array, shape (n_samples, n_classes)
-        """
-        if self.model is None:
-            raise Exception("No fit models")
-
-        if self.type_of_estimator == 'classifier':
-            predicts = np.round(self.model.predict(X),0)
-        elif self.type_of_estimator == 'regression':
-            predicts = self.model.predict(X)
-        return predicts
-
-    def is_possible_predict_proba(self):
-        """
-        Return:
-            bool, whether model can predict proba
-        """
-        return True
-
-    def predict_proba(self, X=None):
-        """
-        Args:
-            X (np.array, shape (n_samples, n_features)): the input data
-        Return:
-            np.array, shape (n_samples, n_classes)
-        """
-        if self.model is None:
-            raise Exception("No fit models")
-        if not self.is_possible_predict_proba(): 
-            raise Exception("Model cannot predict probability distribution")
-        return self.model.predict_proba(X)[:, 1]
-
-    def _is_possible_feature_importance(self):
-        """
-        Return:
-            bool, whether model can predict proba
-        """
-        return True
-
-    def get_feature_importance(self, train_x,):
-        """
-        Return:
-            list feature_importance
-        """
-        if not self._is_possible_feature_importance(): 
-            raise Exception("Model cannot get feature_importance")
-        fe_lst = self.model.get_feature_importance()
-        return (pd.DataFrame(fe_lst, index=train_x.columns, columns=['value']))
 
 
 class CatBoostClassifier(CatBoost):

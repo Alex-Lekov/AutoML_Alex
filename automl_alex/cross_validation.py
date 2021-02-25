@@ -97,14 +97,14 @@ class CrossValidation(object):
         os.mkdir(TMP_FOLDER+'/cross-v_tmp')
 
 
-    def fit(self, X, y,):
+    def fit(self, X, y, cat_features=None):
         self._clean_temp_folder()
         self.cv_split_idx = [(train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)]
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             # Fit
-            model_tmp = self.estimator.fit(X_train=train_x, y_train=train_y,)
+            model_tmp = self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
             self.fited_models[f'model_fold_{i}'] = copy.deepcopy(model_tmp)
         self.fit_models = True
 

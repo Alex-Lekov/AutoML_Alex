@@ -5,7 +5,8 @@ import time
 from tqdm import tqdm
 import optuna
 
-
+############################################
+# IN progress....
 class Optimizer(object):
     '''
     In this library, I tried to simplify the process of optimizing and iterating parameters as much as possible. 
