@@ -397,7 +397,7 @@ class DataPrepare(object):
                 fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
         return(fe_df)
 
-    def fit_transform(self, data,):
+    def fit_transform(self, data, verbose=0):
         """
         Fit and transforms the dataset.
 

@@ -35,7 +35,7 @@ class XGBoost(ModelBase):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, metric_name):
+    def get_model_opt_params(self, trial, opt_lvl, len_data):
         """
         Return:
             dict of DistributionWrappers
@@ -92,13 +92,10 @@ class XGBoost(ModelBase):
             model_param['regalpha_alpha'] = trial.suggest_loguniform('XG_alpha', 1e-8, 1.0)
         
         ################################# Other ########################################
-        if self.type_of_estimator == 'classifier':
-            if metric_name not in ['roc_auc_score', 'log_loss', 'brier_score_loss']:
-                model_param['scale_pos_weight'] = trial.suggest_discrete_uniform('xgb_scale_pos_weight', 0.1, 1., 0.1)
         return(model_param)
 
 
-    def fit(self, X_train=None, y_train=None,):
+    def fit(self, X_train=None, y_train=None, cat_features=None):
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data

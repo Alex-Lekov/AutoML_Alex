@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [1.2.25]
+### Fix
+- Fix save & load in AutoML
+
+### ADD
+- Metod .score() and .fit_score() in Models
+- Class CrossValidation() examples in ./examples/03_Models.ipynb
+
+
+## [1.2.24]
+### Fix
+- same Fixses in AutoML
+### ADD
+- New info in Readme.md
+
+
 ## [1.2.23]
 
 A big update that changes the logic of work

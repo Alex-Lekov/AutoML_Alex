@@ -51,25 +51,36 @@ Classifier:
 ```python
 from automl_alex import AutoMLClassifier
 
-model = AutoMLClassifier(X_train, y_train, X_test,)
-predict_test, predict_train = model.fit_predict(timeout=2000,)
+model = AutoMLClassifier()
+model = model.fit(X_train, y_train, timeout=600)
+predicts = model.predict(X_test)
 ```
 
 Regression:
 ```python
 from automl_alex import AutoMLRegressor
 
-model = AutoMLRegressor(X_train, y_train, X_test,)
-predict_test, predict_train = model.fit_predict(timeout=2000,)
+model = AutoMLRegressor()
+model = model.fit(X_train, y_train, timeout=600)
+predicts = model.predict(X_test)
+```
+
+DataPrepare:
+```python
+from automl_alex import DataPrepare
+
+de = DataPrepare()
+X_train = de.fit_transform(X_train)
+X_test = de.transform(X_test)
 ```
 
 More examples in the folder ./examples:
 
 - [01_Quick_Start.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/01_Quick_Start.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/01_Quick_Start.ipynb)
-- [02_Models.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Models.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Models.ipynb)
-- [03_Data_Cleaning_and_Encoding_(DataBunch).ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/03_Data_Cleaning_and_Encoding_(DataBunch).ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/03_Data_Cleaning_and_Encoding_(DataBunch).ipynb)
+- [02_Data_Cleaning_and_Encoding_(DataPrepare).ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Data_Cleaning_and_Encoding_(DataPrepare).ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/02_Data_Cleaning_and_Encoding_(DataPrepare).ipynb)
+- [03_Models.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/03_Models.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/03_Models.ipynb)
 - [04_ModelsReview.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/04_ModelsReview.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/04_ModelsReview.ipynb)
-- [05_BestSingleModel.ipynb](https://github.com/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)  [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/Alex-Lekov/AutoML_Alex/blob/master/examples/05_BestSingleModel.ipynb)
+
 
 
 # What's inside
@@ -83,24 +94,38 @@ It integrates many popular frameworks:
 - ...
 
 
-# Note:
+# Works with Features
+
+-   [x] Categorical Features
+
+-   [x] Numerical Features
+
+-   [x] Binary Features
+
+-   [ ] Text
+
+-   [ ] Datetime
+
+-   [ ] Timeseries
+
+-   [ ] Image
+
+
+# Note
 
 - **With a large dataset, a lot of memory is required!**
 Library creates many new features. If you have a large dataset with a large number of features (more than 100), you may need a lot of memory.
-- **Do not work with timeseries and texts** yet
 
 
 # Road Map
 
 -   [x] Feature Generation
 
+-   [x] Save/Load and Predict on New Samples
+
 -   [ ] Advanced Logging
 
--   [ ] New Features Generators
-
 -   [ ] DL Encoders
-
--   [ ] Save/Load and Predict on New Samples
 
 -   [ ] Add More libs (NNs)
 
