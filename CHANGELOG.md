@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.26]
+### ADD
+- Advanced Logging (logs in .automl-alex_tmp/log.log)
+- Class Optimizer
+- Pruner in optimizer
+
 
 ## [1.2.25]
 ### Fix

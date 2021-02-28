@@ -4,12 +4,16 @@ import numpy as np
 import copy
 import os
 import shutil
+import optuna
 from pathlib import Path
 import joblib
 
+import automl_alex
 import sklearn
 from sklearn.base import clone
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
+
+from .logger import *
 
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
 TMP_FOLDER = '.automl-alex_tmp'
@@ -97,6 +101,7 @@ class CrossValidation(object):
         os.mkdir(TMP_FOLDER+'/cross-v_tmp')
 
 
+    @logger.catch
     def fit(self, X, y, cat_features=None):
         self._clean_temp_folder()
         self.cv_split_idx = [(train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)]
@@ -109,6 +114,7 @@ class CrossValidation(object):
         self.fit_models = True
 
 
+    @logger.catch
     def predict_test(self, X_test):
         if not self.fit_models:
             raise Exception("No fit models")
@@ -123,6 +129,7 @@ class CrossValidation(object):
         return(predict)
 
 
+    @logger.catch
     def predict_train(self, X):
         if not self.fit_models:
             raise Exception("No fit models")
@@ -139,6 +146,7 @@ class CrossValidation(object):
         return(predict)
 
 
+    @logger.catch
     def get_feature_importance(self, X):
         if not self.fit_models:
             raise Exception("No fit models")
@@ -156,7 +164,9 @@ class CrossValidation(object):
         return(feature_importance_df)
 
 
-    def fit_score(self, X, y, print_metric=None):
+    @logger.catch
+    def fit_score(self, X, y, print_metric=None, trial=None):
+        self._pruned_cv = False
         if print_metric is None:
             print_metric = self.print_metric
 
@@ -181,23 +191,35 @@ class CrossValidation(object):
 
             folds_scores.append(score_model)
 
+            if (trial is not None) and i < 1:
+                trial.report(score_model, i)
+                # Handle pruning based on the intermediate value.
+                if trial.should_prune():
+                    self._pruned_cv=True
+                    break
+
             # score_folds
             if i+1 >= self.score_folds:
                 break
             
-        if self.score_folds > 1:
-            score = round(np.mean(folds_scores), self.metric_round)
-            score_std = round(np.std(folds_scores), self.metric_round+2)
-        else:
-            score = round(score_model, self.metric_round)
+        if self._pruned_cv:
+            score = score_model
             score_std = 0
+        else:
+            if self.score_folds > 1:
+                score = round(np.mean(folds_scores), self.metric_round)
+                score_std = round(np.std(folds_scores), self.metric_round+2)
+            else:
+                score = round(score_model, self.metric_round)
+                score_std = 0
 
         if print_metric:
             print(f'\n Mean Score {self.metric.__name__} on {self.score_folds} Folds: {score} std: {score_std}')
-        
+
         return(score, score_std)
 
 
+    @logger.catch
     def save(self, name='cv_dump', folder='./', verbose=1):
         if not self.fit_models:
             raise Exception("No fit models")
@@ -217,6 +239,7 @@ class CrossValidation(object):
             print('Save CrossValidation')
 
 
+    @logger.catch
     def load(self, name='cv_dump', folder='./', verbose=1):
         self._clean_temp_folder()
         dir_tmp = TMP_FOLDER+'/cross-v_tmp/'
@@ -232,6 +255,3 @@ class CrossValidation(object):
         if verbose>0:
             print('Load CrossValidation')
         return(cv)
-
-
-

@@ -6,6 +6,8 @@ import optuna
 from tqdm import tqdm
 import joblib
 
+from automl_alex.logger import *
+
 import sklearn
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 
@@ -29,6 +31,7 @@ class ModelBase(object):
     history_trials = []
     history_trials_dataframe = pd.DataFrame()
     best_model_param = None
+    select_columns = None
 
     def __init__(self,  
                     model_param=None, 
@@ -39,6 +42,7 @@ class ModelBase(object):
                     ):
         self._gpu = gpu
         self._random_state = random_state
+        logger_print_lvl(verbose)
 
         if type_of_estimator is not None:
             self.type_of_estimator = type_of_estimator
@@ -126,6 +130,7 @@ class ModelBase(object):
         raise NotImplementedError("Pure virtual class.")
 
 
+    @logger.catch
     def score(self, 
             X_test, 
             y_test,
@@ -150,10 +155,12 @@ class ModelBase(object):
         score = round(metric(y_test, y_pred_test),metric_round)
 
         if print_metric:
-            print(f'{metric.__name__}: {score}')
+            logger_print_lvl(3)
+            logger.info(f'{metric.__name__}: {score}')
         return(score)
 
 
+    @logger.catch
     def fit_score(self, 
             X_train, 
             y_train, 
@@ -169,7 +176,8 @@ class ModelBase(object):
 
         total_time_fit = round((time.time() - start),2)
         if print_metric:
-            print(f'fit time: {total_time_fit} sec')
+            logger_print_lvl(3)
+            logger.info(f'fit time: {total_time_fit} sec')
 
         # Score
         score = self.score(X_test, y_test, 
@@ -311,7 +319,7 @@ class ModelBase(object):
         result['score_std'] = score_std
 
         if print_metric:
-            print(f'\n Mean Score {metric.__name__} on {i+1} Folds: {score} std: {score_std}')
+            logger.info(f'\n Mean Score {metric.__name__} on {i+1} Folds: {score} std: {score_std}')
         return(result)
 
 
@@ -356,8 +364,7 @@ class ModelBase(object):
             opt_lvl (int)
             cold_start (int)
         """
-        if verbose > 0: 
-                print('> Start Auto calibration parameters')
+        logger.info('> Start Auto calibration parameters')
         
         early_stoping = 50
         folds = 5
@@ -427,17 +434,17 @@ class ModelBase(object):
 
 
     def _print_opt_parameters(self, early_stoping, feature_selection):
-        print('CV_Folds = ', self._folds)
-        print('Score_CV_Folds = ', self._score_folds)
-        print('Feature_Selection = ', feature_selection)
-        print('Opt_lvl = ', self._opt_lvl)
-        print('Cold_start = ', self._cold_start)
-        print('Early_stoping = ', early_stoping)
-        print('Metric = ', self.metric.__name__)
-        print('Direction = ', self.direction)
+        logger.info(f'CV_Folds = {self._folds}')
+        logger.info(f'Score_CV_Folds = {self._score_folds}')
+        logger.info(f'Feature_Selection = {feature_selection}')
+        logger.info(f'Opt_lvl = {self._opt_lvl}')
+        logger.info(f'Cold_start = {self._cold_start}')
+        logger.info(f'Early_stoping = {early_stoping}')
+        logger.info(f'Metric = {self.metric.__name__}')
+        logger.info(f'Direction = {self.direction}')
 
 
-    def _opt_model(self, trial, len_data, model=None):
+    def _opt_model(self, trial, model=None):
         """
         Description of _opt_model:
             Model extraction for optimization with new parameters
@@ -451,7 +458,6 @@ class ModelBase(object):
         self.model_param = self.get_model_opt_params(
             trial=trial, 
             opt_lvl=self._opt_lvl, 
-            len_data=len_data,
             )
         return(self)
 
@@ -491,6 +497,7 @@ class ModelBase(object):
         return(result)
 
 
+    @logger.catch
     def _opt_core(self, X, y, timeout, early_stoping, feature_selection, iterations, iteration_check, verbose=1):
         """
         Description of _opt_core:
@@ -512,17 +519,16 @@ class ModelBase(object):
         score, score_std = self.cross_validation(X=X, y=y, folds=self._folds, score_folds=1, print_metric=False,)
         iter_time = (time.time() - start_time)
 
-        if verbose > 0: 
-            print(f'One iteration takes ~ {round(iter_time,1)} sec')
+        logger.info(f'One iteration takes ~ {round(iter_time,1)} sec')
         
         if iterations is None:
             possible_iters = timeout // (iter_time)
 
             if (possible_iters < 100) and iteration_check:
-                print("Not enough time to find the optimal parameters. \n \
+                logger.warning("Not enough time to find the optimal parameters. \n \
                     Possible iters < 100. \n \
                     Please, Increase the 'timeout' parameter for normal optimization.")
-                raise Exception('Not enough time to find the optimal parameters')
+                #raise Exception('Not enough time to find the optimal parameters')
 
             # Auto_parameters
             if self._auto_parameters:
@@ -537,16 +543,15 @@ class ModelBase(object):
             score_opt = cv_result['score']
         self.best_score = round(score_opt, self._metric_round)
 
-        if verbose > 0: 
-            print('> Start optimization with the parameters:')
-            self._print_opt_parameters(early_stoping, feature_selection)
-            print('#'*50)
-            print(f'Default model OptScore = {self.best_score}')
+        logger.info('> Start optimization with the parameters:')
+        self._print_opt_parameters(early_stoping, feature_selection)
+        logger.info('#'*50)
+        logger.info(f'Default model OptScore = {self.best_score}')
         
         # OPTUNA objective
         def objective(trial, fast_check=True):
             # generate model
-            opt_model = self._opt_model(trial=trial, len_data=len(X),)
+            opt_model = self._opt_model(trial=trial,)
             # feature selector
             data_kwargs = {}
             data_kwargs['X'] = X
@@ -596,11 +601,10 @@ class ModelBase(object):
                                             seed=self._random_state,
                                             #multivariate=True,
                                             )
-        print('optimize:',self.direction)
-        if self.study is None:
-            self.study = optuna.create_study(direction=self.direction, sampler=sampler,)
-
-        if verbose < 2:
+        logger.info(f'optimize: {self.direction}')
+        self.study = optuna.create_study(direction=self.direction, sampler=sampler,)
+            
+        if verbose < 4:
             optuna.logging.disable_default_handler()
 
         es = EarlyStoppingExceeded()
@@ -636,9 +640,7 @@ class ModelBase(object):
                     **study_params,
                     )
             except EarlyStoppingExceeded:
-                if verbose == 1: 
-                    print(f'\n EarlyStopping Exceeded: Best Score: {self.study.best_value}', 
-                        self.metric.__name__)
+                logger.info(f'\n EarlyStopping Exceeded: Best Score: {self.study.best_value} {self.metric.__name__}')
         
         self.history_trials_dataframe = pd.DataFrame(self.history_trials).sort_values('score_opt', ascending=True)
         if self.direction == 'maximize':
@@ -646,6 +648,8 @@ class ModelBase(object):
         self.model_param = self.history_trials_dataframe['model_param'].iloc[0]
         return(self.history_trials_dataframe)
 
+
+    @logger.catch
     def opt(self,X,y,
             timeout=200, # optimization time in seconds
             metric=None,
@@ -691,8 +695,7 @@ class ModelBase(object):
                 self.metric = sklearn.metrics.mean_squared_error
                 self.direction = 'minimize'
 
-        print(self.type_of_estimator,
-            'optimize:',self.direction)
+        logger.info(f'{self.type_of_estimator} optimize: {self.direction}')
 
         self._combined_score_opt = combined_score_opt
         self._metric_round = metric_round
@@ -751,6 +754,7 @@ class ModelBase(object):
         plt.legend()
         return(plt.show())
     
+
     def plot_opt_params_parallel_coordinate(self,):
         """
         Plot the high-dimentional parameter relationships in a study.
@@ -760,6 +764,7 @@ class ModelBase(object):
             raise Exception('No history to visualize!')
         return(optuna.visualization.plot_parallel_coordinate(self.study))
 
+
     def plot_opt_params_slice(self, params=None):
         """
         Plot the parameter relationship as slice plot in a study.
@@ -768,16 +773,22 @@ class ModelBase(object):
         if self.study is None:
             raise Exception('No history to visualize!')
         return(optuna.visualization.plot_slice(self.study, params=params))
+
     
+    def _is_model_start_opt_params(self,):
+        return(False)
+    
+
+    @logger.catch
     def save(self, name, verbose=1):
         joblib.dump(self, name+'.pkl')
-        if verbose>0:
-            print('Save Model')
+        logger.info('Save Model')
 
+
+    @logger.catch
     def load(self, name,verbose=1):
         model = joblib.load(name+'.pkl')
-        if verbose>0:
-            print('Load Model')
+        logger.info('Load Model')
         return(model)
     
 

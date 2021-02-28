@@ -8,6 +8,7 @@ from .cross_validation import *
 from .data_prepare import *
 from .encoders import *
 from pathlib import Path
+from .logger import *
 
 
 ##################################### BestSingleModel ################################################
@@ -44,20 +45,21 @@ class ModelsReview(object):
             self._metric = metric
         
         self._metric_round = metric_round
-    
 
+
+    @logger.catch
     def fit(self,
         X_train=None, 
         y_train=None, 
         X_test=None, 
         y_test=None,
         models_names=None,
-        verbose=1,
+        verbose=3,
         ):
         """
         Fit models (in list models_names) whis default params
         """
-
+        logger_print_lvl(verbose)
         result = pd.DataFrame(columns=['Model_Name', 'Score', 'Time_Fit_Sec'])
         score_ls = []
         time_ls = []
@@ -125,7 +127,7 @@ class AutoML(object):
                 metric_round=4,
                 combined_score_opt=True,
                 gpu=False, 
-                random_state=42
+                random_state=42,
                 ):
         self._gpu = gpu
         self._random_state = random_state
@@ -147,6 +149,7 @@ class AutoML(object):
         self._metric_round = metric_round
 
 
+    @logger.catch
     def fit(self,
         X, 
         y,
@@ -157,14 +160,14 @@ class AutoML(object):
         opt_lvl=2,
         early_stoping=100,
         feature_selection=True,
-        verbose=1,
+        verbose=3,
         ):
+        logger_print_lvl(verbose)
         X_source = X.copy()
         ####################################################
         # STEP 0
         start_step_0 = time.time()
-        if verbose > 0:
-            print('> Start Fit Base Model')
+        logger.info('> Start Fit Base Model')
 
         self.cat_features=X.columns[(X.dtypes == 'object') | (X.dtypes == 'category')]
         X[self.cat_features] = X[self.cat_features].astype('str')
@@ -182,9 +185,7 @@ class AutoML(object):
         ####################################################
         # STEP 1
         start_step_1 = time.time()
-
-        if verbose > 0:
-            print('> DATA PREPROC')
+        logger.info('> DATA PREPROC')
         self.de_1 = DataPrepare(
             cat_encoder_names=['OneHotEncoder', 'CountEncoder'],
             #outliers_threshold=3,
@@ -196,8 +197,7 @@ class AutoML(object):
         if self.de_1.cat_features is not None:
             X = X.drop(self.de_1.cat_features, axis = 1)
 
-        if verbose > 0:
-            print('> Start Fit Models 1')
+        logger.info('> Start Fit Models 1')
         # Model 2
         # self.model_2 = LinearModel(
         #     type_of_estimator=self.type_of_estimator, 
@@ -220,8 +220,7 @@ class AutoML(object):
         # STEP 2
         start_step_2 = time.time()
 
-        if verbose > 0:
-            print('> DATA PREPROC')
+        logger.info('> DATA PREPROC')
 
         self.de_2 = DataPrepare(
             cat_encoder_names=['HelmertEncoder','CountEncoder','HashingEncoder'],
@@ -233,8 +232,7 @@ class AutoML(object):
         X = self.de_2.fit_transform(X_source)
         #X = X.drop(self.de_2.cat_features, axis = 1)
 
-        if verbose > 0:
-            print('> Start Fit Models 2')
+        logger.info('> Start Fit Models 2')
 
         self.model_4 = CatBoost(
             type_of_estimator=self.type_of_estimator, 
@@ -251,9 +249,8 @@ class AutoML(object):
         # Model 2 - 3
         start_step_3 = time.time()
 
-        if verbose > 0:
-            print(50*'#')
-            print('> Start Opt Model')
+        logger.info(50*'#')
+        logger.info('> Start Opt Model')
 
         time_to_opt = (timeout - (time.time()-start_step_0)) - 60
         time.sleep(0.1)
@@ -305,13 +302,11 @@ class AutoML(object):
 
         ####################################################
 
-        if verbose > 0:
-            print(50*'#')
-            print('> Finish!')
-
-        return(self)
+        logger.info(50*'#')
+        logger.info('> Finish!')
 
 
+    @logger.catch
     def predict(self, X=None, verbose=0):
         """
         Args:
@@ -363,6 +358,7 @@ class AutoML(object):
         return (predicts)
 
 
+    @logger.catch
     def save(self, name='AutoML_dump', folder='./'):
         dir_tmp = folder+"AutoML_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
@@ -372,9 +368,10 @@ class AutoML(object):
         self.cv_model_5.save(name='cv_model_5', folder=dir_tmp,)
         shutil.make_archive(folder+name, 'zip', dir_tmp)
         shutil.rmtree(dir_tmp)
-        print('Save AutoML')
+        logger.info('Save AutoML')
 
 
+    @logger.catch
     def load(self, name='AutoML_dump', folder='./'):
         dir_tmp = folder+"AutoML_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
@@ -386,7 +383,7 @@ class AutoML(object):
         model.de_2 = model.de_2.load('DataPrepare_2_dump', folder=dir_tmp)
         model.cv_model_5 = model.cv_model_5.load(name='cv_model_5', folder=dir_tmp,)
         shutil.rmtree(dir_tmp)
-        print('Load AutoML')
+        logger.info('Load AutoML')
         return(model)
 
 

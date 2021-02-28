@@ -20,12 +20,14 @@ class LinearModel(ModelBase):
     """
     __name__ = 'LinearModel'
 
+
     def _init_default_model_param(self,):
         """
         Default model_param
         """
         model_param = {}
         return(model_param)
+
 
     def _init_model(self, model_param=None):
         """
@@ -39,8 +41,9 @@ class LinearModel(ModelBase):
             model = linear_model.LinearRegression(**model_param)
         return(model)
 
+
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -70,6 +73,11 @@ class LinearModel(ModelBase):
                     model_param['max_iter'] = 5000
         return(model_param)
 
+
+    def _is_model_start_opt_params(self,):
+        return(False)
+
+
     def fit(self, X_train=None, y_train=None, cat_features=None):
         """
         Args:
@@ -79,9 +87,14 @@ class LinearModel(ModelBase):
             self (Class)
         """
         y_train = self.y_format(y_train)
+
+        if self.select_columns is not None:
+            X_train = X_train[self.select_columns]
+
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
         return self
+
 
     def predict(self, X_test=None):
         """
@@ -92,7 +105,12 @@ class LinearModel(ModelBase):
         """           
         if self.model is None:
             raise Exception("No fit models")
+        
+        if self.select_columns is not None:
+            X_test = X_test[self.select_columns]
+
         return self.model.predict(X_test)
+
 
     def is_possible_predict_proba(self):
         """
@@ -101,7 +119,8 @@ class LinearModel(ModelBase):
         """
         return True
 
-    def predict_proba(self, X=None):
+
+    def predict_proba(self, X_test):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
@@ -110,9 +129,13 @@ class LinearModel(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
+
+        if self.select_columns is not None:
+            X_test = X_test[self.select_columns]
+
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
-        return self.model.predict_proba(X)[:, 1]
+        return self.model.predict_proba(X_test)[:, 1]
 
 
 class LogisticRegressionClassifier(LinearModel):
@@ -158,7 +181,7 @@ class SGD(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -244,7 +267,7 @@ class LinearSVM(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
+    def get_model_opt_params(self, trial, opt_lvl, ):
         """
         Return:
             dict of DistributionWrappers
@@ -317,7 +340,7 @@ class KNeighbors(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -378,7 +401,7 @@ class MLP(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
+    def get_model_opt_params(self, trial, opt_lvl, ):
         """
         Return:
             dict of DistributionWrappers
@@ -437,7 +460,7 @@ class RandomForest(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl, ):
         """
         Return:
             dict of DistributionWrappers
@@ -445,11 +468,7 @@ class RandomForest(LinearModel):
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
         if opt_lvl >= 1:
-            if len_data > 1000:
-                model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, \
-                                                                        (len_data//100))
-            else:
-                model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, 10)
+            model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, 100)
             model_param['max_depth'] = trial.suggest_int('rf_max_depth', 1, 10,)*10
 
         ################################# LVL 2 ########################################
