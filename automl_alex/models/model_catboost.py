@@ -1,4 +1,4 @@
-from .base import *
+from automl_alex.base import ModelBase
 import catboost
 from catboost import Pool
 import numpy as np

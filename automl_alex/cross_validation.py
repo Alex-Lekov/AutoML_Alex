@@ -1,5 +1,4 @@
-
-import pandas as pd
+import modin.pandas as pd
 import numpy as np
 import copy
 import os
@@ -13,7 +12,7 @@ import sklearn
 from sklearn.base import clone
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 
-from .logger import *
+from automl_alex.logger import *
 
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
 TMP_FOLDER = '.automl-alex_tmp'
@@ -51,6 +50,7 @@ class CrossValidation(object):
     __name__ = 'CrossValidation'
     fit_models = False
     fited_models = {}
+    estimator = None
 
 
     def __init__(
@@ -109,8 +109,8 @@ class CrossValidation(object):
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             # Fit
-            model_tmp = self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
-            self.fited_models[f'model_fold_{i}'] = copy.deepcopy(model_tmp)
+            self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
+            self.fited_models[f'model_fold_{i}'] = copy.deepcopy(self.estimator)
         self.fit_models = True
 
 
@@ -178,16 +178,16 @@ class CrossValidation(object):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
             # Fit
-            model_tmp = self.estimator
-            model_tmp = model_tmp.fit(X_train=train_x, y_train=train_y,)
 
-            # Score
-            score_model = model_tmp.score(
-                                        val_x, val_y,
-                                        metric=self.metric,
-                                        metric_round=self.metric_round,
-                                        print_metric=False,
-                                        )
+            score_model = self.estimator.fit_score( 
+                X_train=train_x, 
+                y_train=train_y, 
+                X_test=val_x, 
+                y_test=val_y,
+                metric=self.metric,
+                print_metric=False, 
+                metric_round=self.metric_round, 
+                )
 
             folds_scores.append(score_model)
 

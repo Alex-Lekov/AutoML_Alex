@@ -1,6 +1,6 @@
 from sklearn.metrics import *
 from tqdm import tqdm
-import pandas as pd
+import modin.pandas as pd
 import time
 import joblib
 from .models import *

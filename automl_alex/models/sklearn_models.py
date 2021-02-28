@@ -1,5 +1,5 @@
 from sklearn import ensemble, neural_network, linear_model, svm, neighbors
-from .base import *
+from automl_alex.base import ModelBase
 import numpy as np
 
 from warnings import simplefilter, filterwarnings

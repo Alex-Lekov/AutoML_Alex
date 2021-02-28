@@ -1,4 +1,4 @@
-from .base import *
+from automl_alex.base import ModelBase
 import xgboost as xgb
 import numpy as np
 

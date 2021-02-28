@@ -1,4 +1,4 @@
-from .base import *
+from automl_alex.base import ModelBase
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -54,10 +54,7 @@ class LightGBM(ModelBase):
             num_boost_round=num_iterations,
             categorical_feature=cat_features,
             )
-
         dtrain=None
-        
-        return self
 
 
     def predict(self, X=None):

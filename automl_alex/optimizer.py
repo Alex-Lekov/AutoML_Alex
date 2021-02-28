@@ -1,7 +1,9 @@
 
-import pandas as pd
+import modin.pandas as pd
 import numpy as np
 import time
+import os
+import shutil
 import platform
 import psutil
 from datetime import datetime
@@ -9,9 +11,9 @@ from tqdm import tqdm
 import optuna
 import sklearn
 
-from .logger import *
-from .models import *
-from .cross_validation import CrossValidation
+from automl_alex.logger import *
+from .cross_validation import *
+import automl_alex
 
 optuna.logging.disable_default_handler()
 
@@ -103,7 +105,7 @@ class Optimizer(object):
         self._gpu=gpu
 
         if models_names is None:
-            self.models_names = list(all_models.keys())
+            self.models_names = list(automl_alex.models.all_models.keys())
         else:
             self.models_names = models_names
         
@@ -267,7 +269,7 @@ class Optimizer(object):
         now we can choose models in optimization
         '''
         self.model_name = trial.suggest_categorical('model_name', self.models_names)
-        opt_model = all_models[self.model_name](
+        opt_model = automl_alex.models.all_models[self.model_name](
             type_of_estimator=self.type_of_estimator,
             random_state=self._random_state,
             gpu=self._gpu,
@@ -297,9 +299,9 @@ class Optimizer(object):
         select_columns_ = {k: v for k, v in select_columns.items() if v is True}
         
         if select_columns_:
-            result = select_columns_.keys()
+            result = list(select_columns_.keys())
         else:
-            result = columns
+            result = list(columns)
         return(result)
 
 
@@ -410,10 +412,14 @@ class Optimizer(object):
 
                 return(score_opt)
             else:
-                return(self._opt_objective(trial, X, y,
-                    return_model=return_model, 
-                    verbose=verbose
-                    ))
+                return(self._opt_objective(
+                            trial, 
+                            X, 
+                            y,
+                            return_model=return_model, 
+                            verbose=verbose
+                            )
+                        )
 
         ###############################################################################
         # Optuna
@@ -468,6 +474,7 @@ class Optimizer(object):
                 logger.warning("! Not enough time to find the optimal parameters. \n \
                     Possible iters < 100. \n \
                     Please, Increase the 'timeout' parameter for normal optimization.")
+        logger.info('-'*50)
         
         if self._auto_parameters:
             self.early_stoping, self.folds, self.score_folds, self.opt_lvl, self.cold_start = \
@@ -552,7 +559,47 @@ class Optimizer(object):
         predict = self.cv_model.predict_train(X)
         return(predict)
 
-## TODO : Save and Load
+
+    def _clean_temp_folder(self):
+        Path(TMP_FOLDER).mkdir(parents=True, exist_ok=True)
+        if os.path.isdir(TMP_FOLDER+'/cross-v_tmp'):
+            shutil.rmtree(TMP_FOLDER+'/cross-v_tmp')
+        os.mkdir(TMP_FOLDER+'/cross-v_tmp')
+
+
+    @logger.catch
+    def save(self, name='opt_model_dump', folder='./', verbose=3):
+        if not self.cv_model:
+            raise Exception("No opt and fit models")
+
+        dir_tmp = TMP_FOLDER+'/opt_model_tmp/'
+        self._clean_temp_folder()
+
+        self.cv_model.save(name='opt_model_cv', folder=dir_tmp, verbose=0)
+
+        joblib.dump(self, dir_tmp+'opt_model'+'.pkl')
+
+        shutil.make_archive(folder+name, 'zip', dir_tmp)
+
+        shutil.rmtree(dir_tmp)
+        if verbose>0:
+            print('Save model')
+
+
+    @logger.catch
+    def load(self, name='opt_model_dump', folder='./', verbose=1):
+        self._clean_temp_folder()
+        dir_tmp = TMP_FOLDER+'/opt_model_tmp/'
+
+        shutil.unpack_archive(folder+name+'.zip', dir_tmp)
+
+        model = joblib.load(dir_tmp+'opt_model'+'.pkl')
+        model.cv_model = model.cv_model.load(name='opt_model_cv', folder=dir_tmp,)
+
+        shutil.rmtree(dir_tmp)
+        if verbose>0:
+            print('Load CrossValidation')
+        return(model)
 
 
     def plot_opt_param_importances(self,):

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import random
 from itertools import combinations
 import joblib
 import sys
@@ -12,7 +13,11 @@ from .logger import *
 from sklearn.preprocessing import StandardScaler
 
 # disable chained assignments
-pd.options.mode.chained_assignment = None 
+#pd.options.mode.chained_assignment = None 
+
+RANDOM_SEED = 42
+np.random.seed(RANDOM_SEED)
+random.seed(RANDOM_SEED)
 
 
 
@@ -107,6 +112,75 @@ class CleanNans(object):
         return self.transform(data)
 
 
+class NumericInteractionFeatures(object):
+    """
+    Сlass for  Numerical interaction generator features: A/B, A*B, A-B,
+    """
+    cols_combinations = None
+
+
+    def __init__(self, operations=['/','*','-','+'], verbose=0):
+        """
+        Fill Nans and add column, that there were nans in this column
+        
+        Args:
+            method : ['median', 'mean',]
+        """
+        self.operations = operations
+        self.verbose = verbose
+
+
+    def fit(self, columns,):
+        """
+        Fit.
+
+        Args:
+            columns (list): num columns names
+        Returns:
+            self
+        """
+        self.cols_combinations = list(combinations(columns,2))
+        return self
+
+
+    def transform(self, df) -> pd.DataFrame:
+        """Transforms the dataset.
+        Args:
+            df (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            pandas.Dataframe of shape = (n_train, n_features)
+                Dataset with new features.
+        """
+        if self.cols_combinations is None:
+            raise Exception("No fit cols_combinations")
+
+        fe_df = pd.DataFrame()
+        for c in self.cols_combinations:
+            if '/' in self.operations:
+                fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
+            if '*' in self.operations:
+                fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
+            if '-' in self.operations:
+                fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
+            if '+' in self.operations:
+                fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
+        return(fe_df)
+
+
+    def fit_transform(self, data, cols) -> pd.DataFrame:
+        """Fit and transforms the dataset.
+        Args:
+            data (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            pandas.Dataframe of shape = (n_train, n_features)
+        """
+        self.fit(cols)
+
+        return self.transform(data)
+
+
 class CleanOutliers(object):
     """
     Сlass for detect and remove outliers from your data. 
@@ -128,6 +202,7 @@ class CleanOutliers(object):
         self.threshold = threshold
         self.verbose = verbose
 
+
     def IQR(self, data, col, threshold=1.5):
         '''
         outlier detection by Interquartile Ranges Rule, also known as Tukey's test. 
@@ -145,7 +220,7 @@ class CleanOutliers(object):
         upper_bound = quantile3 + (threshold*iqr_val)
         return(lower_bound, upper_bound)
 
-    
+
     def fit_z_score(self, data, col,):
         '''
         Z score is an important measurement or score that tells how many Standard deviation above or below a number is from the mean of the dataset
@@ -291,6 +366,7 @@ class DataPrepare(object):
     cat_clean_ord_encoder = None
     fit_cat_encoders={}
 
+
     def __init__(self, 
                 cat_features=None,
                 clean_and_encod_data=True,
@@ -305,7 +381,7 @@ class DataPrepare(object):
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
                 normalization=True,
-                reduce_memory=True,
+                reduce_memory=False,
                 random_state=42,
                 verbose=3):
         """
@@ -339,7 +415,6 @@ class DataPrepare(object):
         self.cat_features = cat_features
 
 
-
     def check_data_format(self, data):
         """
         Description of check_data_format:
@@ -350,8 +425,8 @@ class DataPrepare(object):
         Return:
             True or Exception
         """
-        if (not isinstance(data, pd.DataFrame)) or data.empty:
-            raise Exception("data is not pd.DataFrame or empty")
+        #if (not isinstance(data, pd.DataFrame)) or data.empty:
+        #    raise Exception("data is not pd.DataFrame or empty")
 
 
     def check_num_nans(self, data):
@@ -388,36 +463,6 @@ class DataPrepare(object):
             cat_features = None
         #cat_features = list(set([*object_features, *cat_features]))
         return(cat_features)
-
-
-    def gen_numeric_interaction_features(self, 
-                                        df, 
-                                        columns, 
-                                        operations=['/','*','-','+'],) -> pd.DataFrame:
-        """
-        Description of numeric_interaction_terms:
-            Numerical interaction generator features: A/B, A*B, A-B,
-
-        Args:
-            df (pd.DataFrame):
-            columns (list): num columns names
-            operations (list): operations type
-
-        Returns:
-            pd.DataFrame
-
-        """
-        fe_df = pd.DataFrame()
-        for c in combinations(columns,2):
-            if '/' in operations:
-                fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
-            if '*' in operations:
-                fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
-            if '-' in operations:
-                fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
-            if '+' in operations:
-                fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
-        return(fe_df)
 
 
     @logger.catch
@@ -534,12 +579,17 @@ class DataPrepare(object):
         if self._num_generator_features:
             if len(self.num_features) > 1:
                 logger.info('> Generate interaction Num Features')
-                fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
-                                                            self.num_features,
-                                                            operations=self._operations_num_generator,)
+                self.num_generator = NumericInteractionFeatures(operations=self._operations_num_generator,)
+                self.num_generator = self.num_generator.fit(list(self.num_features))
+                fe_df = self.num_generator.transform(data[self.num_features])
+                
                 if self._reduce_memory:
                     fe_df = reduce_mem_usage(fe_df)
-                data = data.join(fe_df.reset_index(drop=True))
+                data = pd.concat([
+                        data.reset_index(drop=True), 
+                        fe_df.reset_index(drop=True)], 
+                        axis=1,)
+                #data = data.join(fe_df.reset_index(drop=True))
                 logger.info(f' ADD features: {fe_df.shape[1]}')
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -553,7 +603,12 @@ class DataPrepare(object):
             self.scaler = StandardScaler().fit(data[self.normalization_features])
             data_tmp = self.scaler.transform(data[self.normalization_features])
             data_tmp = pd.DataFrame(data_tmp, columns=self.normalization_features)
-            data[self.normalization_features] = data_tmp
+            data.drop(self.normalization_features, axis=1, inplace=True)
+            data = pd.concat([
+                        data.reset_index(drop=True), 
+                        data_tmp.reset_index(drop=True)], 
+                        axis=1,)
+            #data[self.normalization_features] = data_tmp[self.normalization_features]
             data_tmp = None
 
         ########### reduce_mem_usage ######################
@@ -639,12 +694,15 @@ class DataPrepare(object):
         if self._num_generator_features:
             if len(self.num_features) > 1:
                 logger.info('> Generate interaction Num Features')
-                fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
-                                                            self.num_features,
-                                                            operations=self._operations_num_generator,)
+                fe_df = self.num_generator.transform(data[self.num_features])
+                
                 if self._reduce_memory:
                     fe_df = reduce_mem_usage(fe_df)
-                data = data.join(fe_df.reset_index(drop=True))
+                data = pd.concat([
+                        data.reset_index(drop=True), 
+                        fe_df.reset_index(drop=True)
+                        ], axis=1,)
+                #data = data.join(fe_df.reset_index(drop=True))
                 logger.info(f' ADD features: {fe_df.shape[1]}')
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -653,9 +711,14 @@ class DataPrepare(object):
         ########### Normalization ######################
         if self._normalization:
             logger.info('> Normalization Features')
-            data_tmp= self.scaler.transform(data[self.normalization_features])
+            data_tmp = self.scaler.transform(data[self.normalization_features])
             data_tmp = pd.DataFrame(data_tmp, columns=self.normalization_features)
-            data[self.normalization_features] = data_tmp
+            data.drop(self.normalization_features,axis=1,inplace=True)
+            data = pd.concat([
+                        data.reset_index(drop=True), 
+                        data_tmp.reset_index(drop=True)], 
+                        axis=1,)
+            #data[self.normalization_features] = data_tmp[self.normalization_features]
             data_tmp=None
 
         ########### reduce_mem_usage ######################
