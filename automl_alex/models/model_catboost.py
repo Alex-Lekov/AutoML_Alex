@@ -48,8 +48,6 @@ class CatBoost(ModelBase):
             self (Class)
         """
         y_train = self.y_format(y_train)
-        if self.select_columns is not None:
-            X_train = X_train[self.select_columns]
 
         if cat_features is not None:
             cat_dims = [X_train.columns.get_loc(i) for i in cat_features[:]]
@@ -73,9 +71,6 @@ class CatBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
-
-        if self.select_columns is not None:
-            X = X[self.select_columns]
 
         if self.type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
@@ -101,9 +96,6 @@ class CatBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
-        
-        if self.select_columns is not None:
-            X = X[self.select_columns]
 
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
@@ -125,9 +117,6 @@ class CatBoost(ModelBase):
         """
         if not self._is_possible_feature_importance(): 
             raise Exception("Model cannot get feature_importance")
-
-        if self.select_columns is not None:
-            X = X[self.select_columns]
 
         fe_lst = self.model.get_feature_importance()
         return (pd.DataFrame(fe_lst, index=X.columns, columns=['value']))

@@ -31,7 +31,6 @@ class ModelBase(object):
     history_trials = []
     history_trials_dataframe = pd.DataFrame()
     best_model_param = None
-    select_columns = None
 
     def __init__(self,  
                     model_param=None, 

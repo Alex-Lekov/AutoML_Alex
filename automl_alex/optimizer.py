@@ -2,6 +2,8 @@
 import pandas as pd
 import numpy as np
 import time
+import platform
+import psutil
 from datetime import datetime
 from tqdm import tqdm
 import optuna
@@ -27,8 +29,8 @@ class Optimizer(object):
 
     Parameters
     ----------
-    estimator : estimator object implementing 'fit'
-        The object to use to fit model.
+    models_names : list
+        models names estimator to opt.
 
     timeout : int, default=200
         Optimization time in seconds
@@ -74,30 +76,40 @@ class Optimizer(object):
     feature_selection : bool, default=True
         add feature_selection in optimization
     
-    verbose : int, default=1
-    
     random_state : int, default=42
         RandomState instance
         Controls the generation of the random states for each repetition.
     '''
     __name__ = 'Optimizer'
+    cv_model = None
 
     def __init__(
         self,
-        estimator,
+        models_names = ['LinearModel','LightGBM','ExtraTrees'],
         folds=10,
         score_folds=2,
         metric=None,
         metric_round=4, 
-        cold_start=25,
-        opt_lvl=2,
+        cold_start=10,
+        opt_lvl=1,
         early_stoping=50,
         auto_parameters=True,
-        feature_selection=True,
+        feature_selection=False,
+        type_of_estimator=None, # classifier or regression
+        gpu=False,
         random_state=42,
         ):
         self._random_state = random_state
-        self.estimator = estimator
+        self._gpu=gpu
+
+        if models_names is None:
+            self.models_names = list(all_models.keys())
+        else:
+            self.models_names = models_names
+        
+        if type_of_estimator is not None:
+            self.type_of_estimator = type_of_estimator
+        
         self.folds = folds
         self.score_folds = score_folds
         self.metric_round = metric_round
@@ -110,10 +122,12 @@ class Optimizer(object):
 
         if metric is None:
             logger.info('metric is None! Default metric will be used. classifier: AUC, regression: MSE')
-            if estimator.type_of_estimator == 'classifier':
+            if self.type_of_estimator == 'classifier':
                 self.metric = sklearn.metrics.roc_auc_score
-            elif estimator.type_of_estimator == 'regression':
+            elif self.type_of_estimator == 'regression':
                 self.metric = sklearn.metrics.mean_squared_error
+            else:
+                logger.warning('Need to set type_of_estimator!')
         else:
             self.metric = metric
 
@@ -163,8 +177,8 @@ class Optimizer(object):
             cold_start (int)
         """
         early_stoping = 25
-        folds = 5
-        score_folds = 1
+        folds = 10
+        score_folds = 2
         opt_lvl = 1
         cold_start = 10
             
@@ -216,7 +230,7 @@ class Optimizer(object):
         if pbar is not None:
             self.best_score = self.study.best_value
 
-            message = f' | OptScore: {score_opt} | Best {self.metric.__name__}: {self.best_score} '
+            message = f'| Model: {self.model_name} | OptScore: {score_opt} | Best {self.metric.__name__}: {self.best_score} '
             if pruned:
                 message+=f'| Trail Pruned! '
             pbar.set_postfix_str(message)
@@ -224,8 +238,7 @@ class Optimizer(object):
 
 
     def _set_opt_info(self, model, timeout):
-        self.study.set_user_attr("Model", model.__name__)
-        self.study.set_user_attr("Type_estimator", model.type_of_estimator)
+        self.study.set_user_attr("Type_estimator", self.type_of_estimator)
         self.study.set_user_attr("Metric", self.metric.__name__,)
         self.study.set_user_attr("direction", self.direction,)
         self.study.set_user_attr("Timeout", timeout)
@@ -237,8 +250,36 @@ class Optimizer(object):
         self.study.set_user_attr("Score_folds", self.score_folds,)
         self.study.set_user_attr("Opt_lvl", self.opt_lvl,)
         self.study.set_user_attr("random_state", self._random_state,)
+        self.study.set_system_attr("System", platform.system())
+        self.study.set_system_attr("CPU", platform.processor())
+        self.study.set_system_attr("CPU cores", psutil.cpu_count())
+        ram = str(round(psutil.virtual_memory().total / (1024.0 **3)))+" GB"
+        self.study.set_system_attr("RAM", ram)
+
+    def _set_opt_sys_info(self,):
+        self.study.set_system_attr("CPU %", psutil.cpu_percent())
+        free_mem = round(psutil.virtual_memory().available * 100 / psutil.virtual_memory().total, 1)
+        self.study.set_system_attr("Free RAM %", free_mem)
 
     
+    def _opt_model_(self, trial):
+        '''
+        now we can choose models in optimization
+        '''
+        self.model_name = trial.suggest_categorical('model_name', self.models_names)
+        opt_model = all_models[self.model_name](
+            type_of_estimator=self.type_of_estimator,
+            random_state=self._random_state,
+            gpu=self._gpu,
+            verbose=self.verbose,
+            )
+        opt_model.model_param = opt_model.get_model_opt_params(
+            trial=trial,
+            opt_lvl=self.opt_lvl, 
+            )
+        return(opt_model)
+
+
     def _opt_feature_selector(self, columns, trial):
         """
         Description of _opt_feature_selector
@@ -260,6 +301,36 @@ class Optimizer(object):
         else:
             result = columns
         return(result)
+
+
+    def _opt_objective(self, trial, X, y, return_model=False, verbose=1):
+        opt_model = self._opt_model_(trial)
+
+        cv = CrossValidation(
+            estimator=opt_model,
+            folds=self.folds,
+            score_folds=self.score_folds,
+            n_repeats=1,
+            metric=self.metric,
+            print_metric=False, 
+            metric_round=self.metric_round, 
+            random_state=self._random_state,
+            )
+
+        if return_model:
+            if self.feature_selection:
+                self.select_columns = self._opt_feature_selector(X.columns, trial=trial)
+                cv.fit(X[self.select_columns], y)
+            else:
+                cv.fit(X, y)
+            return(cv)
+        else:
+            if self.feature_selection:
+                self.select_columns = self._opt_feature_selector(X.columns, trial=trial)
+                score, score_std = cv.fit_score(X[self.select_columns], y, print_metric=False, trial=trial)
+            else:
+                score, score_std = cv.fit_score(X, y, print_metric=False, trial=trial)
+            return(score, score_std)
 
 
     @logger.catch
@@ -297,7 +368,7 @@ class Optimizer(object):
         if self.metric is not None:
             self.direction = self.__metric_direction_detected__(self.metric, y)
 
-        model = self.estimator
+        #model = self.estimator
 
         ###############################################################################
         # Optuna EarlyStoppingExceeded 
@@ -310,86 +381,52 @@ class Optimizer(object):
         if self.direction == 'maximize':
             es_callback = es.early_stopping_opt_maximize
         
-        ###############################################################################
-        if self._auto_parameters:
-            # time 1 iter
-            start_time = time.time()
-            model = model.fit(X, y)
-            iter_time = (time.time() - start_time)
-            logger.info(f'One iteration takes ~ {round(iter_time,1)} sec')
-
-            possible_iters = timeout // (iter_time)
-            if possible_iters < 100:
-                logger.warning("Not enough time to find the optimal parameters. \n \
-                    Possible iters < 100. \n \
-                    Please, Increase the 'timeout' parameter for normal optimization.")
-
-            self.early_stoping, self.folds, self.score_folds, self.opt_lvl, self.cold_start = \
-                    self.__auto_parameters_calc__(possible_iters)
-        
-        self._print_opt_parameters()
 
         ###############################################################################
         # Opt objective
         def objective(
             trial,
-            opt,
-            model,
+            self,
             X,
             y,
             step=1,
             return_model=False,
             verbose=1,
             ):
+            self._set_opt_sys_info()
 
-            model.model_param = model.get_model_opt_params(
-                    trial=trial, 
-                    opt_lvl=opt.opt_lvl,
+            if not return_model:
+                score, score_std = self._opt_objective(
+                    trial, X, y, 
+                    return_model=return_model, 
+                    verbose=verbose
                     )
-
-            model.select_columns = X.columns
-            if opt.feature_selection:
-                model.select_columns = opt._opt_feature_selector(X.columns, trial=trial)
-
-            cv = CrossValidation(
-                estimator=model,
-                folds=opt.folds,
-                score_folds=opt.score_folds,
-                n_repeats=1,
-                metric=opt.metric,
-                print_metric=False, 
-                metric_round=opt.metric_round, 
-                random_state=opt._random_state,
-                )
-
-            score, score_std = cv.fit_score(X, y, print_metric=False, trial=trial)
-            score_opt = round(opt.__calc_combined_score_opt__(opt.direction, score, score_std), opt.metric_round)
-                    
-            if cv._pruned_cv:
-                #logger.info(f'- {trial.number} Trial Pruned, Score: {score_opt}')
-                raise optuna.TrialPruned()
-
-            if return_model:
-                return(model)
-            else:
+                score_opt = round(self.__calc_combined_score_opt__(self.direction, score, score_std), self.metric_round)
+                if trial.should_prune():
+                    #logger.info(f'- {trial.number} Trial Pruned, Score: {score_opt}')
+                    raise optuna.TrialPruned()
                 if verbose >= 1 and step > 1:
-                    opt._tqdm_opt_print(pbar, score_opt, cv._pruned_cv)
+                    self._tqdm_opt_print(pbar, score_opt, trial.should_prune())
 
                 return(score_opt)
+            else:
+                return(self._opt_objective(trial, X, y,
+                    return_model=return_model, 
+                    verbose=verbose
+                    ))
 
         ###############################################################################
         # Optuna
         logger.info('#'*50)
         sampler=optuna.samplers.TPESampler(#consider_prior=True, 
                                             n_startup_trials=self.cold_start, 
-                                            #n_ei_candidates=50, 
                                             seed=self._random_state,
                                             multivariate=False,
                                             )
 
         datetime_now = datetime.now().strftime("%Y_%m_%d__%H:%M:%S")
         self.study = optuna.create_study(
-            study_name=f"{datetime_now}_{model.__name__}", 
+            study_name=f"{datetime_now}_{self.__name__}", 
             storage="sqlite:///db.sqlite3",
             load_if_exists=True,
             direction=self.direction, 
@@ -397,30 +434,46 @@ class Optimizer(object):
             pruner=optuna.pruners.NopPruner(),
             )
 
-        self._set_opt_info(model, timeout)
+        self._set_opt_info(self, timeout)
         
-        if model._is_model_start_opt_params():
-            dafault_params = model.get_model_start_opt_params()
-            self.study.enqueue_trial(dafault_params)
+        # if self.estimator._is_model_start_opt_params():
+        #     dafault_params = self.estimator.get_model_start_opt_params()
+        #     self.study.enqueue_trial(dafault_params)
 
         obj_config = {
-            'model':model,
             'X':X,
             'y':y,
-            'verbose':verbose,
+            'verbose':self.verbose,
             }
 
         ###############################################################################
         # Step 1 
         # calc pruned score => get 10 n_trials and get score.median()
-        logger.info(f'> Step 1: calc pruned score => get 10 trials')
+        logger.info(f'> Step 1: calc parameters and pruned score: get test 10 trials')
+
+        start_time = time.time()
 
         self.study.optimize(
             lambda trial: objective(trial, self, **obj_config,),
             n_trials=10, 
             show_progress_bar=False
             )
+
+        iter_time = ((time.time() - start_time)/10)
+        logger.info(f' One iteration takes ~ {round(iter_time,1)} sec')
+
+        possible_iters = timeout // (iter_time)
+        logger.info(f' Possible iters ~ {possible_iters}')
+        if possible_iters < 100:
+                logger.warning("! Not enough time to find the optimal parameters. \n \
+                    Possible iters < 100. \n \
+                    Please, Increase the 'timeout' parameter for normal optimization.")
         
+        if self._auto_parameters:
+            self.early_stoping, self.folds, self.score_folds, self.opt_lvl, self.cold_start = \
+                        self.__auto_parameters_calc__(possible_iters)
+                        
+        # pruners
         df_tmp = self.study.trials_dataframe()
         pruned_scor = round((df_tmp.value.median()), self.metric_round)
 
@@ -440,6 +493,8 @@ class Optimizer(object):
         # Full opt with ThresholdPruner
         logger.info(f'> Step 2: Full opt with Threshold Score Pruner')
         logger.info('#'*50)
+        self._print_opt_parameters()
+        logger.info('#'*50)
 
         with tqdm(
             file=sys.stderr,
@@ -449,7 +504,7 @@ class Optimizer(object):
             try:
                 self.study.optimize(
                     lambda trial: objective(trial, self, step=2, **obj_config,),
-                    timeout=(timeout - (start_opt_time - time.time())),  
+                    timeout=((timeout - (start_opt_time - time.time()))-(iter_time*self.folds)),  
                     callbacks=[es_callback], 
                     show_progress_bar=False,
                     )
@@ -460,20 +515,47 @@ class Optimizer(object):
         pbar.close()
 
         ###############################################################################
-        # get result
+        # fit CV model
         logger.info(f'> Finish Opt!')
-        model = objective(
+        self.cv_model = objective(
             optuna.trial.FixedTrial(self.study.best_params), 
             self,
             return_model=True,
             **obj_config
             )
         logger.info(f'Best Score: {self.study.best_value} {self.metric.__name__}')
+        return(self.study.trials_dataframe())
 
-        return(model)
+    
+    def predict_test(self, X):
+        if not self.cv_model:
+            raise Exception("No opt and fit models")
+
+        if self.feature_selection:
+            X = X[self.select_columns]
+
+        predict = self.cv_model.predict_test(X)
+        return(predict)
 
 
-    def plot_param_importances(self,):
+    def predict(self, X):
+        return(self.predict_test(X))
+
+
+    def predict_train(self, X):
+        if not self.cv_model:
+            raise Exception("No opt and fit models")
+
+        if self.feature_selection:
+            X = X[self.select_columns]
+
+        predict = self.cv_model.predict_train(X)
+        return(predict)
+
+## TODO : Save and Load
+
+
+    def plot_opt_param_importances(self,):
         '''
         Plot hyperparameter importances.
         '''
@@ -482,7 +564,7 @@ class Optimizer(object):
         return(optuna.visualization.plot_param_importances(self.study))
 
 
-    def plot_optimization_history(self,):
+    def plot_opt_history(self,):
         '''
         Plot optimization history of all trials in a study.
         '''

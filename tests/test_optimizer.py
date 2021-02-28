@@ -34,10 +34,8 @@ def test_optimizer_default_classification():
             #model = model.fit(X_train, y_train)
 
             optimizer = Optimizer(model)
-            model = optimizer.opt(X_train, y_train, timeout=400, verbose=3)
-
-            model = model.fit(X_train, y_train)
-            predicts = model.predict_or_predict_proba(X_test)
+            history = optimizer.opt(X_train, y_train, timeout=400, verbose=3)
+            predicts = optimizer.predict(X_test)
 
             score = round(sklearn.metrics.roc_auc_score(y_test, predicts),4)
             assert score is not None

@@ -7,6 +7,7 @@ from .models import *
 from .cross_validation import *
 from .data_prepare import *
 from .encoders import *
+from .optimizer import *
 from pathlib import Path
 from .logger import *
 
@@ -105,6 +106,23 @@ class ModelsReviewClassifier(ModelsReview):
 
 
 class ModelsReviewRegressor(ModelsReview):
+    type_of_estimator='regression'
+
+
+##################################### BestSingleModel ##################################
+
+class BestSingleModel(Optimizer):
+    '''
+    Trying to find which model work best on our data
+    '''
+    __name__ = 'BestSingleModel'
+
+
+class BestSingleModelClassifier(BestSingleModel):
+    type_of_estimator='classifier'
+
+
+class BestSingleModelRegressor(BestSingleModel):
     type_of_estimator='regression'
 
 
