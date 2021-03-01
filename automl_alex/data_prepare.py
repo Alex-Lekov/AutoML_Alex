@@ -1,16 +1,24 @@
 import pandas as pd
 import numpy as np
+import random
 from itertools import combinations
 import joblib
+import sys
 import gc
 from pathlib import Path
 import shutil
 
 from .encoders import *
+from .logger import *
 from sklearn.preprocessing import StandardScaler
 
 # disable chained assignments
-pd.options.mode.chained_assignment = None 
+#pd.options.mode.chained_assignment = None 
+
+RANDOM_SEED = 42
+np.random.seed(RANDOM_SEED)
+random.seed(RANDOM_SEED)
+
 
 
 class CleanNans(object):
@@ -28,6 +36,8 @@ class CleanNans(object):
         self.method = method
         self.verbose = verbose
 
+
+    @logger.catch
     def fit(self, data, cols=None):
         """
         Fit fillna.
@@ -47,11 +57,11 @@ class CleanNans(object):
             for col in data.columns:
                 pct_missing = np.mean(data[col].isnull())
                 if pct_missing > 0.25:
-                    print('! Attention {} - {}% Nans!'.format(col, round(pct_missing*100)))
+                    logger.warning('! Attention {} - {}% Nans!'.format(col, round(pct_missing*100)))
         
         self.nan_columns = list(data.columns[data.isnull().sum() > 0])
         if not self.nan_columns:     
-            print('No nans features')
+            logger.info('No nans features')
 
         if self.method == 'median':
             self.fill_value = data.median()
@@ -62,6 +72,8 @@ class CleanNans(object):
 
         return self
 
+
+    @logger.catch
     def transform(self, data, cols=None) -> pd.DataFrame:
         """Transforms the dataset.
         Args:
@@ -84,6 +96,8 @@ class CleanNans(object):
 
         return data
 
+
+    @logger.catch
     def fit_transform(self, data, cols=None) -> pd.DataFrame:
         """Fit and transforms the dataset.
         Args:
@@ -94,6 +108,84 @@ class CleanNans(object):
                 The train dataset with no missing values.
         """
         self.fit(data, cols)
+
+        return self.transform(data)
+
+
+class NumericInteractionFeatures(object):
+    """
+    Сlass for  Numerical interaction generator features: A/B, A*B, A-B,
+    """
+    cols_combinations = None
+
+
+    def __init__(self, operations=['/','*','-','+'], verbose=0):
+        """
+        Fill Nans and add column, that there were nans in this column
+        
+        Args:
+            method : ['median', 'mean',]
+        """
+        self.operations = operations
+        self.verbose = verbose
+        self.columns = None
+
+
+    def fit(self, columns,):
+        """
+        Fit.
+
+        Args:
+            columns (list): num columns names
+        Returns:
+            self
+        """
+        self.columns = columns
+        self.cols_combinations = list(combinations(columns,2))
+        return self
+
+
+    def transform(self, df) -> pd.DataFrame:
+        """Transforms the dataset.
+        Args:
+            df (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            pandas.Dataframe of shape = (n_train, n_features)
+                Dataset with new features.
+        """
+        if self.cols_combinations is None:
+            raise Exception("No fit cols_combinations")
+
+        fe_df = pd.DataFrame()
+
+        for col1 in self.columns:
+            for col2 in self.columns:
+                if col1 == col2:
+                    continue
+                else:
+                    if '/' in self.operations:
+                        fe_df['{}_/_{}'.format(col1, col2) ] = (df[col1]*1.) / df[col2]
+                    if '-' in self.operations:
+                        fe_df['{}_-_{}'.format(col1, col2) ] = df[col1] - df[col2]
+
+        for c in self.cols_combinations:
+            if '*' in self.operations:
+                fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
+            if '+' in self.operations:
+                fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
+        return(fe_df)
+
+
+    def fit_transform(self, data, cols) -> pd.DataFrame:
+        """Fit and transforms the dataset.
+        Args:
+            data (pd.DataFrame, shape (n_samples, n_features)): the input data
+            cols list() features: the input data
+        Returns:
+            pandas.Dataframe of shape = (n_train, n_features)
+        """
+        self.fit(cols)
 
         return self.transform(data)
 
@@ -119,6 +211,7 @@ class CleanOutliers(object):
         self.threshold = threshold
         self.verbose = verbose
 
+
     def IQR(self, data, col, threshold=1.5):
         '''
         outlier detection by Interquartile Ranges Rule, also known as Tukey's test. 
@@ -136,7 +229,7 @@ class CleanOutliers(object):
         upper_bound = quantile3 + (threshold*iqr_val)
         return(lower_bound, upper_bound)
 
-    
+
     def fit_z_score(self, data, col,):
         '''
         Z score is an important measurement or score that tells how many Standard deviation above or below a number is from the mean of the dataset
@@ -146,6 +239,7 @@ class CleanOutliers(object):
         median_y = data[col].median()
         median_absolute_deviation_y = (np.abs(data[col]-median_y)).median()
         return(median_y, median_absolute_deviation_y)
+
 
     def get_z_score(self, median, mad, data, col, threshold=3):
         '''
@@ -174,6 +268,7 @@ class CleanOutliers(object):
         return(filtered_entries)
 
 
+    @logger.catch
     def fit(self, data, cols=None):
         """
         Fit CleanOutliers.
@@ -195,7 +290,7 @@ class CleanOutliers(object):
             if self.method == 'IQR':
                 lower_bound, upper_bound = self.IQR(data,col=column,threshold=self.threshold)
                 self.weight[column] = [lower_bound, upper_bound]
-                #print(self.weight)
+                #logger.info(self.weight)
                 if self.verbose:
                     total_outliers = len(data[column][(data[column] < lower_bound) | (data[column] > upper_bound)])
 
@@ -210,11 +305,13 @@ class CleanOutliers(object):
 
             if self.verbose:
                 if total_outliers > 0:
-                    print(f'Num of outlier detected: {total_outliers} in Feature {column}')
-                    print(f'Proportion of outlier detected: {round((100/(len(data)/total_outliers)),1)} %')
+                    logger.info(f'Num of outlier detected: {total_outliers} in Feature {column}')
+                    logger.info(f'Proportion of outlier detected: {round((100/(len(data)/total_outliers)),1)} %')
 
         return self
 
+
+    @logger.catch
     def transform(self, data,) -> pd.DataFrame:
         """Transforms the dataset.
         Args:
@@ -224,7 +321,7 @@ class CleanOutliers(object):
             pandas.Dataframe of shape = (n_train, n_features)
                 The dataset.
         """
-        #print(self.weight)
+        #logger.info(self.weight)
         for weight_values in self.weight:
             if self.method == 'IQR':
                 data.loc[data[weight_values] < self.weight[weight_values][0], weight_values] = self.weight[weight_values][0]
@@ -253,6 +350,7 @@ class CleanOutliers(object):
 
         return data
 
+
     def fit_transform(self, data, cols=None) -> pd.DataFrame:
         """Fit and transforms the dataset.
         Args:
@@ -277,6 +375,7 @@ class DataPrepare(object):
     cat_clean_ord_encoder = None
     fit_cat_encoders={}
 
+
     def __init__(self, 
                 cat_features=None,
                 clean_and_encod_data=True,
@@ -291,9 +390,9 @@ class DataPrepare(object):
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
                 normalization=True,
-                reduce_memory=True,
+                reduce_memory=False,
                 random_state=42,
-                verbose=1):
+                verbose=3):
         """
         Description of __init__
 
@@ -308,7 +407,10 @@ class DataPrepare(object):
         """
         self.random_state = random_state
         self.cat_encoder_names = cat_encoder_names
+
         self.verbose = verbose
+        logger_print_lvl(self.verbose)
+
         self._clean_and_encod_data = clean_and_encod_data
         self._clean_nan = clean_nan
         self._clean_outliers = clean_outliers
@@ -321,6 +423,7 @@ class DataPrepare(object):
         self._reduce_memory = reduce_memory
         self.cat_features = cat_features
 
+
     def check_data_format(self, data):
         """
         Description of check_data_format:
@@ -331,8 +434,9 @@ class DataPrepare(object):
         Return:
             True or Exception
         """
-        if (not isinstance(data, pd.DataFrame)) or data.empty:
-            raise Exception("data is not pd.DataFrame or empty")
+        #if (not isinstance(data, pd.DataFrame)) or data.empty:
+        #    raise Exception("data is not pd.DataFrame or empty")
+
 
     def check_num_nans(self, data):
         """
@@ -346,6 +450,7 @@ class DataPrepare(object):
         """
         data = data._get_numeric_data()
         return(len(list(data.columns[data.isnull().sum() > 0])) > 0)
+
 
     def auto_detect_cat_features(self, data):
         """
@@ -367,37 +472,10 @@ class DataPrepare(object):
             cat_features = None
         #cat_features = list(set([*object_features, *cat_features]))
         return(cat_features)
-    
-    def gen_numeric_interaction_features(self, 
-                                        df, 
-                                        columns, 
-                                        operations=['/','*','-','+'],) -> pd.DataFrame:
-        """
-        Description of numeric_interaction_terms:
-            Numerical interaction generator features: A/B, A*B, A-B,
 
-        Args:
-            df (pd.DataFrame):
-            columns (list): num columns names
-            operations (list): operations type
 
-        Returns:
-            pd.DataFrame
-
-        """
-        fe_df = pd.DataFrame()
-        for c in combinations(columns,2):
-            if '/' in operations:
-                fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
-            if '*' in operations:
-                fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
-            if '-' in operations:
-                fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
-            if '+' in operations:
-                fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
-        return(fe_df)
-
-    def fit_transform(self, data, verbose=0):
+    @logger.catch
+    def fit_transform(self, data, verbose=None):
         """
         Fit and transforms the dataset.
 
@@ -408,14 +486,16 @@ class DataPrepare(object):
             data (pd.Dataframe, shape = (n_train, n_features)):
                 The dataset with clean numerical and encoded categorical features.
         """
+        if verbose is not None:
+            self.verbose =  verbose
+        logger_print_lvl(self.verbose)
         ########### check_data_format ######################
         self.check_data_format(data)
 
-        if self.verbose > 0:
-            start_columns = len(data.columns)
-            print('Source data shape: ', data.shape,)
-            print('#'*50)
-            print('! START preprocessing Data')
+        start_columns = len(data.columns)
+        logger.info(f'Source data shape: {data.shape}')
+        logger.info('#'*50)
+        logger.info('! START preprocessing Data')
 
         data = data.reset_index(drop=True)
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -431,8 +511,8 @@ class DataPrepare(object):
 
         if self.cat_features is None:
             self.cat_features = self.auto_detect_cat_features(data)
-            if (self.verbose > 0) and (self.cat_features is not None):
-                print('- Auto detect cat features: ', len(self.cat_features))
+            if self.cat_features is not None:
+                logger.info(f'- Auto detect cat features: {len(self.cat_features)}')
 
         self.binary_features = data.columns[data.nunique(dropna=False) <= 2]
         self.num_features = list(set(data.select_dtypes('number').columns) - set(self.binary_features))
@@ -441,8 +521,7 @@ class DataPrepare(object):
 
         ########### Binary Features ######################
         if len(self.binary_features) > 0:
-            if self.verbose > 0:
-                    print('> Binary Features')
+            logger.info('> Binary Features')
 
             self.binary_encoder = OrdinalEncoder()
             self.binary_encoder = self.binary_encoder.fit(data[self.binary_features])
@@ -453,8 +532,7 @@ class DataPrepare(object):
         #if self.cat_features is not None:
         # Clean Categorical Features
         if self.object_features is not None:
-            if self.verbose > 0:
-                    print('> Clean Categorical Features')
+            logger.info('> Clean Categorical Features')
             self.cat_clean_ord_encoder = OrdinalEncoder()
             self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
             data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
@@ -462,8 +540,7 @@ class DataPrepare(object):
 
         if self.cat_features is not None:
             # Encode Categorical Features
-            if self.verbose > 0:
-                    print('> Transform Categorical Features.')
+            logger.info('> Transform Categorical Features.')
 
             for cat_encoder_name in self.cat_encoder_names:
 
@@ -483,15 +560,13 @@ class DataPrepare(object):
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
                 if self._reduce_memory: 
                     data_encodet = reduce_mem_usage(data_encodet)
-                if self.verbose > 0:
-                    print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
+                logger.info(f' - Encoder: {cat_encoder_name} ADD features: {len(data_encodet.columns)}')
                 data = data.join(data_encodet.reset_index(drop=True))
 
         ########### Numerical Features ######################
         # CleanOutliers
         if self._clean_outliers:
-            if self.verbose:
-                print('> CleanOutliers',)
+            logger.info('> CleanOutliers',)
             self.clean_outliers_enc = CleanOutliers(
                 threshold=self._outliers_threshold, 
                 method=self._outliers_method,
@@ -505,26 +580,26 @@ class DataPrepare(object):
                 self.clean_nan_encoder = CleanNans(verbose=self.verbose)
                 self.clean_nan_encoder = self.clean_nan_encoder.fit(data[self.num_features])
                 data = self.clean_nan_encoder.transform(data)
-                if self.verbose:
-                    print('> CleanNans, total nans columns:', \
-                        len(self.clean_nan_encoder.nan_columns))
+                logger.info(f'> CleanNans, total nans columns: {len(self.clean_nan_encoder.nan_columns)}')
             else:
-                if self.verbose:
-                    print('  No nans features')
+                logger.info('  No nans features')
 
         # Generator interaction Num Features
         if self._num_generator_features:
             if len(self.num_features) > 1:
-                if self.verbose > 0:
-                    print('> Generate interaction Num Features')
-                fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
-                                                            self.num_features,
-                                                            operations=self._operations_num_generator,)
+                logger.info('> Generate interaction Num Features')
+                self.num_generator = NumericInteractionFeatures(operations=self._operations_num_generator,)
+                self.num_generator = self.num_generator.fit(list(self.num_features))
+                fe_df = self.num_generator.transform(data[self.num_features])
+                
                 if self._reduce_memory:
                     fe_df = reduce_mem_usage(fe_df)
-                data = data.join(fe_df.reset_index(drop=True))
-                if self.verbose > 0:
-                    print(' ADD features:', fe_df.shape[1],)
+                data = pd.concat([
+                        data.reset_index(drop=True), 
+                        fe_df.reset_index(drop=True)], 
+                        axis=1,)
+                #data = data.join(fe_df.reset_index(drop=True))
+                logger.info(f' ADD features: {fe_df.shape[1]}')
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.data_median_dict = data.median()
@@ -532,32 +607,35 @@ class DataPrepare(object):
 
         ########### Normalization ######################
         if self._normalization:
-            if self.verbose > 0:
-                print('> Normalization Features')
+            logger.info('> Normalization Features')
             self.normalization_features = data.columns[data.nunique(dropna=False) > 2].values
             self.scaler = StandardScaler().fit(data[self.normalization_features])
             data_tmp = self.scaler.transform(data[self.normalization_features])
             data_tmp = pd.DataFrame(data_tmp, columns=self.normalization_features)
-            data[self.normalization_features] = data_tmp
+            data.drop(self.normalization_features, axis=1, inplace=True)
+            data = pd.concat([
+                        data.reset_index(drop=True), 
+                        data_tmp.reset_index(drop=True)], 
+                        axis=1,)
+            #data[self.normalization_features] = data_tmp[self.normalization_features]
             data_tmp = None
 
         ########### reduce_mem_usage ######################
         if self._reduce_memory:
-            if self.verbose > 0:
-                print('> Reduce_Memory')
+            logger.info('> Reduce_Memory')
             data = reduce_mem_usage(data, verbose=self.verbose)
         data.fillna(0, inplace=True)
 
         ########### Final ######################
-        if self.verbose > 0:
-            end_columns = len(data.columns)
-            print('#'*50)
-            print('Final data shape: ', data.shape,)
-            print('Total ADD columns:', end_columns-start_columns)
-            print('#'*50)
+        end_columns = len(data.columns)
+        logger.info('#'*50)
+        logger.info(f'Final data shape: {data.shape}')
+        logger.info(f'Total ADD columns: {end_columns-start_columns}')
+        logger.info('#'*50)
         return data
 
 
+    @logger.catch
     def transform(self, data, verbose=None) -> pd.DataFrame:
         """Transform dataset.
         Args:
@@ -570,13 +648,14 @@ class DataPrepare(object):
         if verbose is not None:
             self.verbose = verbose
 
+        logger_print_lvl(self.verbose)
+
         ########### check_data_format ######################
         self.check_data_format(data)
 
-        if self.verbose > 0:
-            start_columns = len(data.columns)
-            print('#'*50)
-            print('! Start Transform Data')
+        start_columns = len(data.columns)
+        logger.info('#'*50)
+        logger.info('! Start Transform Data')
 
         data = data.reset_index(drop=True)
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -590,27 +669,24 @@ class DataPrepare(object):
         
         if self.binary_encoder:
             data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0)
-            if self.verbose:
-                print('> Clean Binary Features')
+            logger.info('> Clean Binary Features')
 
         ########### Categorical Features ######################
         # Clean Categorical Features
         if self.object_features is not None:
-            if self.verbose > 0:
-                print('> Clean Categorical Features')
+            logger.info('> Clean Categorical Features')
             data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
         
         if self.cat_features is not None:
             # Encode Categorical Features
-            if self.verbose > 0:
-                print('> Transform Categorical Features.')
+            logger.info('> Transform Categorical Features.')
             for cat_encoder_name in self.cat_encoder_names:
                 data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
                 if self._reduce_memory:
                     data_encodet = reduce_mem_usage(data_encodet)
                 if self.verbose > 0:
-                    print(' - Encoder:', cat_encoder_name, 'ADD features:', len(data_encodet.columns))
+                    logger.info(f' - Encoder: {cat_encoder_name} ADD features: {len(data_encodet.columns)}')
                 data = data.join(data_encodet.reset_index(drop=True))
 
         ########### Numerical Features ######################
@@ -621,52 +697,56 @@ class DataPrepare(object):
         # CleanNans
         if self.clean_nan_encoder:
             data = self.clean_nan_encoder.transform(data)
-            if self.verbose:
-                print('> Clean Nans')
+            logger.info('> Clean Nans')
 
         # Generator interaction Num Features
         if self._num_generator_features:
             if len(self.num_features) > 1:
-                if self.verbose > 0:
-                    print('> Generate interaction Num Features')
-                fe_df = self.gen_numeric_interaction_features(data[self.num_features], 
-                                                            self.num_features,
-                                                            operations=self._operations_num_generator,)
+                logger.info('> Generate interaction Num Features')
+                fe_df = self.num_generator.transform(data[self.num_features])
+                
                 if self._reduce_memory:
                     fe_df = reduce_mem_usage(fe_df)
-                data = data.join(fe_df.reset_index(drop=True))
-                if self.verbose > 0:
-                    print(' ADD features:', fe_df.shape[1],)
+                data = pd.concat([
+                        data.reset_index(drop=True), 
+                        fe_df.reset_index(drop=True)
+                        ], axis=1,)
+                #data = data.join(fe_df.reset_index(drop=True))
+                logger.info(f' ADD features: {fe_df.shape[1]}')
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
         data.fillna(self.data_median_dict, inplace=True)
 
         ########### Normalization ######################
         if self._normalization:
-            if self.verbose > 0:
-                print('> Normalization Features')
-            data_tmp= self.scaler.transform(data[self.normalization_features])
+            logger.info('> Normalization Features')
+            data_tmp = self.scaler.transform(data[self.normalization_features])
             data_tmp = pd.DataFrame(data_tmp, columns=self.normalization_features)
-            data[self.normalization_features] = data_tmp
+            data.drop(self.normalization_features,axis=1,inplace=True)
+            data = pd.concat([
+                        data.reset_index(drop=True), 
+                        data_tmp.reset_index(drop=True)], 
+                        axis=1,)
+            #data[self.normalization_features] = data_tmp[self.normalization_features]
             data_tmp=None
 
         ########### reduce_mem_usage ######################
         if self._reduce_memory:
-            if self.verbose > 0:
-                print('> Reduce_Memory')
+            logger.info('> Reduce_Memory')
             data = reduce_mem_usage(data, verbose=self.verbose)
         data.fillna(0, inplace=True)
 
         ########### Final ######################
-        if self.verbose > 0:
-            end_columns = len(data.columns)
-            print('#'*50)
-            print('Final data shape: ', data.shape,)
-            print('Total ADD columns:', end_columns-start_columns)
-            print('#'*50)
+
+        end_columns = len(data.columns)
+        logger.info('#'*50)
+        logger.info(f'Final data shape: {data.shape}')
+        logger.info(f'Total ADD columns: {end_columns-start_columns}')
+        logger.info('#'*50)
         return data
 
 
+    @logger.catch
     def save(self, name='DataPrepare_dump', folder='./'):
         dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
@@ -679,9 +759,10 @@ class DataPrepare(object):
         shutil.make_archive(folder+name, 'zip', dir_tmp)
 
         shutil.rmtree(dir_tmp)
-        print('Save DataPrepare')
+        logger.info('Save DataPrepare')
 
 
+    @logger.catch
     def load(self, name='DataPrepare_dump', folder='./'):
         dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
@@ -694,17 +775,18 @@ class DataPrepare(object):
             de.fit_cat_encoders[cat_encoder_name] = joblib.load(dir_tmp+cat_encoder_name+'.pkl')
 
         shutil.rmtree(dir_tmp)
-        print('Load DataPrepare')
+        logger.info('Load DataPrepare')
         return(de)
 
 
+@logger.catch
 def reduce_mem_usage(df, verbose=0):
     """ iterate through all the columns of a dataframe and modify the data type
         to reduce memory usage.        
     """
     if verbose > 0:
         start_mem = df.memory_usage().sum() / 1024**2
-        print('Memory usage of dataframe is {:.2f} MB'.format(start_mem))
+        logger.info('Memory usage of dataframe is {:.2f} MB'.format(start_mem))
     
     for col in df.columns:
         col_type = df[col].dtype
@@ -731,7 +813,7 @@ def reduce_mem_usage(df, verbose=0):
 
     if verbose > 0:
         end_mem = df.memory_usage().sum() / 1024**2
-        print('Memory usage after optimization is: {:.2f} MB'.format(end_mem))
-        print('Decreased by {:.1f}%'.format(100 * (start_mem - end_mem) / start_mem))
+        logger.info('Memory usage after optimization is: {:.2f} MB'.format(end_mem))
+        logger.info('Decreased by {:.1f}%'.format(100 * (start_mem - end_mem) / start_mem))
     
     return df

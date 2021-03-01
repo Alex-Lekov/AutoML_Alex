@@ -4,6 +4,7 @@ import numpy as np
 import automl_alex
 from automl_alex import DataPrepare
 from automl_alex import AutoML, AutoMLClassifier, AutoMLRegressor
+print('AutoML-Alex version:', automl_alex.__version__)
 
 MODEL_FILE_NAME = 'AutoML_model'
 MODEL_DIR ='./model/'
@@ -13,7 +14,7 @@ def load_data():
     '''
     here you can insert your function to load data
     '''
-    data = pd.read_csv('./data/openml_id_543_test.csv')
+    data = pd.read_csv('./dataset/openml_id_543_test.csv')
     return(data)
 
 

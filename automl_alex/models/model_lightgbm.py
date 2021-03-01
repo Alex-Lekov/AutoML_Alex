@@ -1,4 +1,4 @@
-from .base import *
+from automl_alex.base import ModelBase
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -54,10 +54,7 @@ class LightGBM(ModelBase):
             num_boost_round=num_iterations,
             categorical_feature=cat_features,
             )
-
         dtrain=None
-        
-        return self
 
 
     def predict(self, X=None):
@@ -94,6 +91,7 @@ class LightGBM(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
+
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
         return self.model.predict(X)
@@ -107,18 +105,19 @@ class LightGBM(ModelBase):
         return True
 
 
-    def get_feature_importance(self, train_x, importance_type='gain',):
+    def get_feature_importance(self, X, importance_type='gain',):
         """
         Return:
             list feature_importance
         """
         if not self._is_possible_feature_importance(): 
             raise Exception("Model cannot get feature_importance")
+
         fe_lst = self.model.feature_importance(importance_type=importance_type)
-        return (pd.DataFrame(fe_lst, index=train_x.columns, columns=['value']))
+        return (pd.DataFrame(fe_lst, index=X.columns, columns=['value']))
 
 
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -126,38 +125,34 @@ class LightGBM(ModelBase):
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
         if opt_lvl == 1:
-            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50,)
+            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50, log=True)
             
         if opt_lvl >= 1:
-            if len_data > 1000:
-                model_param['min_child_samples'] = trial.suggest_int('lgbm_min_child_samples', 2, \
-                                                                        (len_data//100))
-            else:
-                model_param['min_child_samples'] = trial.suggest_int('lgbm_min_child_samples', 2, 7)
+            model_param['min_child_samples'] = trial.suggest_int('lgbm_min_child_samples', 2, 100, log=True)
 
         ################################# LVL 2 ########################################
         if opt_lvl == 2:
-            model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 11)/100
-            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50,)
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 3, 7,)*100
+            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-2, 0.3, log=True)
+            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50, log=True)
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 300, 500, step=100)
 
         if opt_lvl >= 2:
-            model_param['bagging_fraction'] = trial.suggest_discrete_uniform('lgbm_bagging_fraction', 0.4, 1., 0.1)
+            model_param['bagging_fraction'] = trial.suggest_float('lgbm_bagging_fraction', 0.4, 1., step=0.1)
             if model_param['bagging_fraction'] < 1.:
-                model_param['feature_fraction'] = trial.suggest_discrete_uniform('lgbm_feature_fraction', 0.3, 1., 0.1)
+                model_param['feature_fraction'] = trial.suggest_float('lgbm_feature_fraction', 0.4, 1., step=0.1)
                 model_param['bagging_freq'] = trial.suggest_int('lgbm_bagging_freq', 2, 11,)
         
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
-            model_param['learning_rate'] = trial.suggest_int('lgbm_learning_rate', 1, 100)/1000
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 4, 10,)*100
+            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-2, 0.3, log=True)
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 300, 1000, step=100)
         
         if opt_lvl >= 3:
-            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100,)
+            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100, log=True)
         
         ################################# LVL 4 ########################################
         if opt_lvl == 4:
-            model_param['learning_rate'] = trial.suggest_loguniform('lgbm_learning_rate', 1e-3, .1)
+            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-3, .1, log=True)
 
         if opt_lvl >= 4:
             model_param['boosting'] = trial.suggest_categorical('lgbm_boosting', ['gbdt', 'dart',])
@@ -165,11 +160,11 @@ class LightGBM(ModelBase):
                 model_param['early_stopping_rounds'] = 0
                 model_param['uniform_drop'] = trial.suggest_categorical('lgbm_uniform_drop', [True, False])
                 model_param['xgboost_dart_mode'] = trial.suggest_categorical('lgbm_xgboost_dart_mode', [True, False])
-                model_param['drop_rate'] = trial.suggest_loguniform('lgbm_drop_rate', 1e-8, 1.0)
+                model_param['drop_rate'] = trial.suggest_float('lgbm_drop_rate', 1e-8, 1.0, log=True)
                 model_param['max_drop'] = trial.suggest_int('lgbm_max_drop', 0, 100)
-                model_param['skip_drop'] = trial.suggest_loguniform('lgbm_skip_drop', 1e-3, 1.0)
+                model_param['skip_drop'] = trial.suggest_float('lgbm_skip_drop', 1e-3, 1.0, log=True)
 
-            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 1, 5,)*1000
+            model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 200, 1500, step=100,)
 
             if self.type_of_estimator == 'classifier':
                 model_param['objective'] = trial.suggest_categorical('lgbm_objective', 
@@ -191,10 +186,10 @@ class LightGBM(ModelBase):
         ################################# LVL 5 ########################################
         if opt_lvl >= 5:
             model_param['max_cat_threshold'] = trial.suggest_int('lgbm_max_cat_threshold', 1, 100)
-            model_param['min_child_weight'] = trial.suggest_loguniform('lgbm_min_child_weight', 1e-6, 1.0)
-            model_param['learning_rate'] = trial.suggest_loguniform('lgbm_learning_rate', 1e-5, .1)
-            model_param['reg_lambda'] = trial.suggest_loguniform('lgbm_reg_lambda', 1e-8, 1.0)
-            model_param['reg_alpha'] = trial.suggest_loguniform('lgbm_reg_alpha', 1e-8, 1.0)
+            model_param['min_child_weight'] = trial.suggest_float('lgbm_min_child_weight', 1e-6, 1.0, log=True)
+            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-5, .1, log=True)
+            model_param['reg_lambda'] = trial.suggest_float('lgbm_reg_lambda', 1e-8, 1.0, log=True)
+            model_param['reg_alpha'] = trial.suggest_float('lgbm_reg_alpha', 1e-8, 1.0, log=True)
             model_param['max_bin'] = trial.suggest_int('lgbm_max_bin', 1, 5,)*50
             #self.model_param['extra_trees'] = trial.suggest_categorical('lgbm_extra_trees', [True, False])
             model_param['enable_bundle'] = trial.suggest_categorical('lgbm_enable_bundle', [True, False])
@@ -202,6 +197,20 @@ class LightGBM(ModelBase):
         ################################# Other ########################################
 
         return(model_param)
+
+    
+    def _is_model_start_opt_params(self,):
+        return(True)
+
+
+    def get_model_start_opt_params(self,):
+        dafault_params = {
+            "lgbm_num_leaves": 31,
+            "lgbm_min_child_samples": 20,
+            "lgbm_learning_rate": 0.1,
+            "lgbm_num_iterations": 300,
+            }
+        return(dafault_params)
 
 
 class LightGBMClassifier(LightGBM):

@@ -38,11 +38,11 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Scientific/Engineering :: Information Analysis",
         'Topic :: Software Development :: Libraries :: Python Modules',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
-    python_requires='>=3.6.*',
+    python_requires='>=3.7.*',
     install_requires=load_requirements("requirements.txt"),
     test_suite='nose.collector',
     project_urls={  # Optional

@@ -1,4 +1,4 @@
-from .base import *
+from automl_alex.base import ModelBase
 import xgboost as xgb
 import numpy as np
 
@@ -35,7 +35,7 @@ class XGBoost(ModelBase):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data):
+    def get_model_opt_params(self, trial, opt_lvl):
         """
         Return:
             dict of DistributionWrappers
@@ -61,10 +61,7 @@ class XGBoost(ModelBase):
             model_param['booster'] = trial.suggest_categorical('xgb_booster', ['gbtree', 'dart', 'gblinear'])
             
             if model_param['booster'] == 'dart' or model_param['booster'] == 'gbtree':
-                if len_data > 1000:
-                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, (len_data//100))
-                else:
-                    model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, 10)
+                model_param['min_child_weight'] = trial.suggest_int('xgb_min_child_weight', 2, 100)
                 model_param['max_depth'] = trial.suggest_int('xgb_max_depth', 1, 20)
                 model_param['gamma'] = trial.suggest_loguniform('xgb_gamma', 1e-6, 1.0)
                 model_param['grow_policy'] = trial.suggest_categorical('xgb_grow_policy', ['depthwise', 'lossguide'])
@@ -93,6 +90,10 @@ class XGBoost(ModelBase):
         
         ################################# Other ########################################
         return(model_param)
+
+    
+    def _is_model_start_opt_params(self,):
+        return(False)
 
 
     def fit(self, X_train=None, y_train=None, cat_features=None):

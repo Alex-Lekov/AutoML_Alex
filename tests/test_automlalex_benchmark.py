@@ -9,6 +9,7 @@ import sklearn
 from sklearn.datasets import fetch_openml
 
 import automl_alex
+from automl_alex.logger import *
 from automl_alex.models import *
 from automl_alex.data_prepare import *
 from automl_alex import AutoMLClassifier
@@ -21,7 +22,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from tqdm import tqdm
 import sys
 
-print('automl_alex v:', automl_alex.__version__)
+logger.info('automl_alex v:', automl_alex.__version__)
 
 
 RANDOM_SEED = 42
@@ -30,13 +31,25 @@ CV = 5
 
 
 def test_automl_classifier_bench():
-    for data_id in [179, 1461, 31,]:
+    for data_id in [
+            #179,
+            4135, 
+            1461, 
+            1226,
+            31,
+            1471,
+            151,
+            1067,
+            1046,
+            1489,
+            1494,
+            ]:
         dataset = fetch_openml(data_id=data_id, as_frame=True)
         dataset.target = dataset.target.astype('category').cat.codes
 
-        print('='*75)
-        print('LOAD DATASET')
-        print('Dataset: ', data_id, dataset.data.shape,)
+        logger.info('='*75)
+        logger.info('LOAD DATASET')
+        logger.info('Dataset: ', data_id, dataset.data.shape,)
 
         y = dataset.target 
         X = dataset.data 
@@ -46,9 +59,9 @@ def test_automl_classifier_bench():
         metrics = []
 
         for count, (train_idx, test_idx) in enumerate(skf.split(X, y)):
-            if count > 3:
-                continue
-            print(f'START FOLD {count}')
+            #if count > 3:
+            #    continue
+            logger.info(f'START FOLD {count}')
             RANDOM_SEED = count
             EXPERIMENT = count
             np.random.seed(RANDOM_SEED)
@@ -65,21 +78,22 @@ def test_automl_classifier_bench():
             START_EXPERIMENT = time.time()
 
             model = AutoMLClassifier(random_state=RANDOM_SEED,)
-            model = model.fit(X_train, y_train, timeout=TIME_LIMIT)
+            model.fit(X_train, y_train, timeout=TIME_LIMIT)
 
             predicts = model.predict(X_test)
+            assert predicts is not None
 
-            model.save(f'AutoML_fold_{count}', folder='./result/')
+            #model.save(f'AutoML_fold_{count}', folder='./result/')
 
-            print('*'*75)
-            print('AUC: ', round(roc_auc_score(y_test, predicts),4))
+            logger.info('*'*75)
+            logger.info('AUC: ', round(roc_auc_score(y_test, predicts),4))
 
-            print('predict_model_1 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_1),4))
-            #print('predict_model_2 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_2),4))
-            print('predict_model_3 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_3),4))
-            print('predict_model_4 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_4),4))
-            print('predict_model_5 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_5),4))
-            print('-'*75)
+            logger.info('predict_model_1 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_1),4))
+            #logger.info('predict_model_2 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_2),4))
+            logger.info('predict_model_3 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_3),4))
+            logger.info('predict_model_4 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_4),4))
+            logger.info('predict_model_5 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_5),4))
+            logger.info('-'*75)
 
             END_EXPERIMENT = time.time()
 
@@ -92,3 +106,4 @@ def test_automl_classifier_bench():
                 })
 
             pd.DataFrame(metrics).to_csv(f'./result/{data_id}_metrics.csv', index=False,)
+            model = None

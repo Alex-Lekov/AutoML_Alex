@@ -1,7 +1,8 @@
-from .base import *
+from automl_alex.base import ModelBase
 import catboost
 from catboost import Pool
 import numpy as np
+import pandas as pd
 
 
 class CatBoost(ModelBase):
@@ -48,6 +49,7 @@ class CatBoost(ModelBase):
             self (Class)
         """
         y_train = self.y_format(y_train)
+
         if cat_features is not None:
             cat_dims = [X_train.columns.get_loc(i) for i in cat_features[:]]
             train_pool = Pool(X_train, label=y_train, cat_features=cat_dims)
@@ -95,6 +97,7 @@ class CatBoost(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
+
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
         return self.model.predict_proba(X)[:, 1]
@@ -108,19 +111,20 @@ class CatBoost(ModelBase):
         return True
 
 
-    def get_feature_importance(self, train_x,):
+    def get_feature_importance(self, X,):
         """
         Return:
             list feature_importance
         """
         if not self._is_possible_feature_importance(): 
             raise Exception("Model cannot get feature_importance")
+
         fe_lst = self.model.get_feature_importance()
-        return (pd.DataFrame(fe_lst, index=train_x.columns, columns=['value']))
+        return (pd.DataFrame(fe_lst, index=X.columns, columns=['value']))
 
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -131,11 +135,7 @@ class CatBoost(ModelBase):
             model_param['depth'] = trial.suggest_categorical('cb_depth', [6, 10])
 
         if opt_lvl >= 1:
-            if len_data > 1000:
-                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, \
-                                                                    (len_data//100))
-            else:
-                model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, 10)
+            model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, 100)
             
 
         ################################# LVL 2 ########################################
@@ -177,6 +177,18 @@ class CatBoost(ModelBase):
 
         ################################# Other ########################################
         return(model_param)
+
+    def _is_model_start_opt_params(self,):
+        return(True)
+
+
+    def get_model_start_opt_params(self,):
+        dafault_params = {
+            "cb_depth": 6,
+            "cb_min_child_samples": 1,
+            "cb_learning_rate": 0.03,
+            }
+        return(dafault_params)
 
 
 class CatBoostClassifier(CatBoost):

@@ -137,5 +137,12 @@ alexautoml/.DS_Store
 .catboost_info
 *.catboost_info/
 catboost_info/*
+*/catboost_info
 *.pkl
-de.pkl
+test_de.zip
+.gitignore
+dask-worker-space/*
+de.zip
+.automl-alex_tmp
+test_save.zip
+examples/prod_sample/catboost_info/*

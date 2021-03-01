@@ -1,5 +1,5 @@
 from sklearn import ensemble, neural_network, linear_model, svm, neighbors
-from .base import *
+from automl_alex.base import ModelBase
 import numpy as np
 
 from warnings import simplefilter, filterwarnings
@@ -20,12 +20,14 @@ class LinearModel(ModelBase):
     """
     __name__ = 'LinearModel'
 
+
     def _init_default_model_param(self,):
         """
         Default model_param
         """
         model_param = {}
         return(model_param)
+
 
     def _init_model(self, model_param=None):
         """
@@ -39,8 +41,9 @@ class LinearModel(ModelBase):
             model = linear_model.LinearRegression(**model_param)
         return(model)
 
+
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -51,7 +54,7 @@ class LinearModel(ModelBase):
         if self.type_of_estimator == 'classifier':
             ################################# LVL 1 ########################################
             if opt_lvl >= 1:
-                model_param['C'] = trial.suggest_uniform('lr_C', 0.0, 100.0)
+                model_param['C'] = trial.suggest_uniform('lr_C', 0.1, 100.0)
             
             ################################# LVL 2 ########################################
             if opt_lvl >= 2:
@@ -70,6 +73,11 @@ class LinearModel(ModelBase):
                     model_param['max_iter'] = 5000
         return(model_param)
 
+
+    def _is_model_start_opt_params(self,):
+        return(False)
+
+
     def fit(self, X_train=None, y_train=None, cat_features=None):
         """
         Args:
@@ -79,9 +87,11 @@ class LinearModel(ModelBase):
             self (Class)
         """
         y_train = self.y_format(y_train)
+
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
         return self
+
 
     def predict(self, X_test=None):
         """
@@ -92,7 +102,9 @@ class LinearModel(ModelBase):
         """           
         if self.model is None:
             raise Exception("No fit models")
+
         return self.model.predict(X_test)
+
 
     def is_possible_predict_proba(self):
         """
@@ -101,7 +113,8 @@ class LinearModel(ModelBase):
         """
         return True
 
-    def predict_proba(self, X=None):
+
+    def predict_proba(self, X_test):
         """
         Args:
             X (np.array, shape (n_samples, n_features)): the input data
@@ -110,9 +123,10 @@ class LinearModel(ModelBase):
         """
         if self.model is None:
             raise Exception("No fit models")
+
         if not self.is_possible_predict_proba(): 
             raise Exception("Model cannot predict probability distribution")
-        return self.model.predict_proba(X)[:, 1]
+        return self.model.predict_proba(X_test)[:, 1]
 
 
 class LogisticRegressionClassifier(LinearModel):
@@ -122,92 +136,6 @@ class LogisticRegressionClassifier(LinearModel):
 class LinearRegression(LinearModel):
     type_of_estimator='regression'
 
-
-################################## SGD ##########################################################
-
-
-class SGD(LinearModel):
-    """
-    Args:
-        params (dict or None): parameters for model.
-            If None default params are fetched.
-    """
-    __name__ = 'SGD'
-
-    def _init_default_model_param(self, model_param=None):
-        """
-        Default model_param
-        """
-        model_param = {'max_iter': 5000,
-                        'verbose':0,
-                        'fit_intercept': True,
-                        'random_state':self._random_state,}
-        return(model_param)
-
-
-    def _init_model(self, model_param=None):
-        """
-        sets new model,
-        Args:
-            params: : parameters for model.
-        """
-        if self.type_of_estimator == 'classifier':
-            model = linear_model.SGDClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
-            model = linear_model.SGDRegressor(**model_param)
-        return(model)
-
-    #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
-        """
-        Return:
-            dict of DistributionWrappers
-        """
-        model_param = self._init_default_model_param()
-        ################################# LVL 1 ########################################
-        if opt_lvl >= 1:
-            model_param['penalty'] = trial.suggest_categorical('sgb_penalty', ['l2', 'l1', 'elasticnet',])
-            model_param['tol'] = trial.suggest_uniform('sgb_tol', 1e-6, 0.1)
-            model_param['alpha'] = trial.suggest_uniform('sgb_alpha', 1e-6, 1.0)
-            model_param['l1_ratio'] = trial.suggest_uniform('sgb_l1_ratio', 0.0, 1.0)
-            model_param['eta0'] = trial.suggest_uniform('sgb_eta0', 0.0, 1.0)
-            model_param['fit_intercept'] = trial.suggest_categorical('sgb_fit_intercept',[True, False])
-            model_param['early_stopping'] = trial.suggest_categorical('sgb_early_stopping',[True, False])
-        
-        ################################# LVL 2 ########################################
-        if opt_lvl >= 2:
-            if self.type_of_estimator == 'classifier':
-                model_param['loss'] = trial.suggest_categorical('sgb_loss', [
-                        'log', 
-                        'hinge', 
-                        'modified_huber', 
-                        'squared_hinge', 
-                        'perceptron'
-                        ])
-                model_param['class_weight'] = trial.suggest_categorical('sgb_class_weight',[None, 'balanced'])
-            elif self.type_of_estimator == 'regression':
-                model_param['loss'] = trial.suggest_categorical('sgb_loss', [
-                    'squared_loss', 
-                    'huber', 
-                    'epsilon_insensitive', 
-                    'squared_epsilon_insensitive'
-                    ])
-        return(model_param)
-
-    def is_possible_predict_proba(self):
-        """
-        Return:
-            bool, whether model can predict proba
-        """
-        return False
-
-
-class SGDClassifier(SGD):
-    type_of_estimator='classifier'
-
-
-class SGDRegressor(SGD):
-    type_of_estimator='regression'
 
 
 ########################################### SVM #####################################################
@@ -244,7 +172,7 @@ class LinearSVM(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
+    def get_model_opt_params(self, trial, opt_lvl, ):
         """
         Return:
             dict of DistributionWrappers
@@ -260,7 +188,7 @@ class LinearSVM(LinearModel):
         if opt_lvl >= 2:
             if self.type_of_estimator == 'classifier':
                 model_param['loss'] = trial.suggest_categorical('svc_loss', ['hinge', 'squared_hinge',])
-                model_param['class_weight'] = trial.suggest_categorical('svc_class_weight',[None, 'balanced'])
+                #model_param['class_weight'] = trial.suggest_categorical('svc_class_weight',[None, 'balanced'])
                 if model_param['loss'] == 'squared_hinge':
                     model_param['penalty'] = trial.suggest_categorical('svc_penalty', ['l2', 'l1',])
                     if model_param['penalty'] == 'l2':
@@ -317,7 +245,7 @@ class KNeighbors(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl,):
         """
         Return:
             dict of DistributionWrappers
@@ -378,7 +306,7 @@ class MLP(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data, ):
+    def get_model_opt_params(self, trial, opt_lvl, ):
         """
         Return:
             dict of DistributionWrappers
@@ -437,7 +365,7 @@ class RandomForest(LinearModel):
         return(model)
 
     #@staticmethod
-    def get_model_opt_params(self, trial, opt_lvl, len_data,):
+    def get_model_opt_params(self, trial, opt_lvl, ):
         """
         Return:
             dict of DistributionWrappers
@@ -445,29 +373,25 @@ class RandomForest(LinearModel):
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
         if opt_lvl >= 1:
-            if len_data > 1000:
-                model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, \
-                                                                        (len_data//100))
-            else:
-                model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, 10)
-            model_param['max_depth'] = trial.suggest_int('rf_max_depth', 1, 10,)*10
+            model_param['min_samples_split'] = trial.suggest_int('rf_min_samples_split', 2, 100)
+            model_param['max_depth'] = trial.suggest_int('rf_max_depth', 10, 100, step=10)
 
         ################################# LVL 2 ########################################
         if opt_lvl >= 2:
-            model_param['n_estimators'] = trial.suggest_int('rf_n_estimators', 1, 10,)*100
-            model_param['max_features'] = trial.suggest_categorical('rf_max_features', [
-                'auto', 
-                'sqrt', 
-                'log2'
-                ])
+            model_param['n_estimators'] = trial.suggest_int('rf_n_estimators', 100, 1000, step=100)
+            #model_param['max_features'] = trial.suggest_categorical('rf_max_features', [
+            #    'auto', 
+            #    'sqrt', 
+            #    'log2'
+            #    ])
         
         ################################# LVL 3 ########################################
         if opt_lvl >= 3:
             model_param['bootstrap'] = trial.suggest_categorical('rf_bootstrap',[True, False])
             if model_param['bootstrap']:
                 model_param['oob_score'] = trial.suggest_categorical('rf_oob_score',[True, False])
-            if self.type_of_estimator == 'classifier':
-                model_param['class_weight'] = trial.suggest_categorical('rf_class_weight',[None, 'balanced'])
+            #if self.type_of_estimator == 'classifier':
+            #    model_param['class_weight'] = trial.suggest_categorical('rf_class_weight',[None, 'balanced'])
         return(model_param)
 
 

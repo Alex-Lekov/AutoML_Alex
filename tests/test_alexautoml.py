@@ -43,5 +43,5 @@ def test_ModelsReviewClassifier(get_data):
         X_test=X_test, 
         y_test=y_test,
         )
-    assert isinstance(review, pd.DataFrame)
-    assert not review.empty
+    #assert isinstance(review, pd.DataFrame)
+    assert 1 < len(review)
