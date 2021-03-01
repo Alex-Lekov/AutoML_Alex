@@ -4,6 +4,7 @@ import numpy as np
 import automl_alex
 from automl_alex import DataPrepare
 from automl_alex import AutoML, AutoMLClassifier, AutoMLRegressor
+print('AutoML-Alex version:', automl_alex.__version__)
 
 MODEL_FILE_NAME = 'AutoML_model'
 MODEL_DIR ='./model/'

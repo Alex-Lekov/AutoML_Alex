@@ -128,6 +128,7 @@ class NumericInteractionFeatures(object):
         """
         self.operations = operations
         self.verbose = verbose
+        self.columns = None
 
 
     def fit(self, columns,):
@@ -139,6 +140,7 @@ class NumericInteractionFeatures(object):
         Returns:
             self
         """
+        self.columns = columns
         self.cols_combinations = list(combinations(columns,2))
         return self
 
@@ -156,13 +158,20 @@ class NumericInteractionFeatures(object):
             raise Exception("No fit cols_combinations")
 
         fe_df = pd.DataFrame()
+
+        for col1 in self.columns:
+            for col2 in self.columns:
+                if col1 == col2:
+                    continue
+                else:
+                    if '/' in self.operations:
+                        fe_df['{}_/_{}'.format(col1, col2) ] = (df[col1]*1.) / df[col2]
+                    if '-' in self.operations:
+                        fe_df['{}_-_{}'.format(col1, col2) ] = df[col1] - df[col2]
+
         for c in self.cols_combinations:
-            if '/' in self.operations:
-                fe_df['{}_/_{}'.format(c[0], c[1]) ] = (df[c[0]]*1.) / df[c[1]]
             if '*' in self.operations:
                 fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
-            if '-' in self.operations:
-                fe_df['{}_-_{}'.format(c[0], c[1]) ] = df[c[0]] - df[c[1]]
             if '+' in self.operations:
                 fe_df['{}_+_{}'.format(c[0], c[1]) ] = df[c[0]] + df[c[1]]
         return(fe_df)

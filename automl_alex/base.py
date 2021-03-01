@@ -294,7 +294,7 @@ class ModelBase(object):
         '''
         if self.optimizer.study is None:
             raise Exception('No history to visualize!')
-        return(optuna.visualization.plot_param_importances(self.optimizerself.study))
+        return(optuna.visualization.plot_param_importances(self.optimizer.study))
 
 
     def plot_opt_history(self,):

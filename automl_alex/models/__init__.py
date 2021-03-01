@@ -9,7 +9,6 @@ all_models = {
         'KNeighbors': KNeighbors,
         #'LinearSVM': LinearSVM,
         'LinearModel': LinearModel,
-        'SGD': SGD,
         'RandomForest': RandomForest,
         'ExtraTrees': ExtraTrees,
         'XGBoost': XGBoost,

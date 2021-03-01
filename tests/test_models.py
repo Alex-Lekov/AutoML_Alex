@@ -41,7 +41,7 @@ def test_fit_predict_default_classification():
             print(model_name)
             model = all_models[model_name](type_of_estimator='classifier',
                                                 random_state=RANDOM_SEED)
-            model = model.fit(X_train, y_train)
+            model.fit(X_train, y_train)
             if model.is_possible_predict_proba():
                 predicts = model.predict_proba(X_test)
             else:

@@ -4,11 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.2.26]
+## [1.2.28]
 ### ADD
 - Advanced Logging (logs in .automl-alex_tmp/log.log)
 - Class Optimizer
 - Pruner in optimizer
+- connection with [optuna-dashboard](https://github.com/optuna/optuna-dashboard) (run > optuna-dashboard sqlite:///db.sqlite3 )
+- NumericInteractionFeatures Class in data_prepare
 
 
 ## [1.2.25]

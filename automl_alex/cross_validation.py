@@ -1,4 +1,4 @@
-import modin.pandas as pd
+import pandas as pd
 import numpy as np
 import copy
 import os
@@ -15,7 +15,7 @@ from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 from automl_alex.logger import *
 
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
-TMP_FOLDER = '.automl-alex_tmp'
+TMP_FOLDER = '.automl-alex_tmp/'
 
 class CrossValidation(object):
     """
@@ -96,9 +96,9 @@ class CrossValidation(object):
 
     def _clean_temp_folder(self):
         Path(TMP_FOLDER).mkdir(parents=True, exist_ok=True)
-        if os.path.isdir(TMP_FOLDER+'/cross-v_tmp'):
-            shutil.rmtree(TMP_FOLDER+'/cross-v_tmp')
-        os.mkdir(TMP_FOLDER+'/cross-v_tmp')
+        if os.path.isdir(TMP_FOLDER+'cross-v_tmp'):
+            shutil.rmtree(TMP_FOLDER+'cross-v_tmp')
+        os.mkdir(TMP_FOLDER+'cross-v_tmp')
 
 
     @logger.catch
@@ -110,7 +110,7 @@ class CrossValidation(object):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             # Fit
             self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
-            self.fited_models[f'model_fold_{i}'] = copy.deepcopy(self.estimator)
+            self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'] = copy.deepcopy(self.estimator)
         self.fit_models = True
 
 
@@ -122,7 +122,7 @@ class CrossValidation(object):
         stacking_y_pred_test = np.zeros(len(X_test))
 
         for i in range(self.folds*self.n_repeats):
-            y_pred_test = self.fited_models[f'model_fold_{i}'].predict_or_predict_proba(X_test)
+            y_pred_test = self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].predict_or_predict_proba(X_test)
             stacking_y_pred_test += y_pred_test
         predict = stacking_y_pred_test / (self.folds*self.n_repeats)
         
@@ -138,7 +138,7 @@ class CrossValidation(object):
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             val_x = X.iloc[valid_idx]
-            y_pred = self.fited_models[f'model_fold_{i}'].predict_or_predict_proba(val_x)
+            y_pred = self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].predict_or_predict_proba(val_x)
             stacking_y_pred_train[valid_idx] += y_pred
         
         predict = stacking_y_pred_train / self.n_repeats
@@ -158,8 +158,10 @@ class CrossValidation(object):
 
         for i in range(self.folds*self.n_repeats):
             if i == 0:
-                feature_importance_df = self.fited_models[f'model_fold_{i}'].get_feature_importance(X)
-            feature_importance_df['value'] += self.fited_models[f'model_fold_{i}'].get_feature_importance(X)['value']
+                feature_importance_df = \
+                    self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].get_feature_importance(X)
+            feature_importance_df['value'] += \
+                self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].get_feature_importance(X)['value']
         
         return(feature_importance_df)
 
@@ -224,11 +226,11 @@ class CrossValidation(object):
         if not self.fit_models:
             raise Exception("No fit models")
 
-        dir_tmp = TMP_FOLDER+'/cross-v_tmp/'
+        dir_tmp = TMP_FOLDER+'cross-v_tmp/'
         self._clean_temp_folder()
 
         for i in range(self.folds*self.n_repeats):
-            self.fited_models[f'model_fold_{i}'].save(f'{dir_tmp}model_fold_{i}', verbose=0)
+            self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].save(f'{dir_tmp}model_{self.estimator.__name__}_fold_{i}', verbose=0)
 
         joblib.dump(self, dir_tmp+'CV'+'.pkl')
 
@@ -242,14 +244,15 @@ class CrossValidation(object):
     @logger.catch
     def load(self, name='cv_dump', folder='./', verbose=1):
         self._clean_temp_folder()
-        dir_tmp = TMP_FOLDER+'/cross-v_tmp/'
+        dir_tmp = TMP_FOLDER+'cross-v_tmp/'
 
         shutil.unpack_archive(folder+name+'.zip', dir_tmp)
 
         cv = joblib.load(dir_tmp+'CV'+'.pkl')
 
         for i in range(cv.folds*cv.n_repeats):
-            cv.fited_models[f'model_fold_{i}'] = copy.deepcopy(cv.estimator.load(f'{dir_tmp}model_fold_{i}', verbose=0))
+            cv.fited_models[f'model_{self.estimator.__name__}_fold_{i}'] = \
+                copy.deepcopy(cv.estimator.load(f'{dir_tmp}model_{self.estimator.__name__}_fold_{i}', verbose=0))
 
         shutil.rmtree(dir_tmp)
         if verbose>0:

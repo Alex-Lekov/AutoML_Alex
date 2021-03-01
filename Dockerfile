@@ -13,4 +13,3 @@ RUN apt-get update \
 RUN pip install --upgrade pip
 RUN pip --no-cache-dir install -r requirements.txt
 RUN pip install automl-alex
-RUN pip install modin[dask]

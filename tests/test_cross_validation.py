@@ -31,7 +31,7 @@ def get_data():
 # Binary-Classification
 
 def test_cross_val_score_classification(get_data):
-    for data_id in [179,1461,31,1471,151,1067,1046,1489,1494]:
+    for data_id in [179,]:
         dataset = fetch_openml(data_id=data_id, as_frame=True)
         dataset.target = dataset.target.astype('category').cat.codes
         X_train, X_test, y_train, y_test = train_test_split(dataset.data, 
@@ -50,7 +50,7 @@ def test_cross_val_score_classification(get_data):
             cv = CrossValidation(
                     estimator=model,
                     folds=10,
-                    score_folds=5,
+                    score_folds=3,
                     n_repeats=1,
                     metric=sklearn.metrics.roc_auc_score,
                     print_metric=False, 
@@ -82,7 +82,7 @@ def test_cross_val_score_classification(get_data):
             assert score is not None
             assert 0.5 < score <= 1
 
-            if model.estimator._is_possible_feature_importance():
+            if cv.estimator._is_possible_feature_importance():
                 feature_importance = cv.get_feature_importance(X_train)
                 assert isinstance(feature_importance, pd.DataFrame)
                 assert not feature_importance.empty
@@ -90,12 +90,12 @@ def test_cross_val_score_classification(get_data):
             # SAVE LOAD
             cv.save('test_save')
 
-            cv_2 = CrossValidation()
+            cv_2 = CrossValidation(estimator=model,)
             cv_2 = cv_2.load('test_save')
             predicts = cv_2.predict_test(X_test)
             assert predicts is not None
 
             score_cv2 = round(sklearn.metrics.roc_auc_score(y_test, predicts),4)
             assert score_cv2 is not None
-            assert 0.5 < score_cv2 <= 1
-            assert score_cv1 != score_cv2
+            assert 0.6 < score_cv2 <= 1
+            #assert score_cv1 != score_cv2

@@ -1,5 +1,5 @@
 
-import modin.pandas as pd
+import pandas as pd
 import numpy as np
 import time
 import os
@@ -100,6 +100,7 @@ class Optimizer(object):
         type_of_estimator=None, # classifier or regression
         gpu=False,
         random_state=42,
+        verbose=3,
         ):
         self._random_state = random_state
         self._gpu=gpu
@@ -264,20 +265,20 @@ class Optimizer(object):
         self.study.set_system_attr("Free RAM %", free_mem)
 
     
-    def _opt_model_(self, trial):
+    def _get_opt_model_(self, trial):
         '''
         now we can choose models in optimization
         '''
-        self.model_name = trial.suggest_categorical('model_name', self.models_names)
+        if len(self.models_names) > 1:
+            self.model_name = trial.suggest_categorical('model_name', self.models_names)
+        else:
+            self.model_name = self.models_names[0]
+
         opt_model = automl_alex.models.all_models[self.model_name](
             type_of_estimator=self.type_of_estimator,
             random_state=self._random_state,
             gpu=self._gpu,
             verbose=self.verbose,
-            )
-        opt_model.model_param = opt_model.get_model_opt_params(
-            trial=trial,
-            opt_lvl=self.opt_lvl, 
             )
         return(opt_model)
 
@@ -306,10 +307,15 @@ class Optimizer(object):
 
 
     def _opt_objective(self, trial, X, y, return_model=False, verbose=1):
-        opt_model = self._opt_model_(trial)
+        if len(self.models_names) > 1:
+            self.opt_model = self._get_opt_model_(trial)
+        self.opt_model.model_param = self.opt_model.get_model_opt_params(
+        trial=trial,
+        opt_lvl=self.opt_lvl, 
+        )
 
         cv = CrossValidation(
-            estimator=opt_model,
+            estimator=self.opt_model,
             folds=self.folds,
             score_folds=self.score_folds,
             n_repeats=1,
@@ -452,6 +458,16 @@ class Optimizer(object):
             'verbose':self.verbose,
             }
 
+        # init opt model
+        self.model_name = self.models_names[0]
+
+        self.opt_model = automl_alex.models.all_models[self.model_name](
+            type_of_estimator=self.type_of_estimator,
+            random_state=self._random_state,
+            gpu=self._gpu,
+            verbose=self.verbose,
+            )
+
         ###############################################################################
         # Step 1 
         # calc pruned score => get 10 n_trials and get score.median()
@@ -466,7 +482,7 @@ class Optimizer(object):
             )
 
         iter_time = ((time.time() - start_time)/10)
-        logger.info(f' One iteration takes ~ {round(iter_time,1)} sec')
+        logger.info(f' One iteration ~ {round(iter_time,1)} sec')
 
         possible_iters = timeout // (iter_time)
         logger.info(f' Possible iters ~ {possible_iters}')
@@ -531,6 +547,8 @@ class Optimizer(object):
             **obj_config
             )
         logger.info(f'Best Score: {self.study.best_value} {self.metric.__name__}')
+        self.best_model_name = self.cv_model.estimator.__name__
+        self.best_model_param = self.cv_model.estimator.model_param
         return(self.study.trials_dataframe())
 
     
