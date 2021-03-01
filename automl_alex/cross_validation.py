@@ -29,7 +29,7 @@ class CrossValidation(object):
     ----------
     estimator : estimator object implementing 'fit'
         The object to use to fit model.
-    folds=10 : int, default=10
+    folds=7 : int, default=7
         Number of folds. Must be at least 2.
     score_folds : int, default=5
         Number of score folds. Must be at least 1.
@@ -56,7 +56,7 @@ class CrossValidation(object):
     def __init__(
         self,  
         estimator, # model
-        folds=10,
+        folds=7,
         score_folds=5,
         n_repeats=1,
         metric=None,

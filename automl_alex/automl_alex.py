@@ -175,7 +175,7 @@ class AutoML(object):
         y,
         timeout=500, # optimization time in seconds
         auto_parameters=True,
-        folds=5,
+        folds=7,
         score_folds=2,
         opt_lvl=2,
         early_stoping=100,

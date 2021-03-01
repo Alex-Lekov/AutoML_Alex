@@ -88,7 +88,7 @@ class Optimizer(object):
     def __init__(
         self,
         models_names = ['LinearModel','LightGBM','ExtraTrees'],
-        folds=10,
+        folds=7,
         score_folds=2,
         metric=None,
         metric_round=4, 
@@ -180,14 +180,14 @@ class Optimizer(object):
             cold_start (int)
         """
         early_stoping = 25
-        folds = 10
+        folds = 7
         score_folds = 2
         opt_lvl = 1
         cold_start = 10
             
         if possible_iters > 100:
             opt_lvl = 2
-            folds = 10
+            folds = 7
             score_folds = 2
             cold_start = 20
             early_stoping = 30
@@ -341,7 +341,6 @@ class Optimizer(object):
             return(score, score_std)
 
 
-    @logger.catch
     def opt(
         self,
         X,

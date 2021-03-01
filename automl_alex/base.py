@@ -226,7 +226,7 @@ class ModelBase(object):
             combined_score_opt=False,
             cold_start=30,
             auto_parameters=True,
-            folds=10,
+            folds=7,
             score_folds=2,
             opt_lvl=2,
             early_stoping=100,
@@ -237,7 +237,7 @@ class ModelBase(object):
 
         Args:
             timeout=100 (int):
-            cv_folds=None (None or int):
+            folds=None (None or int):
             cold_start=None (None or int):
             score_cv_folds=None (None or int):
             opt_lvl=None (None or int):

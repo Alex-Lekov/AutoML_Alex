@@ -23,7 +23,7 @@
 
 -   [x] Regression
 
--   [] Multiclass Classification (in progress...)
+-   [ ] Multiclass Classification (in progress...)
 
 ### Benchmark Results
 <img width=800 src="https://github.com/Alex-Lekov/AutoML-Benchmark/blob/master/img/Total_SUM.png" alt="bench">
@@ -44,7 +44,8 @@ From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/)
 - Feature Selection
 - Models Selection
 - Cross Validation
-- Timelimit and EarlyStoping
+- Optimization Timelimit and EarlyStoping
+- Save and Load (Predict new data)
 
 
 # Installation
@@ -142,10 +143,12 @@ It integrates many popular frameworks:
 Library creates many new features. If you have a large dataset with a large number of features (more than 100), you may need a lot of memory.
 
 
-# Dashboard
+# Realtime Dashboard
 Works with [optuna-dashboard](https://github.com/optuna/optuna-dashboard)
 
 <img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/dashboard.gif" alt="Dashboard">
+    
+<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/dashboard_2.gif" alt="Dashboard_2">
 
 Run
 ```console
@@ -166,7 +169,7 @@ $ optuna-dashboard sqlite:///db.sqlite3
 
 -   [ ] Add More libs (NNs)
 
--   [] Multiclass Classification
+-   [ ] Multiclass Classification
 
 -   [ ] Build pipelines
 

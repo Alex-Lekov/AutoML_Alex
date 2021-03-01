@@ -14,7 +14,7 @@ def load_data():
     '''
     here you can insert your function to load data
     '''
-    data = pd.read_csv('./data/openml_id_543_test.csv')
+    data = pd.read_csv('./dataset/openml_id_543_test.csv')
     return(data)
 
 
