@@ -62,7 +62,7 @@ Classifier:
 from automl_alex import AutoMLClassifier
 
 model = AutoMLClassifier()
-model = model.fit(X_train, y_train, timeout=600)
+model.fit(X_train, y_train, timeout=600)
 predicts = model.predict(X_test)
 ```
 
@@ -71,7 +71,7 @@ Regression:
 from automl_alex import AutoMLRegressor
 
 model = AutoMLRegressor()
-model = model.fit(X_train, y_train, timeout=600)
+model.fit(X_train, y_train, timeout=600)
 predicts = model.predict(X_test)
 ```
 
