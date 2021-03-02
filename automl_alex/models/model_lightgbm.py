@@ -1,4 +1,4 @@
-from automl_alex.base import ModelBase
+from automl_alex._base import ModelBase
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -22,21 +22,21 @@ class LightGBM(ModelBase):
                             'device_type': 'gpu' if self._gpu else 'cpu',
                             }
         
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model_param['objective'] = 'binary'
         
-        if self.type_of_estimator == 'regression':
+        if self._type_of_estimator == 'regression':
             model_param['objective'] = 'regression'
         return(model_param)
 
 
-    def fit(self, X_train=None, y_train=None, cat_features=None):
+    def fit(self, X_train=None, y_train=None, cat_features=None) -> None:
         """
         Args:
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self (Class)
+            None
         """
         y_train = self.y_format(y_train)
         
@@ -67,9 +67,9 @@ class LightGBM(ModelBase):
         if self.model is None:
             raise Exception("No fit models")
 
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             predicts = self.model.predict(X)
         return predicts
 
@@ -166,14 +166,14 @@ class LightGBM(ModelBase):
 
             model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 200, 1500, step=100,)
 
-            if self.type_of_estimator == 'classifier':
+            if self._type_of_estimator == 'classifier':
                 model_param['objective'] = trial.suggest_categorical('lgbm_objective', 
                     [
                     'binary', 
                     'cross_entropy',
                     ])
 
-            elif self.type_of_estimator == 'regression':
+            elif self._type_of_estimator == 'regression':
                 model_param['objective'] = trial.suggest_categorical('lgbm_objective', 
                     [
                     'regression',
@@ -214,8 +214,8 @@ class LightGBM(ModelBase):
 
 
 class LightGBMClassifier(LightGBM):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class LightGBMRegressor(LightGBM):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'

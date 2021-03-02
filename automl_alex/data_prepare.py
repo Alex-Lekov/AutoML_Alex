@@ -1,3 +1,7 @@
+'''
+Data processing, cleaning, and encoding
+'''
+
 import pandas as pd
 import numpy as np
 import random
@@ -8,8 +12,8 @@ import gc
 from pathlib import Path
 import shutil
 
-from .encoders import *
-from .logger import *
+from ._encoders import *
+from ._logger import *
 from sklearn.preprocessing import StandardScaler
 
 # disable chained assignments
@@ -116,7 +120,7 @@ class NumericInteractionFeatures(object):
     """
     Сlass for  Numerical interaction generator features: A/B, A*B, A-B,
     """
-    cols_combinations = None
+    _cols_combinations = None
 
 
     def __init__(self, operations=['/','*','-','+'], verbose=0):
@@ -141,7 +145,7 @@ class NumericInteractionFeatures(object):
             self
         """
         self.columns = columns
-        self.cols_combinations = list(combinations(columns,2))
+        self._cols_combinations = list(combinations(columns,2))
         return self
 
 
@@ -154,7 +158,7 @@ class NumericInteractionFeatures(object):
             pandas.Dataframe of shape = (n_train, n_features)
                 Dataset with new features.
         """
-        if self.cols_combinations is None:
+        if self._cols_combinations is None:
             raise Exception("No fit cols_combinations")
 
         fe_df = pd.DataFrame()
@@ -169,7 +173,7 @@ class NumericInteractionFeatures(object):
                     if '-' in self.operations:
                         fe_df['{}_-_{}'.format(col1, col2) ] = df[col1] - df[col2]
 
-        for c in self.cols_combinations:
+        for c in self._cols_combinations:
             if '*' in self.operations:
                 fe_df['{}_*_{}'.format(c[0], c[1]) ] = df[c[0]] * df[c[1]]
             if '+' in self.operations:
@@ -198,7 +202,7 @@ class CleanOutliers(object):
     Something important when dealing with outliers is that one should try to use estimators as robust as possible. 
     try different values threshold and method
     """
-    weight = {}
+    _weight = {}
 
     def __init__(self, method='IQR', threshold=2, verbose=0):
         """
@@ -212,7 +216,7 @@ class CleanOutliers(object):
         self.verbose = verbose
 
 
-    def IQR(self, data, col, threshold=1.5):
+    def _IQR(self, data, col, threshold=1.5):
         '''
         outlier detection by Interquartile Ranges Rule, also known as Tukey's test. 
         calculate the IQR ( 75th quantile - 25th quantile) 
@@ -230,7 +234,7 @@ class CleanOutliers(object):
         return(lower_bound, upper_bound)
 
 
-    def fit_z_score(self, data, col,):
+    def _fit_z_score(self, data, col,):
         '''
         Z score is an important measurement or score that tells how many Standard deviation above or below a number is from the mean of the dataset
         Any positive Z score means the no. of standard deviation above the mean and a negative score means no. of standard deviation below the mean
@@ -241,7 +245,7 @@ class CleanOutliers(object):
         return(median_y, median_absolute_deviation_y)
 
 
-    def get_z_score(self, median, mad, data, col, threshold=3):
+    def _get_z_score(self, median, mad, data, col, threshold=3):
         '''
         Its Modified z_score
 
@@ -284,21 +288,21 @@ class CleanOutliers(object):
         else:
             chek_columns = data._get_numeric_data().columns
 
-        self.weight = {}
+        self._weight = {}
 
         for column in chek_columns:
             if self.method == 'IQR':
-                lower_bound, upper_bound = self.IQR(data,col=column,threshold=self.threshold)
-                self.weight[column] = [lower_bound, upper_bound]
-                #logger.info(self.weight)
+                lower_bound, upper_bound = self._IQR(data,col=column,threshold=self.threshold)
+                self._weight[column] = [lower_bound, upper_bound]
+                #logger.info(self._weight)
                 if self.verbose:
                     total_outliers = len(data[column][(data[column] < lower_bound) | (data[column] > upper_bound)])
 
             elif self.method == 'z_score':
-                median, mad = self.fit_z_score(data, col=column)
-                self.weight[column] = [median, mad]
+                median, mad = self._fit_z_score(data, col=column)
+                self._weight[column] = [median, mad]
                 if self.verbose:
-                    filtered_entries = self.get_z_score(median, mad, data, column, threshold=self.threshold)
+                    filtered_entries = self._get_z_score(median, mad, data, column, threshold=self.threshold)
                     total_outliers = filtered_entries.sum()
             else:
                 raise ValueError('Wrong method')
@@ -321,23 +325,23 @@ class CleanOutliers(object):
             pandas.Dataframe of shape = (n_train, n_features)
                 The dataset.
         """
-        #logger.info(self.weight)
-        for weight_values in self.weight:
+        #logger.info(self._weight)
+        for weight_values in self._weight:
             if self.method == 'IQR':
-                data.loc[data[weight_values] < self.weight[weight_values][0], weight_values] = self.weight[weight_values][0]
-                data.loc[data[weight_values] > self.weight[weight_values][1], weight_values] = self.weight[weight_values][1]
+                data.loc[data[weight_values] < self._weight[weight_values][0], weight_values] = self._weight[weight_values][0]
+                data.loc[data[weight_values] > self._weight[weight_values][1], weight_values] = self._weight[weight_values][1]
 
                 feature_name = weight_values+'_Is_Outliers_'+self.method
                 data[feature_name] = 0
                 data.loc[
-                    (data[weight_values] < self.weight[weight_values][0]) | (data[weight_values] > self.weight[weight_values][1]), \
+                    (data[weight_values] < self._weight[weight_values][0]) | (data[weight_values] > self._weight[weight_values][1]), \
                     feature_name
                     ] = 1
 
             elif self.method == 'z_score':
-                filtered_entries = self.get_z_score(
-                    self.weight[weight_values][0], 
-                    self.weight[weight_values][1], 
+                filtered_entries = self._get_z_score(
+                    self._weight[weight_values][0], 
+                    self._weight[weight_values][1], 
                     data, 
                     weight_values, 
                     threshold=self.threshold
@@ -369,11 +373,11 @@ class DataPrepare(object):
     """
     Сlass for cleaning, encoding and processing your dataset
     """
-    clean_outliers_enc = None
-    binary_encoder = None
-    clean_nan_encoder = None
-    cat_clean_ord_encoder = None
-    fit_cat_encoders={}
+    _clean_outliers_enc = None
+    _binary_encoder = None
+    _clean_nan_encoder = None
+    _cat_clean_ord_encoder = None
+    _fit_cat_encoders={}
 
 
     def __init__(self, 
@@ -424,29 +428,27 @@ class DataPrepare(object):
         self.cat_features = cat_features
 
 
-    def check_data_format(self, data):
+    def _check_data_format(self, data):
         """
-        Description of check_data_format:
-            Check that data is not pd.DataFrame or empty
+        Check that data is not pd.DataFrame or empty
 
         Args:
             data (pd.DataFrame, shape (n_samples, n_features)): the input data
         Return:
             True or Exception
         """
-        #if (not isinstance(data, pd.DataFrame)) or data.empty:
-        #    raise Exception("data is not pd.DataFrame or empty")
+        if (not isinstance(data, pd.DataFrame)) or data.empty:
+            raise Exception("data is not pd.DataFrame or empty")
 
 
-    def check_num_nans(self, data):
+    def _check_num_nans(self, data):
         """
-        Description of check_num_nans:
-            Check Nans in numeric features in data 
+        Check Nans in numeric features in data 
 
         Args:
             data (pd.DataFrame, shape (n_samples, n_features)): the input data
         Return:
-            True or Exception
+            bool: True or False
         """
         data = data._get_numeric_data()
         return(len(list(data.columns[data.isnull().sum() > 0])) > 0)
@@ -490,7 +492,7 @@ class DataPrepare(object):
             self.verbose =  verbose
         logger_print_lvl(self.verbose)
         ########### check_data_format ######################
-        self.check_data_format(data)
+        self._check_data_format(data)
 
         start_columns = len(data.columns)
         logger.info(f'Source data shape: {data.shape}')
@@ -523,9 +525,9 @@ class DataPrepare(object):
         if len(self.binary_features) > 0:
             logger.info('> Binary Features')
 
-            self.binary_encoder = OrdinalEncoder()
-            self.binary_encoder = self.binary_encoder.fit(data[self.binary_features])
-            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0)
+            self._binary_encoder = OrdinalEncoder()
+            self._binary_encoder = self._binary_encoder.fit(data[self.binary_features])
+            data[self.binary_features] = self._binary_encoder.transform(data[self.binary_features]).replace(2,0)
             
 
         ########### Categorical Features ######################
@@ -533,9 +535,9 @@ class DataPrepare(object):
         # Clean Categorical Features
         if self.object_features is not None:
             logger.info('> Clean Categorical Features')
-            self.cat_clean_ord_encoder = OrdinalEncoder()
-            self.cat_clean_ord_encoder = self.cat_clean_ord_encoder.fit(data[self.object_features])
-            data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
+            self._cat_clean_ord_encoder = OrdinalEncoder()
+            self._cat_clean_ord_encoder = self._cat_clean_ord_encoder.fit(data[self.object_features])
+            data[self.object_features] = self._cat_clean_ord_encoder.transform(data[self.object_features])
 
 
         if self.cat_features is not None:
@@ -547,16 +549,16 @@ class DataPrepare(object):
                 if cat_encoder_name not in cat_encoders_names.keys():
                     raise Exception(f"{cat_encoder_name} not support!")
 
-                self.fit_cat_encoders[cat_encoder_name] = cat_encoders_names[cat_encoder_name](cols=self.cat_features, drop_invariant=True)
+                self._fit_cat_encoders[cat_encoder_name] = cat_encoders_names[cat_encoder_name](cols=self.cat_features, drop_invariant=True)
                 if cat_encoder_name == 'HashingEncoder':
-                    self.fit_cat_encoders[cat_encoder_name] = cat_encoders_names[cat_encoder_name](
+                    self._fit_cat_encoders[cat_encoder_name] = cat_encoders_names[cat_encoder_name](
                             n_components=int(np.log(len(data.columns))*1000), 
                             drop_invariant=True)
                 
-                self.fit_cat_encoders[cat_encoder_name] = \
-                    self.fit_cat_encoders[cat_encoder_name].fit(data[self.cat_features])
+                self._fit_cat_encoders[cat_encoder_name] = \
+                    self._fit_cat_encoders[cat_encoder_name].fit(data[self.cat_features])
 
-                data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
+                data_encodet = self._fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
                 if self._reduce_memory: 
                     data_encodet = reduce_mem_usage(data_encodet)
@@ -567,20 +569,20 @@ class DataPrepare(object):
         # CleanOutliers
         if self._clean_outliers:
             logger.info('> CleanOutliers',)
-            self.clean_outliers_enc = CleanOutliers(
+            self._clean_outliers_enc = CleanOutliers(
                 threshold=self._outliers_threshold, 
                 method=self._outliers_method,
                 verbose=self.verbose)
-            self.clean_outliers_enc = self.clean_outliers_enc.fit(data, cols=self.num_features)
-            data = self.clean_outliers_enc.transform(data)
+            self._clean_outliers_enc = self._clean_outliers_enc.fit(data, cols=self.num_features)
+            data = self._clean_outliers_enc.transform(data)
 
         # CleanNans
         if self._clean_nan:
-            if self.check_num_nans(data):
-                self.clean_nan_encoder = CleanNans(verbose=self.verbose)
-                self.clean_nan_encoder = self.clean_nan_encoder.fit(data[self.num_features])
-                data = self.clean_nan_encoder.transform(data)
-                logger.info(f'> CleanNans, total nans columns: {len(self.clean_nan_encoder.nan_columns)}')
+            if self._check_num_nans(data):
+                self._clean_nan_encoder = CleanNans(verbose=self.verbose)
+                self._clean_nan_encoder = self._clean_nan_encoder.fit(data[self.num_features])
+                data = self._clean_nan_encoder.transform(data)
+                logger.info(f'> CleanNans, total nans columns: {len(self._clean_nan_encoder.nan_columns)}')
             else:
                 logger.info('  No nans features')
 
@@ -651,7 +653,7 @@ class DataPrepare(object):
         logger_print_lvl(self.verbose)
 
         ########### check_data_format ######################
-        self.check_data_format(data)
+        self._check_data_format(data)
 
         start_columns = len(data.columns)
         logger.info('#'*50)
@@ -667,21 +669,21 @@ class DataPrepare(object):
 
         ########### Binary Features ######################
         
-        if self.binary_encoder:
-            data[self.binary_features] = self.binary_encoder.transform(data[self.binary_features]).replace(2,0)
+        if self._binary_encoder:
+            data[self.binary_features] = self._binary_encoder.transform(data[self.binary_features]).replace(2,0)
             logger.info('> Clean Binary Features')
 
         ########### Categorical Features ######################
         # Clean Categorical Features
         if self.object_features is not None:
             logger.info('> Clean Categorical Features')
-            data[self.object_features] = self.cat_clean_ord_encoder.transform(data[self.object_features])
+            data[self.object_features] = self._cat_clean_ord_encoder.transform(data[self.object_features])
         
         if self.cat_features is not None:
             # Encode Categorical Features
             logger.info('> Transform Categorical Features.')
             for cat_encoder_name in self.cat_encoder_names:
-                data_encodet = self.fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
+                data_encodet = self._fit_cat_encoders[cat_encoder_name].transform(data[self.cat_features])
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + '_')
                 if self._reduce_memory:
                     data_encodet = reduce_mem_usage(data_encodet)
@@ -692,11 +694,11 @@ class DataPrepare(object):
         ########### Numerical Features ######################
         # CleanOutliers
         if self._clean_outliers:
-            data = self.clean_outliers_enc.transform(data)
+            data = self._clean_outliers_enc.transform(data)
 
         # CleanNans
-        if self.clean_nan_encoder:
-            data = self.clean_nan_encoder.transform(data)
+        if self._clean_nan_encoder:
+            data = self._clean_nan_encoder.transform(data)
             logger.info('> Clean Nans')
 
         # Generator interaction Num Features
@@ -751,7 +753,7 @@ class DataPrepare(object):
         dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         for cat_encoder_name in self.cat_encoder_names:
-            joblib.dump(self.fit_cat_encoders[cat_encoder_name], \
+            joblib.dump(self._fit_cat_encoders[cat_encoder_name], \
                 dir_tmp+cat_encoder_name+'.pkl')
 
         joblib.dump(self, dir_tmp+'DataPrepare'+'.pkl')
@@ -772,7 +774,7 @@ class DataPrepare(object):
         de = joblib.load(dir_tmp+'DataPrepare'+'.pkl')
 
         for cat_encoder_name in de.cat_encoder_names:
-            de.fit_cat_encoders[cat_encoder_name] = joblib.load(dir_tmp+cat_encoder_name+'.pkl')
+            de._fit_cat_encoders[cat_encoder_name] = joblib.load(dir_tmp+cat_encoder_name+'.pkl')
 
         shutil.rmtree(dir_tmp)
         logger.info('Load DataPrepare')

@@ -1,4 +1,14 @@
+'''
+In this library, I tried to simplify the process of optimizing and iterating parameters as much as possible. 
+You just specify how much time you are willing to spend on optimization, 
+and the library will select the rules for cross-validation, optimization depth, 
+and other optimization parameters based on this time. 
+The more time you give it, the better it will be able to select parameters.
 
+Automatic hyperparameter optimization based on Optuna (https://optuna.org/) but with some modifications.
+'''
+
+from typing import Dict
 import pandas as pd
 import numpy as np
 import time
@@ -11,7 +21,7 @@ from tqdm import tqdm
 import optuna
 import sklearn
 
-from automl_alex.logger import *
+from automl_alex._logger import *
 from .cross_validation import *
 import automl_alex
 
@@ -19,39 +29,27 @@ optuna.logging.disable_default_handler()
 
 ############################################
 # IN progress....
-class Optimizer(object):
+class BestSingleModel(object):
     '''
-    In this library, I tried to simplify the process of optimizing and iterating parameters as much as possible. 
-    You just specify how much time you are willing to spend on optimization, 
-    and the library will select the rules for cross-validation, optimization depth, 
-    and other optimization parameters based on this time. 
-    The more time you give it, the better it will be able to select parameters.
-
-    Automatic hyperparameter optimization based on Optuna (https://optuna.org/) but with some modifications.
+    Trying to find which model work best on our data
 
     Parameters
     ----------
     models_names : list
-        models names estimator to opt.
+        models names estimator to opt. from automl_alex.models
 
-    timeout : int, default=200
+    timeout : int
         Optimization time in seconds
 
-    metric : Class, default=None 
+    metric : Class
         you can use standard metrics from sklearn.metrics or add custom metrics.
         If None, the metric is selected from the type of estimator:
-        'classifier': sklearn.metrics.roc_auc_score
-        'regression': sklearn.metrics.mean_squared_error
+        classifier: sklearn.metrics.roc_auc_score
+        regression: sklearn.metrics.mean_squared_error
 
-    metric_round : int, default=4
+    metric_round : int
 
-    combined_score_opt : bool, default=True
-        score_opt = score - std
-
-    iterations : int, default=None
-        The number of optimization iterations. If this argument is not given, as many trials run as possible in timeout
-
-    cold_start : int, default=30
+    cold_start : int
         In the cold_start parameter, we specify how many iterations we give for this warm-up. 
         before the algorithm starts searching for optimal parameters, it must collect statistics on the represented space.
         this is why it starts in the randomsample solution at the beginning. 
@@ -59,31 +57,34 @@ class Optimizer(object):
         But if you take too long to warm up, you may not have time to search with a more "smart" algorithm. 
         Therefore, it is important to maintain a balance.
 
-    opt_lvl : int, default=2 
+    opt_lvl : int
         by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
         Perhaps some parameters are not so important and can only give a fraction of a percent. 
         By setting the opt_lvl parameter, you control the depth of optimization.
         in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
     
-    early_stoping : int, default=100
+    early_stoping : int
         stop optimization if no better parameters are found through iterations
     
-    auto_parameters : bool, default=True
+    auto_parameters : bool
         If we don't want to select anything, we just set auto_parameters=True. Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
             *folds
             *score_folds
             *cold_start
             *opt_lvl
     
-    feature_selection : bool, default=True
+    feature_selection : bool
         add feature_selection in optimization
     
-    random_state : int, default=42
+    random_state : int
         RandomState instance
         Controls the generation of the random states for each repetition.
     '''
-    __name__ = 'Optimizer'
+    __name__ = 'BestSingleModel'
     cv_model = None
+    ''' Best Model in CV wraper (automl_alex.cross_validation)'''
+    best_model_name: str = None
+    best_model_param: Dict = None
 
     def __init__(
         self,
@@ -111,7 +112,7 @@ class Optimizer(object):
             self.models_names = models_names
         
         if type_of_estimator is not None:
-            self.type_of_estimator = type_of_estimator
+            self._type_of_estimator = type_of_estimator
         
         self.folds = folds
         self.score_folds = score_folds
@@ -125,9 +126,9 @@ class Optimizer(object):
 
         if metric is None:
             logger.info('metric is None! Default metric will be used. classifier: AUC, regression: MSE')
-            if self.type_of_estimator == 'classifier':
+            if self._type_of_estimator == 'classifier':
                 self.metric = sklearn.metrics.roc_auc_score
-            elif self.type_of_estimator == 'regression':
+            elif self._type_of_estimator == 'regression':
                 self.metric = sklearn.metrics.mean_squared_error
             else:
                 logger.warning('Need to set type_of_estimator!')
@@ -241,7 +242,7 @@ class Optimizer(object):
 
 
     def _set_opt_info(self, model, timeout):
-        self.study.set_user_attr("Type_estimator", self.type_of_estimator)
+        self.study.set_user_attr("Type_estimator", self._type_of_estimator)
         self.study.set_user_attr("Metric", self.metric.__name__,)
         self.study.set_user_attr("direction", self.direction,)
         self.study.set_user_attr("Timeout", timeout)
@@ -275,7 +276,7 @@ class Optimizer(object):
             self.model_name = self.models_names[0]
 
         opt_model = automl_alex.models.all_models[self.model_name](
-            type_of_estimator=self.type_of_estimator,
+            type_of_estimator=self._type_of_estimator,
             random_state=self._random_state,
             gpu=self._gpu,
             verbose=self.verbose,
@@ -378,8 +379,8 @@ class Optimizer(object):
         #model = self.estimator
 
         ###############################################################################
-        # Optuna EarlyStoppingExceeded 
-        es = EarlyStoppingExceeded()
+        # Optuna _EarlyStoppingExceeded 
+        es = _EarlyStoppingExceeded()
         es.early_stop = self.early_stoping
         es.early_stop_count = 0
         es.best_score = None
@@ -461,7 +462,7 @@ class Optimizer(object):
         self.model_name = self.models_names[0]
 
         self.opt_model = automl_alex.models.all_models[self.model_name](
-            type_of_estimator=self.type_of_estimator,
+            type_of_estimator=self._type_of_estimator,
             random_state=self._random_state,
             gpu=self._gpu,
             verbose=self.verbose,
@@ -530,7 +531,7 @@ class Optimizer(object):
                     callbacks=[es_callback], 
                     show_progress_bar=False,
                     )
-            except EarlyStoppingExceeded:
+            except _EarlyStoppingExceeded:
                 pbar.close()
                 logger.info(f'\n EarlyStopping Exceeded: Best Score: {self.study.best_value} {self.metric.__name__}')
         
@@ -577,7 +578,7 @@ class Optimizer(object):
         return(predict)
 
 
-    def _clean_temp_folder(self):
+    def _clean_temp_folder(self) -> None:
         Path(TMP_FOLDER).mkdir(parents=True, exist_ok=True)
         if os.path.isdir(TMP_FOLDER+'/cross-v_tmp'):
             shutil.rmtree(TMP_FOLDER+'/cross-v_tmp')
@@ -585,7 +586,7 @@ class Optimizer(object):
 
 
     @logger.catch
-    def save(self, name='opt_model_dump', folder='./', verbose=3):
+    def save(self, name: str = 'opt_model_dump', folder: str = './', verbose: int = 3) -> None:
         if not self.cv_model:
             raise Exception("No opt and fit models")
 
@@ -604,7 +605,8 @@ class Optimizer(object):
 
 
     @logger.catch
-    def load(self, name='opt_model_dump', folder='./', verbose=1):
+    def load(self, name: str = 'opt_model_dump', folder: str = './', verbose: int = 1):
+        ''' Load Model '''
         self._clean_temp_folder()
         dir_tmp = TMP_FOLDER+'/opt_model_tmp/'
 
@@ -615,7 +617,7 @@ class Optimizer(object):
 
         shutil.rmtree(dir_tmp)
         if verbose>0:
-            print('Load CrossValidation')
+            print('Load model')
         return(model)
 
 
@@ -668,7 +670,15 @@ class Optimizer(object):
 
 
 
-class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
+class BestSingleModelClassifier(BestSingleModel):
+    _type_of_estimator='classifier'
+
+
+class BestSingleModelRegressor(BestSingleModel):
+    _type_of_estimator='regression'
+
+
+class _EarlyStoppingExceeded(optuna.exceptions.OptunaError):
     '''
     Custom EarlyStop for Optuna
     '''
@@ -690,7 +700,7 @@ class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
             else:
                 self.early_stop_count = 0
                 self.best_score = None
-                raise EarlyStoppingExceeded()
+                raise _EarlyStoppingExceeded()
     
     def early_stopping_opt_minimize(self, study, trial):
         if self.best_score is None:
@@ -705,4 +715,6 @@ class EarlyStoppingExceeded(optuna.exceptions.OptunaError):
             else:
                 self.early_stop_count = 0
                 self.best_score = None
-                raise EarlyStoppingExceeded()
+                raise _EarlyStoppingExceeded()
+
+

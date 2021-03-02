@@ -1,5 +1,5 @@
 from sklearn import ensemble, neural_network, linear_model, svm, neighbors
-from automl_alex.base import ModelBase
+from automl_alex._base import ModelBase
 import numpy as np
 
 from warnings import simplefilter, filterwarnings
@@ -35,9 +35,9 @@ class LinearModel(ModelBase):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = linear_model.LogisticRegression(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = linear_model.LinearRegression(**model_param)
         return(model)
 
@@ -51,7 +51,7 @@ class LinearModel(ModelBase):
         model_param = self._init_default_model_param()
 
         model_param['fit_intercept'] = trial.suggest_categorical('lr_fit_intercept',[True, False])
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             ################################# LVL 1 ########################################
             if opt_lvl >= 1:
                 model_param['C'] = trial.suggest_uniform('lr_C', 0.1, 100.0)
@@ -84,13 +84,13 @@ class LinearModel(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self (Class)
+            None
         """
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
-        return self
+        #return self
 
 
     def predict(self, X_test=None):
@@ -130,11 +130,11 @@ class LinearModel(ModelBase):
 
 
 class LogisticRegressionClassifier(LinearModel):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class LinearRegression(LinearModel):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
 
 
 
@@ -165,9 +165,9 @@ class LinearSVM(LinearModel):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = svm.LinearSVC(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = svm.LinearSVR(**model_param)
         return(model)
 
@@ -186,7 +186,7 @@ class LinearSVM(LinearModel):
         
         ################################# LVL 2 ########################################
         if opt_lvl >= 2:
-            if self.type_of_estimator == 'classifier':
+            if self._type_of_estimator == 'classifier':
                 model_param['loss'] = trial.suggest_categorical('svc_loss', ['hinge', 'squared_hinge',])
                 #model_param['class_weight'] = trial.suggest_categorical('svc_class_weight',[None, 'balanced'])
                 if model_param['loss'] == 'squared_hinge':
@@ -206,11 +206,11 @@ class LinearSVM(LinearModel):
 
 
 class LinearSVClassifier(LinearSVM):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class LinearSVRegressor(LinearSVM):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
 
 
 ########################################### KNN #####################################################
@@ -238,9 +238,9 @@ class KNeighbors(LinearModel):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = neighbors.KNeighborsClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = neighbors.KNeighborsRegressor(**model_param)
         return(model)
 
@@ -261,11 +261,11 @@ class KNeighbors(LinearModel):
         return(model_param)
 
 class KNNClassifier(KNeighbors):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class KNNRegressor(KNeighbors):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
 
 
 ########################################### MLP #####################################################
@@ -299,9 +299,9 @@ class MLP(LinearModel):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = neural_network.MLPClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = neural_network.MLPRegressor(**model_param)
         return(model)
 
@@ -323,11 +323,11 @@ class MLP(LinearModel):
         
 
 class MLPClassifier(MLP):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class MLPRegressor(MLP):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
 
 
 ########################################### RandomForest #####################################################
@@ -358,9 +358,9 @@ class RandomForest(LinearModel):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = ensemble.RandomForestClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = ensemble.RandomForestRegressor(**model_param)
         return(model)
 
@@ -390,17 +390,17 @@ class RandomForest(LinearModel):
             model_param['bootstrap'] = trial.suggest_categorical('rf_bootstrap',[True, False])
             if model_param['bootstrap']:
                 model_param['oob_score'] = trial.suggest_categorical('rf_oob_score',[True, False])
-            #if self.type_of_estimator == 'classifier':
+            #if self._type_of_estimator == 'classifier':
             #    model_param['class_weight'] = trial.suggest_categorical('rf_class_weight',[None, 'balanced'])
         return(model_param)
 
 
 class RandomForestClassifier(RandomForest):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class RandomForestRegressor(RandomForest):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
 
 
 ########################################### ExtraTrees #####################################################
@@ -419,16 +419,16 @@ class ExtraTrees(RandomForest):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = ensemble.ExtraTreesClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = ensemble.ExtraTreesRegressor(**model_param)
         return(model)
 
 
 class ExtraTreesClassifier(ExtraTrees):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class ExtraTreesRegressor(ExtraTrees):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'

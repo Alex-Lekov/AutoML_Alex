@@ -6,7 +6,7 @@ import optuna
 from tqdm import tqdm
 import joblib
 
-from .logger import *
+from ._logger import *
 from .automl_alex import BestSingleModel
 import automl_alex
 from .optimizer import *
@@ -48,7 +48,7 @@ class ModelBase(object):
         logger_print_lvl(verbose)
 
         if type_of_estimator is not None:
-            self.type_of_estimator = type_of_estimator
+            self._type_of_estimator = type_of_estimator
 
         self.model_param = self._init_default_model_param()
         if model_param is not None:
@@ -108,7 +108,7 @@ class ModelBase(object):
         Сheck and if it is possible get predict_proba
         """
         if (self.is_possible_predict_proba()) and \
-                (self.type_of_estimator == 'classifier'):
+                (self._type_of_estimator == 'classifier'):
             predicts = self.predict_proba(X)
         else:
             predicts = self.predict(X)
@@ -145,9 +145,9 @@ class ModelBase(object):
             raise Exception("No fit models")
 
         if metric is None:
-            if self.type_of_estimator == 'classifier':
+            if self._type_of_estimator == 'classifier':
                 metric = sklearn.metrics.roc_auc_score
-            elif self.type_of_estimator == 'regression':
+            elif self._type_of_estimator == 'regression':
                 metric = sklearn.metrics.mean_squared_error
 
         # Predict
@@ -254,17 +254,17 @@ class ModelBase(object):
             self.metric = metric
             self.direction = self.__metric_direction_detected__(self.metric, y)
         else:
-            if self.type_of_estimator == 'classifier':
+            if self._type_of_estimator == 'classifier':
                 self.metric = sklearn.metrics.roc_auc_score
                 self.direction = 'maximize'
-            elif self.type_of_estimator == 'regression':
+            elif self._type_of_estimator == 'regression':
                 self.metric = sklearn.metrics.mean_squared_error
                 self.direction = 'minimize'
 
-        logger.info(f'{self.type_of_estimator} optimize: {self.direction}')
+        logger.info(f'{self._type_of_estimator} optimize: {self.direction}')
 
         self.optimizer = BestSingleModel(
-            type_of_estimator=self.type_of_estimator,
+            type_of_estimator=self._type_of_estimator,
             models_names = [self.__name__,],
             feature_selection=False,
             auto_parameters=auto_parameters,
@@ -355,11 +355,11 @@ class ModelBase(object):
 
 
 class ModelClassifier(ModelBase):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class ModelRegressor(ModelBase):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
 
 
 

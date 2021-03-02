@@ -1,3 +1,11 @@
+'''
+Cross-validation is a method for evaluating an analytical model and its behavior on independent data. 
+When evaluating the model, the available data is split into k parts. 
+Then the model is trained on k − 1 pieces of data, and the rest of the data is used for testing. 
+The procedure is repeated k times; in the end, each of the k pieces of data is used for testing. 
+The result is an assessment of the effectiveness of the selected model with the most even use of the available data.
+'''
+
 import pandas as pd
 import numpy as np
 import copy
@@ -12,45 +20,43 @@ import sklearn
 from sklearn.base import clone
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 
-from automl_alex.logger import *
+from automl_alex._logger import *
 
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
 TMP_FOLDER = '.automl-alex_tmp/'
 
 class CrossValidation(object):
     """
-    Cross-validation is a method for evaluating an analytical model and its behavior on independent data. 
-    When evaluating the model, the available data is split into k parts. 
-    Then the model is trained on k − 1 pieces of data, and the rest of the data is used for testing. 
-    The procedure is repeated k times; in the end, each of the k pieces of data is used for testing. 
-    The result is an assessment of the effectiveness of the selected model with the most even use of the available data.
+    Allows you to wrap any of your models in a Cross-validation
     
     Parameters
     ----------
-    estimator : estimator object implementing 'fit'
-        The object to use to fit model.
-    folds=7 : int, default=7
-        Number of folds. Must be at least 2.
-    score_folds : int, default=5
-        Number of score folds. Must be at least 1.
-    n_repeats : int, default=1
-        Number of times cross-validator needs to be repeated.
-    metric : If None, the estimator's default scorer (if available) is used.
-    print_metric=False :
-            metric_round=4 (undefined):
-    random_state : int, RandomState instance or None, default=42
-        Controls the generation of the random states for each repetition.
-
-    Notes
-    -----
-    Randomized CV splitters may return different results for each call of
-    split. You can make the results identical by setting `random_state`
-    to an integer.
+        estimator : type
+            model object from automl_alex.models
+            The object to use to fit model.
+        folds : int
+            Number of folds. Must be at least 2.
+        score_folds : int
+            Number of score folds. Must be at least 1.
+        n_repeats : int
+            Number of times cross-validator needs to be repeated.
+        metric : type
+            you can use standard metrics from sklearn.metrics or add custom metrics.
+            If None, the metric is selected from the type of estimator:
+            classifier: sklearn.metrics.roc_auc_score
+            regression: sklearn.metrics.mean_squared_error.
+        print_metric : bool
+        metric_round : int
+        random_state : int
+            RandomState instance or None, default=42
+            Controls the generation of the random states for each repetition.
     """
     __name__ = 'CrossValidation'
-    fit_models = False
+    _fit_models = False
     fited_models = {}
+    '''dictionary with trained models''' 
     estimator = None
+    '''model''' 
 
 
     def __init__(
@@ -111,12 +117,12 @@ class CrossValidation(object):
             # Fit
             self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
             self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'] = copy.deepcopy(self.estimator)
-        self.fit_models = True
+        self._fit_models = True
 
 
     @logger.catch
     def predict_test(self, X_test):
-        if not self.fit_models:
+        if not self._fit_models:
             raise Exception("No fit models")
 
         stacking_y_pred_test = np.zeros(len(X_test))
@@ -131,7 +137,7 @@ class CrossValidation(object):
 
     @logger.catch
     def predict_train(self, X):
-        if not self.fit_models:
+        if not self._fit_models:
             raise Exception("No fit models")
 
         stacking_y_pred_train = np.zeros(len(X))
@@ -148,7 +154,7 @@ class CrossValidation(object):
 
     @logger.catch
     def get_feature_importance(self, X):
-        if not self.fit_models:
+        if not self._fit_models:
             raise Exception("No fit models")
         
         if not self.estimator._is_possible_feature_importance():
@@ -223,7 +229,7 @@ class CrossValidation(object):
 
     @logger.catch
     def save(self, name='cv_dump', folder='./', verbose=1):
-        if not self.fit_models:
+        if not self._fit_models:
             raise Exception("No fit models")
 
         dir_tmp = TMP_FOLDER+'cross-v_tmp/'
