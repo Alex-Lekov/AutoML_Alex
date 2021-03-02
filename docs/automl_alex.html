@@ -171,38 +171,38 @@ class AutoML(object):
 
     Parameters
     ----------
-        type_of_estimator : str
-            classifier or regression.
+    type_of_estimator : str
+        classifier or regression.
 
-        metric : type
-            you can use standard metrics from sklearn.metrics or add custom metrics.
-            If None, the metric is selected from the type of estimator:
-            classifier: sklearn.metrics.roc_auc_score
-            regression: sklearn.metrics.mean_squared_error.
+    metric : type
+        you can use standard metrics from sklearn.metrics or add custom metrics.
+        If None, the metric is selected from the type of estimator:
+        classifier: sklearn.metrics.roc_auc_score
+        regression: sklearn.metrics.mean_squared_error.
 
-        metric_round : int
-            round metric score.
+    metric_round : int
+        round metric score.
 
-        gpu : bool
-            Use GPU?.
+    gpu : bool
+        Use GPU?.
 
-        random_state : int
-            RandomState instance. 
-            Controls the generation of the random states for each repetition.
+    random_state : int
+        RandomState instance. 
+        Controls the generation of the random states for each repetition.
 
     Methods
     -------
-        fit():
-            Fit AutoML
+    fit():
+        Fit AutoML
 
-        predict():
-            predict on new data
+    predict():
+        predict on new data
 
-        save():
-            save model
+    save():
+        save model
 
-        load():
-            load model
+    load():
+        load model
     &#39;&#39;&#39;
     __name__ = &#39;AutoML&#39;
 
@@ -250,34 +250,34 @@ class AutoML(object):
 
         Parameters
         ----------
-            X : pd.DataFrame
-                Train Dataset
+        X : pd.DataFrame
+            Train Dataset
 
-            y : list, np.array, pd.DataFrame
-                Target list
+        y : list, np.array, pd.DataFrame
+            Target list
 
-            timeout :  int
-                Optimization time in seconds.
+        timeout :  int
+            Optimization time in seconds.
 
-            opt_lvl : int
-                by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
-                Perhaps some parameters are not so important and can only give a fraction of a percent. 
-                By setting the opt_lvl parameter, you control the depth of optimization.
-                in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
+        opt_lvl : int
+            by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
+            Perhaps some parameters are not so important and can only give a fraction of a percent. 
+            By setting the opt_lvl parameter, you control the depth of optimization.
+            in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
 
-            early_stoping : int
-                stop optimization if no better parameters are found through iterations
+        early_stoping : int
+            stop optimization if no better parameters are found through iterations
 
-            auto_parameters : bool
-                If we don&#39;t want to select anything, we just set auto_parameters=True. 
-                Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-                    *folds
-                    *score_folds
-                    *cold_start
-                    *opt_lvl
+        auto_parameters : bool
+            If we don&#39;t want to select anything, we just set auto_parameters=True. 
+            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+                *folds
+                *score_folds
+                *cold_start
+                *opt_lvl
 
-            feature_selection : bool
-                add feature_selection in optimization
+        feature_selection : bool
+            add feature_selection in optimization
 
 
         Returns
@@ -537,38 +537,31 @@ class AutoMLRegressor(AutoML):
 <dd>
 <div class="desc"><p>AutoML in the process of developing</p>
 <h2 id="parameters">Parameters</h2>
-<pre><code>type_of_estimator : str
-    classifier or regression.
-
-metric : type
-    you can use standard metrics from sklearn.metrics or add custom metrics.
-    If None, the metric is selected from the type of estimator:
-    classifier: sklearn.metrics.roc_auc_score
-    regression: sklearn.metrics.mean_squared_error.
-
-metric_round : int
-    round metric score.
-
-gpu : bool
-    Use GPU?.
-
-random_state : int
-    RandomState instance. 
-    Controls the generation of the random states for each repetition.
-</code></pre>
+<dl>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>str</code></dt>
+<dd>classifier or regression.</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>type</code></dt>
+<dd>you can use standard metrics from sklearn.metrics or add custom metrics.
+If None, the metric is selected from the type of estimator:
+classifier: sklearn.metrics.roc_auc_score
+regression: sklearn.metrics.mean_squared_error.</dd>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code></dt>
+<dd>round metric score.</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Use GPU?.</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code></dt>
+<dd>RandomState instance.
+Controls the generation of the random states for each repetition.</dd>
+</dl>
 <h2 id="methods">Methods</h2>
-<pre><code>fit():
-    Fit AutoML
-
-predict():
-    predict on new data
-
-save():
-    save model
-
-load():
-    load model
-</code></pre></div>
+<p>fit():
+Fit AutoML</p>
+<p>predict():
+predict on new data</p>
+<p>save():
+save model</p>
+<p>load():
+load model</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -579,38 +572,38 @@ load():
 
     Parameters
     ----------
-        type_of_estimator : str
-            classifier or regression.
+    type_of_estimator : str
+        classifier or regression.
 
-        metric : type
-            you can use standard metrics from sklearn.metrics or add custom metrics.
-            If None, the metric is selected from the type of estimator:
-            classifier: sklearn.metrics.roc_auc_score
-            regression: sklearn.metrics.mean_squared_error.
+    metric : type
+        you can use standard metrics from sklearn.metrics or add custom metrics.
+        If None, the metric is selected from the type of estimator:
+        classifier: sklearn.metrics.roc_auc_score
+        regression: sklearn.metrics.mean_squared_error.
 
-        metric_round : int
-            round metric score.
+    metric_round : int
+        round metric score.
 
-        gpu : bool
-            Use GPU?.
+    gpu : bool
+        Use GPU?.
 
-        random_state : int
-            RandomState instance. 
-            Controls the generation of the random states for each repetition.
+    random_state : int
+        RandomState instance. 
+        Controls the generation of the random states for each repetition.
 
     Methods
     -------
-        fit():
-            Fit AutoML
+    fit():
+        Fit AutoML
 
-        predict():
-            predict on new data
+    predict():
+        predict on new data
 
-        save():
-            save model
+    save():
+        save model
 
-        load():
-            load model
+    load():
+        load model
     &#39;&#39;&#39;
     __name__ = &#39;AutoML&#39;
 
@@ -658,34 +651,34 @@ load():
 
         Parameters
         ----------
-            X : pd.DataFrame
-                Train Dataset
+        X : pd.DataFrame
+            Train Dataset
 
-            y : list, np.array, pd.DataFrame
-                Target list
+        y : list, np.array, pd.DataFrame
+            Target list
 
-            timeout :  int
-                Optimization time in seconds.
+        timeout :  int
+            Optimization time in seconds.
 
-            opt_lvl : int
-                by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
-                Perhaps some parameters are not so important and can only give a fraction of a percent. 
-                By setting the opt_lvl parameter, you control the depth of optimization.
-                in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
+        opt_lvl : int
+            by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
+            Perhaps some parameters are not so important and can only give a fraction of a percent. 
+            By setting the opt_lvl parameter, you control the depth of optimization.
+            in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
 
-            early_stoping : int
-                stop optimization if no better parameters are found through iterations
+        early_stoping : int
+            stop optimization if no better parameters are found through iterations
 
-            auto_parameters : bool
-                If we don&#39;t want to select anything, we just set auto_parameters=True. 
-                Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-                    *folds
-                    *score_folds
-                    *cold_start
-                    *opt_lvl
+        auto_parameters : bool
+            If we don&#39;t want to select anything, we just set auto_parameters=True. 
+            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+                *folds
+                *score_folds
+                *cold_start
+                *opt_lvl
 
-            feature_selection : bool
-                add feature_selection in optimization
+        feature_selection : bool
+            add feature_selection in optimization
 
 
         Returns
@@ -932,35 +925,30 @@ load():
 <dd>
 <div class="desc"><p>Fit AutoML</p>
 <h2 id="parameters">Parameters</h2>
-<pre><code>X : pd.DataFrame
-    Train Dataset
-
-y : list, np.array, pd.DataFrame
-    Target list
-
-timeout :  int
-    Optimization time in seconds.
-
-opt_lvl : int
-    by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
-    Perhaps some parameters are not so important and can only give a fraction of a percent. 
-    By setting the opt_lvl parameter, you control the depth of optimization.
-    in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
-
-early_stoping : int
-    stop optimization if no better parameters are found through iterations
-
-auto_parameters : bool
-    If we don't want to select anything, we just set auto_parameters=True. 
-    Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-        *folds
-        *score_folds
-        *cold_start
-        *opt_lvl
-
-feature_selection : bool
-    add feature_selection in optimization
-</code></pre>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
+<dd>Train Dataset</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>list, np.array, pd.DataFrame</code></dt>
+<dd>Target list</dd>
+<dt><strong><code>timeout</code></strong> :&ensp;<code> int</code></dt>
+<dd>Optimization time in seconds.</dd>
+<dt><strong><code>opt_lvl</code></strong> :&ensp;<code>int</code></dt>
+<dd>by limiting the optimization time, we will have to choose how deep we should optimize the parameters.
+Perhaps some parameters are not so important and can only give a fraction of a percent.
+By setting the opt_lvl parameter, you control the depth of optimization.
+in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration</dd>
+<dt><strong><code>early_stoping</code></strong> :&ensp;<code>int</code></dt>
+<dd>stop optimization if no better parameters are found through iterations</dd>
+<dt><strong><code>auto_parameters</code></strong> :&ensp;<code>bool</code></dt>
+<dd>If we don't want to select anything, we just set auto_parameters=True.
+Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+<em>folds
+</em>score_folds
+<em>cold_start
+</em>opt_lvl</dd>
+<dt><strong><code>feature_selection</code></strong> :&ensp;<code>bool</code></dt>
+<dd>add feature_selection in optimization</dd>
+</dl>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>None</code></dt>
@@ -988,34 +976,34 @@ def fit(self,
 
     Parameters
     ----------
-        X : pd.DataFrame
-            Train Dataset
+    X : pd.DataFrame
+        Train Dataset
 
-        y : list, np.array, pd.DataFrame
-            Target list
+    y : list, np.array, pd.DataFrame
+        Target list
 
-        timeout :  int
-            Optimization time in seconds.
+    timeout :  int
+        Optimization time in seconds.
 
-        opt_lvl : int
-            by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
-            Perhaps some parameters are not so important and can only give a fraction of a percent. 
-            By setting the opt_lvl parameter, you control the depth of optimization.
-            in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
+    opt_lvl : int
+        by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
+        Perhaps some parameters are not so important and can only give a fraction of a percent. 
+        By setting the opt_lvl parameter, you control the depth of optimization.
+        in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
 
-        early_stoping : int
-            stop optimization if no better parameters are found through iterations
+    early_stoping : int
+        stop optimization if no better parameters are found through iterations
 
-        auto_parameters : bool
-            If we don&#39;t want to select anything, we just set auto_parameters=True. 
-            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-                *folds
-                *score_folds
-                *cold_start
-                *opt_lvl
+    auto_parameters : bool
+        If we don&#39;t want to select anything, we just set auto_parameters=True. 
+        Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+            *folds
+            *score_folds
+            *cold_start
+            *opt_lvl
 
-        feature_selection : bool
-            add feature_selection in optimization
+    feature_selection : bool
+        add feature_selection in optimization
 
 
     Returns
@@ -1289,38 +1277,31 @@ def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
 <dd>
 <div class="desc"><p>AutoML in the process of developing</p>
 <h2 id="parameters">Parameters</h2>
-<pre><code>type_of_estimator : str
-    classifier or regression.
-
-metric : type
-    you can use standard metrics from sklearn.metrics or add custom metrics.
-    If None, the metric is selected from the type of estimator:
-    classifier: sklearn.metrics.roc_auc_score
-    regression: sklearn.metrics.mean_squared_error.
-
-metric_round : int
-    round metric score.
-
-gpu : bool
-    Use GPU?.
-
-random_state : int
-    RandomState instance. 
-    Controls the generation of the random states for each repetition.
-</code></pre>
+<dl>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>str</code></dt>
+<dd>classifier or regression.</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>type</code></dt>
+<dd>you can use standard metrics from sklearn.metrics or add custom metrics.
+If None, the metric is selected from the type of estimator:
+classifier: sklearn.metrics.roc_auc_score
+regression: sklearn.metrics.mean_squared_error.</dd>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code></dt>
+<dd>round metric score.</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Use GPU?.</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code></dt>
+<dd>RandomState instance.
+Controls the generation of the random states for each repetition.</dd>
+</dl>
 <h2 id="methods">Methods</h2>
-<pre><code>fit():
-    Fit AutoML
-
-predict():
-    predict on new data
-
-save():
-    save model
-
-load():
-    load model
-</code></pre></div>
+<p>fit():
+Fit AutoML</p>
+<p>predict():
+predict on new data</p>
+<p>save():
+save model</p>
+<p>load():
+load model</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1350,38 +1331,31 @@ load():
 <dd>
 <div class="desc"><p>AutoML in the process of developing</p>
 <h2 id="parameters">Parameters</h2>
-<pre><code>type_of_estimator : str
-    classifier or regression.
-
-metric : type
-    you can use standard metrics from sklearn.metrics or add custom metrics.
-    If None, the metric is selected from the type of estimator:
-    classifier: sklearn.metrics.roc_auc_score
-    regression: sklearn.metrics.mean_squared_error.
-
-metric_round : int
-    round metric score.
-
-gpu : bool
-    Use GPU?.
-
-random_state : int
-    RandomState instance. 
-    Controls the generation of the random states for each repetition.
-</code></pre>
+<dl>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>str</code></dt>
+<dd>classifier or regression.</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>type</code></dt>
+<dd>you can use standard metrics from sklearn.metrics or add custom metrics.
+If None, the metric is selected from the type of estimator:
+classifier: sklearn.metrics.roc_auc_score
+regression: sklearn.metrics.mean_squared_error.</dd>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code></dt>
+<dd>round metric score.</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Use GPU?.</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code></dt>
+<dd>RandomState instance.
+Controls the generation of the random states for each repetition.</dd>
+</dl>
 <h2 id="methods">Methods</h2>
-<pre><code>fit():
-    Fit AutoML
-
-predict():
-    predict on new data
-
-save():
-    save model
-
-load():
-    load model
-</code></pre></div>
+<p>fit():
+Fit AutoML</p>
+<p>predict():
+predict on new data</p>
+<p>save():
+save model</p>
+<p>load():
+load model</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>

@@ -142,38 +142,38 @@ class AutoML(object):
 
     Parameters
     ----------
-        type_of_estimator : str
-            classifier or regression.
+    type_of_estimator : str
+        classifier or regression.
 
-        metric : type
-            you can use standard metrics from sklearn.metrics or add custom metrics.
-            If None, the metric is selected from the type of estimator:
-            classifier: sklearn.metrics.roc_auc_score
-            regression: sklearn.metrics.mean_squared_error.
+    metric : type
+        you can use standard metrics from sklearn.metrics or add custom metrics.
+        If None, the metric is selected from the type of estimator:
+        classifier: sklearn.metrics.roc_auc_score
+        regression: sklearn.metrics.mean_squared_error.
 
-        metric_round : int
-            round metric score.
+    metric_round : int
+        round metric score.
 
-        gpu : bool
-            Use GPU?.
+    gpu : bool
+        Use GPU?.
 
-        random_state : int
-            RandomState instance. 
-            Controls the generation of the random states for each repetition.
+    random_state : int
+        RandomState instance. 
+        Controls the generation of the random states for each repetition.
 
     Methods
     -------
-        fit():
-            Fit AutoML
+    fit():
+        Fit AutoML
 
-        predict():
-            predict on new data
+    predict():
+        predict on new data
 
-        save():
-            save model
+    save():
+        save model
 
-        load():
-            load model
+    load():
+        load model
     '''
     __name__ = 'AutoML'
 
@@ -221,34 +221,34 @@ class AutoML(object):
 
         Parameters
         ----------
-            X : pd.DataFrame
-                Train Dataset
+        X : pd.DataFrame
+            Train Dataset
 
-            y : list, np.array, pd.DataFrame
-                Target list
+        y : list, np.array, pd.DataFrame
+            Target list
 
-            timeout :  int
-                Optimization time in seconds.
+        timeout :  int
+            Optimization time in seconds.
 
-            opt_lvl : int
-                by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
-                Perhaps some parameters are not so important and can only give a fraction of a percent. 
-                By setting the opt_lvl parameter, you control the depth of optimization.
-                in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
+        opt_lvl : int
+            by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
+            Perhaps some parameters are not so important and can only give a fraction of a percent. 
+            By setting the opt_lvl parameter, you control the depth of optimization.
+            in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
 
-            early_stoping : int
-                stop optimization if no better parameters are found through iterations
+        early_stoping : int
+            stop optimization if no better parameters are found through iterations
 
-            auto_parameters : bool
-                If we don't want to select anything, we just set auto_parameters=True. 
-                Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-                    *folds
-                    *score_folds
-                    *cold_start
-                    *opt_lvl
+        auto_parameters : bool
+            If we don't want to select anything, we just set auto_parameters=True. 
+            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+                *folds
+                *score_folds
+                *cold_start
+                *opt_lvl
 
-            feature_selection : bool
-                add feature_selection in optimization
+        feature_selection : bool
+            add feature_selection in optimization
 
 
         Returns
