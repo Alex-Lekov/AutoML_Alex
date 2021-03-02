@@ -54,6 +54,8 @@ From [AutoML-Benchmark](https://github.com/Alex-Lekov/AutoML-Benchmark/)
 pip install automl-alex
 ```
 
+# Docs
+[DocPage](http://automl.lekpoi2m.beget.tech/index.html)
 
 # 🚀 Examples
 
