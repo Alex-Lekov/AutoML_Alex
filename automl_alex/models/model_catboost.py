@@ -1,4 +1,4 @@
-from automl_alex.base import ModelBase
+from automl_alex._base import ModelBase
 import catboost
 from catboost import Pool
 import numpy as np
@@ -32,9 +32,9 @@ class CatBoost(ModelBase):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = catboost.CatBoostClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = catboost.CatBoostRegressor(**model_param)
         return(model)
 
@@ -46,7 +46,7 @@ class CatBoost(ModelBase):
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
             cat_features (list)
         Return:
-            self (Class)
+            None
         """
         y_train = self.y_format(y_train)
 
@@ -60,7 +60,7 @@ class CatBoost(ModelBase):
         self.model = self._init_model(model_param=params)
         self.model.fit(train_pool, verbose=False, plot=False,)
         train_pool=None
-        return self
+        #return self
 
 
     def predict(self, X=None):
@@ -73,9 +73,9 @@ class CatBoost(ModelBase):
         if self.model is None:
             raise Exception("No fit models")
 
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             predicts = self.model.predict(X)
         return predicts
 
@@ -151,14 +151,14 @@ class CatBoost(ModelBase):
             model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 8, 10])
 
         if opt_lvl >= 3:
-            if self.type_of_estimator == 'classifier':
+            if self._type_of_estimator == 'classifier':
                 model_param['objective'] = trial.suggest_categorical('cb_objective', 
                         [
                         'Logloss', 
                         'CrossEntropy',
                         ])
 
-            elif self.type_of_estimator == 'regression':
+            elif self._type_of_estimator == 'regression':
                 model_param['objective'] = trial.suggest_categorical('cb_objective', 
                     [
                     'MAE',
@@ -192,10 +192,10 @@ class CatBoost(ModelBase):
 
 
 class CatBoostClassifier(CatBoost):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
     __name__ = 'CatBoostClassifier'
 
 
 class CatBoostRegressor(CatBoost):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'
     __name__ = 'CatBoostRegressor'

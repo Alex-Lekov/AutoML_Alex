@@ -1,4 +1,4 @@
-from automl_alex.base import ModelBase
+from automl_alex._base import ModelBase
 import xgboost as xgb
 import numpy as np
 
@@ -28,9 +28,9 @@ class XGBoost(ModelBase):
         Args:
             params: : parameters for model.
         """
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             model = xgb.XGBClassifier(**model_param)
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             model = xgb.XGBRegressor(**model_param)
         return(model)
 
@@ -77,7 +77,7 @@ class XGBoost(ModelBase):
 
         ################################# LVL 4 ########################################
         if opt_lvl >= 4:
-            if self.type_of_estimator == 'regression':
+            if self._type_of_estimator == 'regression':
                 model_param['objective'] = trial.suggest_categorical('xgb_objective', 
                     [
                     'reg:squarederror',
@@ -102,7 +102,7 @@ class XGBoost(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            self (Class)
+            None
         """
         params = self.model_param.copy()
 
@@ -125,10 +125,10 @@ class XGBoost(ModelBase):
         if self.model is None:
             raise Exception("No fit models")
 
-        if self.type_of_estimator == 'classifier':
+        if self._type_of_estimator == 'classifier':
             predicts = np.round(self.model.predict(X),0)
 
-        elif self.type_of_estimator == 'regression':
+        elif self._type_of_estimator == 'regression':
             predicts = self.model.predict(X)
         return predicts
 
@@ -164,8 +164,8 @@ class XGBoost(ModelBase):
 
 
 class XGBoostClassifier(XGBoost):
-    type_of_estimator='classifier'
+    _type_of_estimator='classifier'
 
 
 class XGBoostRegressor(XGBoost):
-    type_of_estimator='regression'
+    _type_of_estimator='regression'

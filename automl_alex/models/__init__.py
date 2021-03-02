@@ -1,3 +1,7 @@
+'''
+Models available for training
+'''
+
 from .sklearn_models import *
 from .model_xgboost import XGBoost, XGBoostClassifier, XGBoostRegressor
 from .model_lightgbm import LightGBM, LightGBMClassifier, LightGBMRegressor
