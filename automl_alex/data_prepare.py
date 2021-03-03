@@ -1,7 +1,10 @@
 '''
 Data processing, cleaning, and encoding
 '''
-
+from typing import Optional
+from typing import Callable
+from typing import List
+from typing import Tuple
 import pandas as pd
 import numpy as np
 import random
@@ -17,7 +20,7 @@ from ._logger import *
 from sklearn.preprocessing import StandardScaler
 
 # disable chained assignments
-#pd.options.mode.chained_assignment = None 
+pd.options.mode.chained_assignment = None 
 
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
@@ -27,31 +30,54 @@ random.seed(RANDOM_SEED)
 
 class CleanNans(object):
     """
-    Сlass for cleaning Nans
+    Сlass Fill Nans numerical columns, method : ['median', 'mean',]
+
+    Examples
+    --------
+    >>> from automl_alex import CleanNans
+    >>> import sklearn
+    >>> # Get Dataset
+    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+    >>> dataset.target = dataset.target.astype('category').cat.codes
+    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    >>>                                             dataset.data, 
+    >>>                                             dataset.target,
+    >>>                                             test_size=0.2,)
+    >>> 
+    >>> cn = CleanNans()
+    >>> clean_X_train = cn.fit_transform(X_train)
+    >>> clean_X_test = cn.transform(X_test)
+
     """
 
-    def __init__(self, method='median', verbose=0):
-        """
-        Fill Nans and add column, that there were nans in this column
-        
-        Args:
-            method : ['median', 'mean',]
-        """
+    def __init__(self, method: str = 'median', verbose: int = 0) -> None:
+        '''
+        Parameters
+        ----------
+        method : str, 
+            Fill Nans, method = ['median', 'mean',], by default 'median'
+        verbose : int,
+            print state, by default 0
+        '''        
         self.method = method
         self.verbose = verbose
 
 
     @logger.catch
-    def fit(self, data, cols=None):
-        """
-        Fit fillna.
+    def fit(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> None:
+        '''
 
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            self
-        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        cols : Optional[List[str]], optional
+            cols list features, by default None
+
+        Returns
+        -------
+        None
+        '''        
         if cols is not None:
             data = data[cols]
         
@@ -73,20 +99,25 @@ class CleanNans(object):
             self.fill_value = data.mean()
         else:
             raise ValueError('Wrong fill method')
-
         return self
 
 
     @logger.catch
-    def transform(self, data, cols=None) -> pd.DataFrame:
-        """Transforms the dataset.
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            pandas.Dataframe of shape = (n_train, n_features)
-                The train dataset with no missing values.
-        """
+    def transform(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> pd.DataFrame:
+        '''Transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        cols : Optional[List[str]], optional
+            cols list features, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataset with no missing values.
+        '''
         if cols is not None:
             data = data[cols]
 
@@ -102,62 +133,104 @@ class CleanNans(object):
 
 
     @logger.catch
-    def fit_transform(self, data, cols=None) -> pd.DataFrame:
-        """Fit and transforms the dataset.
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            pandas.Dataframe of shape = (n_train, n_features)
-                The train dataset with no missing values.
-        """
+    def fit_transform(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> pd.DataFrame:
+        '''
+        Fit and Transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        cols : Optional[List[str]], optional
+            cols list features, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataset with no missing values.
+        '''        
         self.fit(data, cols)
 
         return self.transform(data)
 
 
 class NumericInteractionFeatures(object):
-    """
-    Сlass for  Numerical interaction generator features: A/B, A*B, A-B,
-    """
+    '''
+    Class for  Numerical interaction generator features: A/B, A*B, A-B,
+
+    Examples
+    --------
+    >>> from automl_alex import NumericInteractionFeatures, CleanNans
+    >>> import sklearn
+    >>> # Get Dataset
+    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+    >>> dataset.target = dataset.target.astype('category').cat.codes
+    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    >>>                                             dataset.data, 
+    >>>                                             dataset.target,
+    >>>                                             test_size=0.2,)
+    >>> 
+    >>> # clean nans before use
+    >>> cn = CleanNans()
+    >>> clean_X_train = cn.fit_transform(X_train)
+    >>> clean_X_test = cn.transform(X_test)
+    >>>
+    >>> # get Numeric Features
+    >>> num_columns = list(clean_X_train.select_dtypes('number').columns)
+    >>> 
+    >>> nf = NumericInteractionFeatures()
+    >>> new_features_X_train = nf.fit_transform(clean_X_train, num_columns)
+    >>> new_features_X_test = nf.transform(clean_X_test)
+    '''    
     _cols_combinations = None
 
 
-    def __init__(self, operations=['/','*','-','+'], verbose=0):
-        """
-        Fill Nans and add column, that there were nans in this column
-        
-        Args:
-            method : ['median', 'mean',]
-        """
+    def __init__(self, operations: List[str] = ['/','*','-','+'], verbose: int = 0) -> None:
+        '''
+        Parameters
+        ----------
+        operations : List[str], optional
+            generator operations, by default ['/','*','-','+']
+        verbose : int, optional
+            print state, by default 0
+        '''     
         self.operations = operations
         self.verbose = verbose
         self.columns = None
 
 
-    def fit(self, columns,):
-        """
-        Fit.
+    def fit(self, columns: List[str],) -> None:
+        '''
+        Fit: generate combinations features
 
-        Args:
-            columns (list): num columns names
-        Returns:
-            self
-        """
+        Parameters
+        ----------
+        columns : List[str]
+            list features names
+        '''        
         self.columns = columns
         self._cols_combinations = list(combinations(columns,2))
-        return self
 
 
-    def transform(self, df) -> pd.DataFrame:
-        """Transforms the dataset.
-        Args:
-            df (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            pandas.Dataframe of shape = (n_train, n_features)
-                Dataset with new features.
-        """
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        '''
+        Transforms the dataset.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+
+        Returns
+        -------
+        pd.DataFrame
+            dataset with new features (pd.DataFrame shape = (n_samples, n_features))
+
+        Raises
+        ------
+        Exception
+            if No fit cols_combinations
+        '''        
         if self._cols_combinations is None:
             raise Exception("No fit cols_combinations")
 
@@ -181,67 +254,122 @@ class NumericInteractionFeatures(object):
         return(fe_df)
 
 
-    def fit_transform(self, data, cols) -> pd.DataFrame:
-        """Fit and transforms the dataset.
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            pandas.Dataframe of shape = (n_train, n_features)
-        """
-        self.fit(cols)
+    def fit_transform(self, data: pd.DataFrame, columns: List[str],) -> pd.DataFrame:
+        '''
+        Fit and transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        columns : List[str]
+            list features names
+
+        Returns
+        -------
+        pd.DataFrame
+            dataset with new features (pd.DataFrame shape = (n_samples, n_features))
+        '''        
+        self.fit(columns)
 
         return self.transform(data)
 
 
 class CleanOutliers(object):
-    """
-    Сlass for detect and remove outliers from your data. 
+    '''
+    A class method that takes a data column and removes outliers from it
     I would like to provide two methods solution based on "z score" and solution based on "IQR".
 
     Something important when dealing with outliers is that one should try to use estimators as robust as possible. 
     try different values threshold and method
-    """
+
+    Examples
+    --------
+    >>> from automl_alex import CleanOutliers
+    >>> import sklearn
+    >>> # Get Dataset
+    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+    >>> dataset.target = dataset.target.astype('category').cat.codes
+    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    >>>                                             dataset.data, 
+    >>>                                             dataset.target,
+    >>>                                             test_size=0.2,)
+    >>> 
+    >>> co = CleanOutliers()
+    >>> clean_X_train = co.fit_transform(clean_X_train)
+    >>> clean_X_test = co.transform(clean_X_test)
+
+    '''
     _weight = {}
 
-    def __init__(self, method='IQR', threshold=2, verbose=0):
-        """
-        Fill Nans and add column, that there were nans in this column
-        
-        Args:
-            method : ['IQR', 'z_score',]
-        """
+    def __init__(self, method: str = 'IQR', threshold: int = 2, verbose: int = 0) -> None:
+        '''
+        Parameters
+        ----------
+        method : str, optional
+            method ['IQR', 'z_score',], by default 'IQR'
+        threshold : int, optional
+            threshold on method, by default 2
+        verbose : int, optional
+            print state, by default 0
+        ''' 
         self.method = method
         self.threshold = threshold
         self.verbose = verbose
 
 
-    def _IQR(self, data, col, threshold=1.5):
+    def _IQR(self, data: pd.DataFrame, colum_name: str, threshold=1.5) -> Tuple[float, float]:
         '''
-        outlier detection by Interquartile Ranges Rule, also known as Tukey's test. 
+        Outlier detection by Interquartile Ranges Rule, also known as Tukey's test. 
         calculate the IQR ( 75th quantile - 25th quantile) 
         and the 25th 75th quantile. 
         Any value beyond:
             upper bound = 75th quantile + （IQR * threshold）
             lower bound = 25th quantile - （IQR * threshold）   
         are regarded as outliers. Default threshold is 1.5.
-        '''
-        
-        quantile1,quantile3 = np.percentile(data[col],[25,75])
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        colum_name : str
+            feature name
+        threshold : float, optional
+            threshold on method, by default 1.5
+
+        Returns
+        -------
+        Tuple[float, float]
+            lower_bound and upper_bound
+        '''        
+        quantile1,quantile3 = np.percentile(data[colum_name],[25,75])
         iqr_val = quantile3 - quantile1
         lower_bound = quantile1 - (threshold*iqr_val)
         upper_bound = quantile3 + (threshold*iqr_val)
         return(lower_bound, upper_bound)
 
 
-    def _fit_z_score(self, data, col,):
+    def _fit_z_score(self, data: pd.DataFrame, colum_name: str,) -> Tuple[float, float]:
         '''
         Z score is an important measurement or score that tells how many Standard deviation above or below a number is from the mean of the dataset
         Any positive Z score means the no. of standard deviation above the mean and a negative score means no. of standard deviation below the mean
         Z score is calculate by subtracting each value with the mean of data and dividing it by standard deviation
-        '''
-        median_y = data[col].median()
-        median_absolute_deviation_y = (np.abs(data[col]-median_y)).median()
+        
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        colum_name : str
+            feature name
+
+        Returns
+        -------
+        Tuple[float, float]
+            median, median_absolute_deviation
+        '''        
+        median_y = data[colum_name].median()
+        median_absolute_deviation_y = (np.abs(data[colum_name]-median_y)).median()
         return(median_y, median_absolute_deviation_y)
 
 
@@ -273,18 +401,24 @@ class CleanOutliers(object):
 
 
     @logger.catch
-    def fit(self, data, cols=None):
-        """
-        Fit CleanOutliers.
+    def fit(self, data: pd.DataFrame, columns: List[str],) -> None:
+        '''
+        Fit CleanOutliers
 
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            self
-        """
-        if cols is not None:
-            chek_columns = cols
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        columns : List[str]
+            list features names
+
+        Raises
+        ------
+        ValueError
+            Wrong method
+        '''        
+        if columns is not None:
+            chek_columns = columns
         else:
             chek_columns = data._get_numeric_data().columns
 
@@ -312,19 +446,22 @@ class CleanOutliers(object):
                     logger.info(f'Num of outlier detected: {total_outliers} in Feature {column}')
                     logger.info(f'Proportion of outlier detected: {round((100/(len(data)/total_outliers)),1)} %')
 
-        return self
-
 
     @logger.catch
-    def transform(self, data,) -> pd.DataFrame:
-        """Transforms the dataset.
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            pandas.Dataframe of shape = (n_train, n_features)
-                The dataset.
-        """
+    def transform(self, data: pd.DataFrame,) -> pd.DataFrame:
+        '''
+        Transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+
+        Returns
+        -------
+        pd.DataFrame
+            dataset with cleaned features (pd.DataFrame shape = (n_samples, n_features))
+        ''' 
         #logger.info(self._weight)
         for weight_values in self._weight:
             if self.method == 'IQR':
@@ -355,60 +492,102 @@ class CleanOutliers(object):
         return data
 
 
-    def fit_transform(self, data, cols=None) -> pd.DataFrame:
-        """Fit and transforms the dataset.
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-            cols list() features: the input data
-        Returns:
-            pandas.Dataframe of shape = (n_train, n_features)
-                The dataset.
-        """
-        self.fit(data, cols)
+    def fit_transform(self, data: pd.DataFrame, columns: List[str],) -> pd.DataFrame:
+        '''
+        Fit and transforms the dataset.
 
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        columns : List[str]
+            list features names
+
+        Returns
+        -------
+        pd.DataFrame
+            dataset with new features (pd.DataFrame shape = (n_samples, n_features))
+        '''        
+        self.fit(data, columns)
         return self.transform(data)
 
 
 class DataPrepare(object):
     """
     Сlass for cleaning, encoding and processing your dataset
+
+    Examples
+    --------
+    >>> from automl_alex import DataPrepare
+    >>> import sklearn
+    >>> # Get Dataset
+    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+    >>> dataset.target = dataset.target.astype('category').cat.codes
+    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    >>>                                             dataset.data, 
+    >>>                                             dataset.target,
+    >>>                                             test_size=0.2,)
+    >>> 
+    >>> de = DataPrepare()
+    >>> clean_X_train = de.fit_transform(X_train)
+    >>> clean_X_test = de.transform(X_test)
+
     """
     _clean_outliers_enc = None
     _binary_encoder = None
     _clean_nan_encoder = None
     _cat_clean_ord_encoder = None
     _fit_cat_encoders={}
+    _fited = False
 
 
     def __init__(self, 
-                cat_features=None,
-                clean_and_encod_data=True,
-                cat_encoder_names=['HelmertEncoder','CountEncoder'],
-                clean_nan=True,
-                clean_outliers=True,
-                outliers_method='IQR', # method : ['IQR', 'z_score',]
-                outliers_threshold=2,
-                drop_invariant=True,
-                num_generator_features=True,
-                operations_num_generator=['/','*','-',],
+                cat_features: Optional[List[str]] = None,
+                clean_and_encod_data: bool = True,
+                cat_encoder_names: List[str] = ['HelmertEncoder','CountEncoder'],
+                clean_nan: bool = True,
+                clean_outliers: bool = True,
+                outliers_method: str ='IQR', # method : ['IQR', 'z_score',]
+                outliers_threshold: int = 2,
+                drop_invariant: bool = True,
+                num_generator_features: bool = True,
+                operations_num_generator: List[str] = ['/','*','-',],
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
-                normalization=True,
-                reduce_memory=False,
-                random_state=42,
-                verbose=3):
-        """
-        Description of __init__
-
-        Args:
-            cat_features=None (list or None): 
-            clean_and_encod_data=True (undefined):
-            cat_encoder_names=None (list or None):
-            clean_nan=True (undefined):
-            drop_invariant=True (bool): boolean for whether or not to drop columns with 0 variance.
-            num_generator_features=True (undefined):
-            random_state=42 (undefined):
-        """
+                normalization: bool = True,
+                reduce_memory: bool = False,
+                random_state: int = 42,
+                verbose: int = 3) -> None:
+        '''
+        Parameters
+        ----------
+        cat_features : Optional[List[str]], optional
+            features name list. if None -> Auto-detection categorical_features, by default None
+        clean_and_encod_data : bool, optional
+            On or Off cleaning, by default True
+        cat_encoder_names : List[str], optional
+            name encoders (from automl_alex._encoders.cat_encoders_names), by default ['HelmertEncoder','CountEncoder']
+        clean_nan : bool, optional
+            On or Off, by default True
+        clean_outliers : bool, optional
+            On or Off, by default True
+        outliers_method : str, optional
+            method 'IQR' or 'z_score', by default 'IQR'
+        drop_invariant : bool, optional
+            drop invariant features, by default True
+        num_generator_features : bool, optional
+            generate num features, by default True
+        operations_num_generator : List[str], optional
+            operations for generate num features, by default ['/','*','-',]
+        normalization : bool, optional
+            On or Off, by default True
+        reduce_memory : bool, optional
+            On or Off, by default False
+        random_state : int, optional
+            Controls the generation of the random states for each repetition, by default 42
+        verbose : int, optional
+            print state, by default 3
+        '''
         self.random_state = random_state
         self.cat_encoder_names = cat_encoder_names
 
@@ -428,20 +607,24 @@ class DataPrepare(object):
         self.cat_features = cat_features
 
 
-    def _check_data_format(self, data):
-        """
-        Check that data is not pd.DataFrame or empty
+    def _check_data_format(self, data: pd.DataFrame) -> None:
+        '''Check that data is not pd.DataFrame or empty
 
-        Args:
-            data (pd.DataFrame, shape (n_samples, n_features)): the input data
-        Return:
-            True or Exception
-        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            data (pd.DataFrame, shape (n_samples, n_features))
+
+        Raises
+        ------
+        Exception
+            if data is not pd.DataFrame or empty
+        '''        
         if (not isinstance(data, pd.DataFrame)) or data.empty:
             raise Exception("data is not pd.DataFrame or empty")
 
 
-    def _check_num_nans(self, data):
+    def _check_num_nans(self, data: pd.DataFrame) -> bool:
         """
         Check Nans in numeric features in data 
 
@@ -454,40 +637,48 @@ class DataPrepare(object):
         return(len(list(data.columns[data.isnull().sum() > 0])) > 0)
 
 
-    def auto_detect_cat_features(self, data):
-        """
-        Description of _auto_detect_cat_features:
-            Auto-detection categorical_features by simple rule:
-            categorical feature == if feature nunique low 1% of data
+    def auto_detect_cat_features(self, data: pd.DataFrame) -> List[str]:
+        '''
+        Auto-detection categorical_features by simple rule:
+        categorical feature == if feature nunique low 1% of data
 
-        Args:
-            data (pd.DataFrame): dataset
-            
-        Returns:
-            cat_features (list): columns names cat features
-        
-        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+
+        Returns
+        -------
+        List[str]
+            categorical features names
+        '''        
         #object_features = list(data.columns[data.dtypes == 'object'])
         cat_features = data.columns[(data.nunique(dropna=False) < len(data)//100) & \
             (data.nunique(dropna=False) >2)]
         if len(cat_features) < 1:
             cat_features = None
         #cat_features = list(set([*object_features, *cat_features]))
-        return(cat_features)
+        return(list(cat_features))
 
 
     @logger.catch
-    def fit_transform(self, data, verbose=None):
-        """
+    def fit_transform(self, data: pd.DataFrame, verbose: bool = None) -> pd.DataFrame:
+        '''
         Fit and transforms the dataset.
 
-        Args:
-            data (pd.DataFrame, shape = (n_samples, n_features)): 
-                the input data
-        Returns:
-            data (pd.Dataframe, shape = (n_train, n_features)):
-                The dataset with clean numerical and encoded categorical features.
-        """
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        verbose : bool, optional
+            print info, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataset with clean numerical and encoded categorical features.
+            shape = (n_samples, n_features)
+        '''        
         if verbose is not None:
             self.verbose =  verbose
         logger_print_lvl(self.verbose)
@@ -573,7 +764,7 @@ class DataPrepare(object):
                 threshold=self._outliers_threshold, 
                 method=self._outliers_method,
                 verbose=self.verbose)
-            self._clean_outliers_enc = self._clean_outliers_enc.fit(data, cols=self.num_features)
+            self._clean_outliers_enc.fit(data, cols=self.num_features)
             data = self._clean_outliers_enc.transform(data)
 
         # CleanNans
@@ -591,7 +782,7 @@ class DataPrepare(object):
             if len(self.num_features) > 1:
                 logger.info('> Generate interaction Num Features')
                 self.num_generator = NumericInteractionFeatures(operations=self._operations_num_generator,)
-                self.num_generator = self.num_generator.fit(list(self.num_features))
+                self.num_generator.fit(list(self.num_features))
                 fe_df = self.num_generator.transform(data[self.num_features])
                 
                 if self._reduce_memory:
@@ -634,19 +825,36 @@ class DataPrepare(object):
         logger.info(f'Final data shape: {data.shape}')
         logger.info(f'Total ADD columns: {end_columns-start_columns}')
         logger.info('#'*50)
+        self._fited = True
         return data
 
 
     @logger.catch
-    def transform(self, data, verbose=None) -> pd.DataFrame:
-        """Transform dataset.
-        Args:
-            data (pd.DataFrame, shape = (n_samples, n_features)): 
-                the input data
-        Returns:
-            data (pd.Dataframe, shape = (n_train, n_features)):
-                The dataset with clean numerical and encoded categorical features.
-        """
+    def transform(self, data: pd.DataFrame, verbose: bool = None) -> pd.DataFrame:
+        '''
+        Transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        verbose : bool, optional
+            print info, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataset with clean numerical and encoded categorical features.
+            shape = (n_samples, n_features)
+
+        Raises
+        ------
+        Exception
+            if not fited fit_tranform
+        '''        
+        if not self._fited:
+            raise Exception("not fited. use fit_tranform at first")
+
         if verbose is not None:
             self.verbose = verbose
 
@@ -749,7 +957,18 @@ class DataPrepare(object):
 
 
     @logger.catch
-    def save(self, name='DataPrepare_dump', folder='./'):
+    def save(self, name: str = 'DataPrepare_dump', folder: str = './') -> None:
+        '''
+        Save data prepare
+
+        Parameters
+        ----------
+        name : str, optional
+            file name, by default 'DataPrepare_dump'
+        folder : str, optional
+            target folder, by default './'
+        '''
+
         dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         for cat_encoder_name in self.cat_encoder_names:
@@ -765,7 +984,23 @@ class DataPrepare(object):
 
 
     @logger.catch
-    def load(self, name='DataPrepare_dump', folder='./'):
+    def load(self, name: str = 'DataPrepare_dump', folder: str = './') -> Callable:
+        '''
+        Load data prepare
+
+        Parameters
+        ----------
+        name : str, optional
+            file name, by default 'DataPrepare_dump'
+        folder : str, optional
+            target folder, by default './'
+
+        Returns
+        -------
+        automl_alex.DataPrepare
+            Loaded DataPrepare
+        '''        
+        
         dir_tmp = "./DataPrepare_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
 
@@ -782,7 +1017,7 @@ class DataPrepare(object):
 
 
 @logger.catch
-def reduce_mem_usage(df, verbose=0):
+def reduce_mem_usage(df: pd.DataFrame, verbose=0) -> pd.DataFrame:
     """ iterate through all the columns of a dataframe and modify the data type
         to reduce memory usage.        
     """

@@ -55,7 +55,7 @@ pip install automl-alex
 ```
 
 # Docs
-[DocPage](http://automl.lekpoi2m.beget.tech/index.html)
+[DocPage](https://alex-lekov.github.io/AutoML_Alex/)
 
 # 🚀 Examples
 
@@ -149,8 +149,6 @@ Library creates many new features. If you have a large dataset with a large numb
 Works with [optuna-dashboard](https://github.com/optuna/optuna-dashboard)
 
 <img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/dashboard.gif" alt="Dashboard">
-    
-<img width=800 src="https://github.com/Alex-Lekov/AutoML_Alex/blob/develop/examples/img/dashboard_2.gif" alt="Dashboard_2">
 
 Run
 ```console

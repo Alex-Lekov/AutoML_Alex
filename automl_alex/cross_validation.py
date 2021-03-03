@@ -31,25 +31,25 @@ class CrossValidation(object):
     
     Parameters
     ----------
-        estimator : type
-            model object from automl_alex.models
-            The object to use to fit model.
-        folds : int
-            Number of folds. Must be at least 2.
-        score_folds : int
-            Number of score folds. Must be at least 1.
-        n_repeats : int
-            Number of times cross-validator needs to be repeated.
-        metric : type
-            you can use standard metrics from sklearn.metrics or add custom metrics.
-            If None, the metric is selected from the type of estimator:
-            classifier: sklearn.metrics.roc_auc_score
-            regression: sklearn.metrics.mean_squared_error.
-        print_metric : bool
-        metric_round : int
-        random_state : int
-            RandomState instance or None, default=42
-            Controls the generation of the random states for each repetition.
+    estimator : type
+        model object from automl_alex.models
+        The object to use to fit model.
+    folds : int
+        Number of folds. Must be at least 2.
+    score_folds : int
+        Number of score folds. Must be at least 1.
+    n_repeats : int
+        Number of times cross-validator needs to be repeated.
+    metric : type
+        you can use standard metrics from sklearn.metrics or add custom metrics.
+        If None, the metric is selected from the type of estimator:
+        classifier: sklearn.metrics.roc_auc_score
+        regression: sklearn.metrics.mean_squared_error.
+    print_metric : bool
+    metric_round : int
+    random_state : int
+        RandomState instance or None, default=42
+        Controls the generation of the random states for each repetition.
     """
     __name__ = 'CrossValidation'
     _fit_models = False
