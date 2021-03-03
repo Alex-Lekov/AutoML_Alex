@@ -36,6 +36,7 @@ from typing import List
 from typing import Optional
 from typing import Sequence
 from typing import Type
+from typing import Union
 from sklearn.metrics import *
 from tqdm import tqdm
 import pandas as pd
@@ -52,26 +53,63 @@ from ._logger import *
 
 TMP_FOLDER = &#39;.automl-alex_tmp/&#39;
 
-##################################### BestSingleModel ################################################
-
-# in progress...
-
 ##################################### ModelsReview ################################################
 
 
 class ModelsReview(object):
-    &#34;&#34;&#34;
+    &#39;&#39;&#39;
     ModelsReview - allows you to see which models show good results on this data
-    &#34;&#34;&#34;
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import ModelsReview, DataPrepare
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; # clean up data before use ModelsReview
+    &gt;&gt;&gt; de = DataPrepare()
+    &gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+    &gt;&gt;&gt; clean_X_test = de.transform(X_test)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = ModelsReview(type_of_estimator=&#39;classifier&#39;,
+    &gt;&gt;&gt;                     metric = sklearn.metrics.roc_auc_score,)
+    &gt;&gt;&gt; review = model.fit(X_train=X_train, 
+    &gt;&gt;&gt;                     y_train=y_train, 
+    &gt;&gt;&gt;                     X_test=X_test, 
+    &gt;&gt;&gt;                     y_test=y_test,)
+
+    &#39;&#39;&#39;    
     __name__ = &#39;ModelsReview&#39;
 
     def __init__(self,  
                     type_of_estimator: Optional[str] = None, # classifier or regression
-                    metric: Optional[type] = None,
+                    metric: Optional[Callable] = None,
                     metric_round: int = 4,
                     gpu: bool = False, 
                     random_state: int = 42
                     ) -&gt; None:
+        &#39;&#39;&#39;
+        Parameters
+        ----------
+        type_of_estimator : Optional[str], optional
+            [&#39;classifier&#39;, &#39;regression&#39;], by default None
+        metric : Callable, optional
+            you can use standard metrics from sklearn.metrics or add custom metrics.
+            If None, the metric is selected from the type of estimator:
+            classifier: sklearn.metrics.roc_auc_score
+            regression: sklearn.metrics.mean_squared_error.
+        metric_round : int, optional
+            round metric score., by default 4
+        gpu : bool, optional
+            Use GPU?, by default False
+        random_state : int, optional
+            Controls the generation of the random states for each repetition, by default 42
+        &#39;&#39;&#39;    
         self._gpu = gpu
         self._random_state = random_state
         if type_of_estimator is not None:
@@ -90,25 +128,35 @@ class ModelsReview(object):
     @logger.catch
     def fit(self,
         X_train: pd.DataFrame, 
-        y_train: Any, 
+        y_train: Union[list, np.array, pd.DataFrame],
         X_test: pd.DataFrame, 
-        y_test: Any,
-        models_names: Optional[Sequence[str]] = None,
+        y_test: Union[list, np.array, pd.DataFrame],
+        models_names: Optional[List[str]] = None,
         verbose: int = 3,
         ) -&gt; pd.DataFrame:
-        &#34;&#34;&#34;
-        Fit models (in list models_names) whis default params
+        &#39;&#39;&#39;
+        Fit models from model_list and return scores
 
-        Args:
-            X_train: Train Dataset (pd.DataFrame)
-            y_train: Target list [list, np.array, pd.DataFrame]
-            X_test: Test Dataset (pd.DataFrame)
-            y_test: Target list [list, np.array, pd.DataFrame]
-            models_names: list of models
+        Parameters
+        ----------
+        X_train : pd.DataFrame
+            train data (pd.DataFrame, shape (n_samples, n_features))
+        y_train : Union[list, np.array, pd.DataFrame]
+            target
+        X_test : pd.DataFrame
+            test data (pd.DataFrame, shape (n_samples, n_features))
+        y_test : Union[list, np.array, pd.DataFrame]
+            test target
+        models_names : Optional[List[str]], optional
+            list of models from automl_alex.models.all_models, by default None
+        verbose : int, optional
+            print state, by default 3
 
-        Returns:
-            pd.DataFrame with resuls
-        &#34;&#34;&#34;
+        Returns
+        -------
+        pd.DataFrame
+            results
+        &#39;&#39;&#39;        
         logger_print_lvl(verbose)
         result = pd.DataFrame(columns=[&#39;Model_Name&#39;, &#39;Score&#39;, &#39;Time_Fit_Sec&#39;])
         score_ls = []
@@ -151,10 +199,59 @@ class ModelsReview(object):
         return(result)
 
 class ModelsReviewClassifier(ModelsReview):
+    &#39;&#39;&#39;
+    ModelsReview - allows you to see which models show good results on this data
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import ModelsReviewClassifier, DataPrepare
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; # clean up data before use ModelsReview
+    &gt;&gt;&gt; de = DataPrepare()
+    &gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+    &gt;&gt;&gt; clean_X_test = de.transform(X_test)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = ModelsReviewClassifier(metric = sklearn.metrics.roc_auc_score,)
+    &gt;&gt;&gt; review = model.fit(X_train=X_train, 
+    &gt;&gt;&gt;                     y_train=y_train, 
+    &gt;&gt;&gt;                     X_test=X_test, 
+    &gt;&gt;&gt;                     y_test=y_test,)
+    &#39;&#39;&#39;   
     _type_of_estimator=&#39;classifier&#39;
 
 
 class ModelsReviewRegressor(ModelsReview):
+    &#39;&#39;&#39;
+    ModelsReview - allows you to see which models show good results on this data
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import ModelsReviewRegressor, DataPrepare
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(data_id=543, as_frame=True)
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.data), 
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.target), 
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; # clean up data before use ModelsReview
+    &gt;&gt;&gt; de = DataPrepare()
+    &gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+    &gt;&gt;&gt; clean_X_test = de.transform(X_test)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = ModelsReviewRegressor(metric = sklearn.metrics.mean_squared_error,)
+    &gt;&gt;&gt; review = model.fit(X_train=X_train, 
+    &gt;&gt;&gt;                     y_train=y_train, 
+    &gt;&gt;&gt;                     X_test=X_test, 
+    &gt;&gt;&gt;                     y_test=y_test,)
+    &#39;&#39;&#39;   
     _type_of_estimator=&#39;regression&#39;
 
 
@@ -169,50 +266,50 @@ class AutoML(object):
     &#39;&#39;&#39;
     AutoML in the process of developing
 
-    Parameters
-    ----------
-    type_of_estimator : str
-        classifier or regression.
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import AutoML
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = AutoML(type_of_estimator=&#39;classifier&#39;)
+    &gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+    &gt;&gt;&gt; predicts = model.predict(X_test)
+    &gt;&gt;&gt; print(&#39;Test AUC: &#39;, round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
 
-    metric : type
-        you can use standard metrics from sklearn.metrics or add custom metrics.
-        If None, the metric is selected from the type of estimator:
-        classifier: sklearn.metrics.roc_auc_score
-        regression: sklearn.metrics.mean_squared_error.
-
-    metric_round : int
-        round metric score.
-
-    gpu : bool
-        Use GPU?.
-
-    random_state : int
-        RandomState instance. 
-        Controls the generation of the random states for each repetition.
-
-    Methods
-    -------
-    fit():
-        Fit AutoML
-
-    predict():
-        predict on new data
-
-    save():
-        save model
-
-    load():
-        load model
-    &#39;&#39;&#39;
+    &#39;&#39;&#39;    
     __name__ = &#39;AutoML&#39;
 
     def __init__(self,  
                 type_of_estimator: Optional[str] = None, # classifier or regression
-                metric: Optional[type] = None,
+                metric: Optional[Callable] = None,
                 metric_round: int = 4,
                 gpu: bool = False, 
                 random_state: int = 42
                 ) -&gt; None:
+        &#39;&#39;&#39;
+        Parameters
+        ----------
+        type_of_estimator : Optional[str], optional
+            [&#39;classifier&#39;, &#39;regression&#39;], by default None
+        metric : Callable, optional
+            you can use standard metrics from sklearn.metrics or add custom metrics.
+            If None, the metric is selected from the type of estimator:
+            classifier: sklearn.metrics.roc_auc_score
+            regression: sklearn.metrics.mean_squared_error.
+        metric_round : int, optional
+            round metric score., by default 4
+        gpu : bool, optional
+            Use GPU?, by default False
+        random_state : int, optional
+            Controls the generation of the random states for each repetition, by default 42
+        &#39;&#39;&#39;    
         self._gpu = gpu
         self._random_state = random_state
 
@@ -234,8 +331,8 @@ class AutoML(object):
 
     @logger.catch
     def fit(self,
-        X, 
-        y, 
+        X: pd.DataFrame, 
+        y: Union[list, np.array, pd.DataFrame], 
         timeout: int = 500, # optimization time in seconds
         auto_parameters: bool = True,
         folds: int = 7,
@@ -246,39 +343,39 @@ class AutoML(object):
         verbose: int = 3,
         ) -&gt; None:
         &#39;&#39;&#39;
-        Fit AutoML
+        Fit the model.
 
         Parameters
         ----------
         X : pd.DataFrame
-            Train Dataset
-
-        y : list, np.array, pd.DataFrame
-            Target list
-
-        timeout :  int
+            data (pd.DataFrame, shape (n_samples, n_features))
+        y : Union[list, np.array, pd.DataFrame]
+            target
+        timeout : int, optional
             Optimization time in seconds.
-
-        opt_lvl : int
+        auto_parameters: bool, optional
+            If we don&#39;t want to select anything, we just set auto_parameters=True. 
+            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+                -folds,
+                -score_folds,
+                -cold_start,
+                -opt_lvl,
+        folds : int, optional
+            Number of folds for CrossValidation. Must be at least 2, by default 7
+        score_folds : int, optional
+            Number of score folds. Must be at least 1., by default 2
+        opt_lvl : int, optional
             by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
             Perhaps some parameters are not so important and can only give a fraction of a percent. 
             By setting the opt_lvl parameter, you control the depth of optimization.
             in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
-
-        early_stoping : int
+            by default 2
+        early_stoping : int, optional
             stop optimization if no better parameters are found through iterations
-
-        auto_parameters : bool
-            If we don&#39;t want to select anything, we just set auto_parameters=True. 
-            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-                *folds
-                *score_folds
-                *cold_start
-                *opt_lvl
-
-        feature_selection : bool
-            add feature_selection in optimization
-
+        feature_selection : bool, optional
+            add feature_selection in optimization, by default True
+        verbose : int, optional
+            print state, by default 3
 
         Returns
         -------
@@ -424,13 +521,27 @@ class AutoML(object):
 
 
     @logger.catch
-    def predict(self, X=None, verbose: int = 0):
-        &#34;&#34;&#34;
-        Args:
-            X (np.array, shape (n_samples, n_features)): the input data
-        Return:
-            np.array, shape (n_samples, n_classes)
-        &#34;&#34;&#34;
+    def predict(self, X: pd.DataFrame, verbose: int = 0) -&gt; list:
+        &#39;&#39;&#39;
+        Predict the target for the input data
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            data (pd.DataFrame, shape (n_samples, n_features))
+        verbose : int, optional
+            print state, by default 0
+
+        Returns
+        -------
+        list
+            prediction
+
+        Raises
+        ------
+        Exception
+            If No fit models
+        &#39;&#39;&#39;        
         if self.model_1 is None:
             raise Exception(&#34;No fit models&#34;)
 
@@ -482,7 +593,17 @@ class AutoML(object):
 
 
     @logger.catch
-    def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
+    def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;) -&gt; None:
+        &#39;&#39;&#39;
+        Save the model to disk
+
+        Parameters
+        ----------
+        name : str, optional
+            file name, by default &#39;AutoML_dump&#39;
+        folder : str, optional
+            target folder, by default &#39;./&#39;
+        &#39;&#39;&#39;        
         dir_tmp = folder+&#34;AutoML_tmp/&#34;
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         self.de_1.save(name=&#39;DataPrepare_1_dump&#39;, folder=dir_tmp)
@@ -496,7 +617,22 @@ class AutoML(object):
 
 
     @logger.catch
-    def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
+    def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;) -&gt; Callable:
+        &#39;&#39;&#39;
+        Loads the model and creates a function that will load the model
+
+        Parameters
+        ----------
+        name : str, optional
+            file name, by default &#39;AutoML_dump&#39;
+        folder : str, optional
+            target folder, by default &#39;./&#39;
+
+        Returns
+        -------
+        Callable
+            AutoML
+        &#39;&#39;&#39;        
         dir_tmp = folder+&#34;AutoML_tmp/&#34;
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         shutil.unpack_archive(folder+name+&#39;.zip&#39;, dir_tmp)
@@ -513,10 +649,52 @@ class AutoML(object):
 
 
 class AutoMLClassifier(AutoML):
+    &#39;&#39;&#39;
+    AutoML in the process of developing
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import AutoMLClassifier
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = AutoMLClassifier()
+    &gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+    &gt;&gt;&gt; predicts = model.predict(X_test)
+    &gt;&gt;&gt; print(&#39;Test AUC: &#39;, round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
+
+    &#39;&#39;&#39;    
     _type_of_estimator=&#39;classifier&#39;
     __name__ = &#39;AutoMLClassifier&#39;
 
+
 class AutoMLRegressor(AutoML):
+    &#39;&#39;&#39;
+    AutoML in the process of developing
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import AutoMLRegressor
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(data_id=543, as_frame=True)
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.data), 
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.target), 
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = AutoMLRegressor()
+    &gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+    &gt;&gt;&gt; predicts = model.predict(X_test)
+    &gt;&gt;&gt; print(&#39;Test MSE: &#39;, round(sklearn.metrics.mean_squared_error(y_test, predicts),4))
+
+    &#39;&#39;&#39;   
     _type_of_estimator=&#39;regression&#39;
     __name__ = &#39;AutoMLRegressor&#39;</code></pre>
 </details>
@@ -532,36 +710,42 @@ class AutoMLRegressor(AutoML):
 <dl>
 <dt id="automl_alex.automl_alex.AutoML"><code class="flex name class">
 <span>class <span class="ident">AutoML</span></span>
-<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[type, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
+<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[Callable, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>AutoML in the process of developing</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from automl_alex import AutoML
+&gt;&gt;&gt; import sklearn
+&gt;&gt;&gt; # Get Dataset
+&gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+&gt;&gt;&gt; dataset.target = dataset.target.astype('category').cat.codes
+&gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+&gt;&gt;&gt;                                             dataset.data, 
+&gt;&gt;&gt;                                             dataset.target,
+&gt;&gt;&gt;                                             test_size=0.2,)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; model = AutoML(type_of_estimator='classifier')
+&gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+&gt;&gt;&gt; predicts = model.predict(X_test)
+&gt;&gt;&gt; print('Test AUC: ', round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
+</code></pre>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>str</code></dt>
-<dd>classifier or regression.</dd>
-<dt><strong><code>metric</code></strong> :&ensp;<code>type</code></dt>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>Optional[str]</code>, optional</dt>
+<dd>['classifier', 'regression'], by default None</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>Callable</code>, optional</dt>
 <dd>you can use standard metrics from sklearn.metrics or add custom metrics.
 If None, the metric is selected from the type of estimator:
 classifier: sklearn.metrics.roc_auc_score
 regression: sklearn.metrics.mean_squared_error.</dd>
-<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code></dt>
-<dd>round metric score.</dd>
-<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Use GPU?.</dd>
-<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code></dt>
-<dd>RandomState instance.
-Controls the generation of the random states for each repetition.</dd>
-</dl>
-<h2 id="methods">Methods</h2>
-<p>fit():
-Fit AutoML</p>
-<p>predict():
-predict on new data</p>
-<p>save():
-save model</p>
-<p>load():
-load model</p></div>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>round metric score., by default 4</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Use GPU?, by default False</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Controls the generation of the random states for each repetition, by default 42</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -570,50 +754,50 @@ load model</p></div>
     &#39;&#39;&#39;
     AutoML in the process of developing
 
-    Parameters
-    ----------
-    type_of_estimator : str
-        classifier or regression.
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import AutoML
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = AutoML(type_of_estimator=&#39;classifier&#39;)
+    &gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+    &gt;&gt;&gt; predicts = model.predict(X_test)
+    &gt;&gt;&gt; print(&#39;Test AUC: &#39;, round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
 
-    metric : type
-        you can use standard metrics from sklearn.metrics or add custom metrics.
-        If None, the metric is selected from the type of estimator:
-        classifier: sklearn.metrics.roc_auc_score
-        regression: sklearn.metrics.mean_squared_error.
-
-    metric_round : int
-        round metric score.
-
-    gpu : bool
-        Use GPU?.
-
-    random_state : int
-        RandomState instance. 
-        Controls the generation of the random states for each repetition.
-
-    Methods
-    -------
-    fit():
-        Fit AutoML
-
-    predict():
-        predict on new data
-
-    save():
-        save model
-
-    load():
-        load model
-    &#39;&#39;&#39;
+    &#39;&#39;&#39;    
     __name__ = &#39;AutoML&#39;
 
     def __init__(self,  
                 type_of_estimator: Optional[str] = None, # classifier or regression
-                metric: Optional[type] = None,
+                metric: Optional[Callable] = None,
                 metric_round: int = 4,
                 gpu: bool = False, 
                 random_state: int = 42
                 ) -&gt; None:
+        &#39;&#39;&#39;
+        Parameters
+        ----------
+        type_of_estimator : Optional[str], optional
+            [&#39;classifier&#39;, &#39;regression&#39;], by default None
+        metric : Callable, optional
+            you can use standard metrics from sklearn.metrics or add custom metrics.
+            If None, the metric is selected from the type of estimator:
+            classifier: sklearn.metrics.roc_auc_score
+            regression: sklearn.metrics.mean_squared_error.
+        metric_round : int, optional
+            round metric score., by default 4
+        gpu : bool, optional
+            Use GPU?, by default False
+        random_state : int, optional
+            Controls the generation of the random states for each repetition, by default 42
+        &#39;&#39;&#39;    
         self._gpu = gpu
         self._random_state = random_state
 
@@ -635,8 +819,8 @@ load model</p></div>
 
     @logger.catch
     def fit(self,
-        X, 
-        y, 
+        X: pd.DataFrame, 
+        y: Union[list, np.array, pd.DataFrame], 
         timeout: int = 500, # optimization time in seconds
         auto_parameters: bool = True,
         folds: int = 7,
@@ -647,39 +831,39 @@ load model</p></div>
         verbose: int = 3,
         ) -&gt; None:
         &#39;&#39;&#39;
-        Fit AutoML
+        Fit the model.
 
         Parameters
         ----------
         X : pd.DataFrame
-            Train Dataset
-
-        y : list, np.array, pd.DataFrame
-            Target list
-
-        timeout :  int
+            data (pd.DataFrame, shape (n_samples, n_features))
+        y : Union[list, np.array, pd.DataFrame]
+            target
+        timeout : int, optional
             Optimization time in seconds.
-
-        opt_lvl : int
+        auto_parameters: bool, optional
+            If we don&#39;t want to select anything, we just set auto_parameters=True. 
+            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+                -folds,
+                -score_folds,
+                -cold_start,
+                -opt_lvl,
+        folds : int, optional
+            Number of folds for CrossValidation. Must be at least 2, by default 7
+        score_folds : int, optional
+            Number of score folds. Must be at least 1., by default 2
+        opt_lvl : int, optional
             by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
             Perhaps some parameters are not so important and can only give a fraction of a percent. 
             By setting the opt_lvl parameter, you control the depth of optimization.
             in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
-
-        early_stoping : int
+            by default 2
+        early_stoping : int, optional
             stop optimization if no better parameters are found through iterations
-
-        auto_parameters : bool
-            If we don&#39;t want to select anything, we just set auto_parameters=True. 
-            Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-                *folds
-                *score_folds
-                *cold_start
-                *opt_lvl
-
-        feature_selection : bool
-            add feature_selection in optimization
-
+        feature_selection : bool, optional
+            add feature_selection in optimization, by default True
+        verbose : int, optional
+            print state, by default 3
 
         Returns
         -------
@@ -825,13 +1009,27 @@ load model</p></div>
 
 
     @logger.catch
-    def predict(self, X=None, verbose: int = 0):
-        &#34;&#34;&#34;
-        Args:
-            X (np.array, shape (n_samples, n_features)): the input data
-        Return:
-            np.array, shape (n_samples, n_classes)
-        &#34;&#34;&#34;
+    def predict(self, X: pd.DataFrame, verbose: int = 0) -&gt; list:
+        &#39;&#39;&#39;
+        Predict the target for the input data
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            data (pd.DataFrame, shape (n_samples, n_features))
+        verbose : int, optional
+            print state, by default 0
+
+        Returns
+        -------
+        list
+            prediction
+
+        Raises
+        ------
+        Exception
+            If No fit models
+        &#39;&#39;&#39;        
         if self.model_1 is None:
             raise Exception(&#34;No fit models&#34;)
 
@@ -883,7 +1081,17 @@ load model</p></div>
 
 
     @logger.catch
-    def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
+    def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;) -&gt; None:
+        &#39;&#39;&#39;
+        Save the model to disk
+
+        Parameters
+        ----------
+        name : str, optional
+            file name, by default &#39;AutoML_dump&#39;
+        folder : str, optional
+            target folder, by default &#39;./&#39;
+        &#39;&#39;&#39;        
         dir_tmp = folder+&#34;AutoML_tmp/&#34;
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         self.de_1.save(name=&#39;DataPrepare_1_dump&#39;, folder=dir_tmp)
@@ -897,7 +1105,22 @@ load model</p></div>
 
 
     @logger.catch
-    def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
+    def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;) -&gt; Callable:
+        &#39;&#39;&#39;
+        Loads the model and creates a function that will load the model
+
+        Parameters
+        ----------
+        name : str, optional
+            file name, by default &#39;AutoML_dump&#39;
+        folder : str, optional
+            target folder, by default &#39;./&#39;
+
+        Returns
+        -------
+        Callable
+            AutoML
+        &#39;&#39;&#39;        
         dir_tmp = folder+&#34;AutoML_tmp/&#34;
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         shutil.unpack_archive(folder+name+&#39;.zip&#39;, dir_tmp)
@@ -920,34 +1143,41 @@ load model</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="automl_alex.automl_alex.AutoML.fit"><code class="name flex">
-<span>def <span class="ident">fit</span></span>(<span>self, X, y, timeout: int = 500, auto_parameters: bool = True, folds: int = 7, score_folds: int = 2, opt_lvl: int = 2, early_stoping: int = 100, feature_selection: bool = True, verbose: int = 3) ‑> NoneType</span>
+<span>def <span class="ident">fit</span></span>(<span>self, X: pandas.core.frame.DataFrame, y: Union[list, <built-in function array>, pandas.core.frame.DataFrame], timeout: int = 500, auto_parameters: bool = True, folds: int = 7, score_folds: int = 2, opt_lvl: int = 2, early_stoping: int = 100, feature_selection: bool = True, verbose: int = 3) ‑> NoneType</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Fit AutoML</p>
+<div class="desc"><p>Fit the model.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>X</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
-<dd>Train Dataset</dd>
-<dt><strong><code>y</code></strong> :&ensp;<code>list, np.array, pd.DataFrame</code></dt>
-<dd>Target list</dd>
-<dt><strong><code>timeout</code></strong> :&ensp;<code> int</code></dt>
+<dd>data (pd.DataFrame, shape (n_samples, n_features))</dd>
+<dt><strong><code>y</code></strong> :&ensp;<code>Union[list, np.array, pd.DataFrame]</code></dt>
+<dd>target</dd>
+<dt><strong><code>timeout</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>Optimization time in seconds.</dd>
-<dt><strong><code>opt_lvl</code></strong> :&ensp;<code>int</code></dt>
+<dt><strong><code>auto_parameters</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>If we don't want to select anything, we just set auto_parameters=True.
+Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+-folds,
+-score_folds,
+-cold_start,
+-opt_lvl,</dd>
+<dt><strong><code>folds</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Number of folds for CrossValidation. Must be at least 2, by default 7</dd>
+<dt><strong><code>score_folds</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Number of score folds. Must be at least 1., by default 2</dd>
+<dt><strong><code>opt_lvl</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>by limiting the optimization time, we will have to choose how deep we should optimize the parameters.
 Perhaps some parameters are not so important and can only give a fraction of a percent.
 By setting the opt_lvl parameter, you control the depth of optimization.
-in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration</dd>
-<dt><strong><code>early_stoping</code></strong> :&ensp;<code>int</code></dt>
+in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
+by default 2</dd>
+<dt><strong><code>early_stoping</code></strong> :&ensp;<code>int</code>, optional</dt>
 <dd>stop optimization if no better parameters are found through iterations</dd>
-<dt><strong><code>auto_parameters</code></strong> :&ensp;<code>bool</code></dt>
-<dd>If we don't want to select anything, we just set auto_parameters=True.
-Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-<em>folds
-</em>score_folds
-<em>cold_start
-</em>opt_lvl</dd>
-<dt><strong><code>feature_selection</code></strong> :&ensp;<code>bool</code></dt>
-<dd>add feature_selection in optimization</dd>
+<dt><strong><code>feature_selection</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>add feature_selection in optimization, by default True</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>print state, by default 3</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -960,8 +1190,8 @@ Then the algorithm itself will select, depending on the time allotted to it, the
 </summary>
 <pre><code class="python">@logger.catch
 def fit(self,
-    X, 
-    y, 
+    X: pd.DataFrame, 
+    y: Union[list, np.array, pd.DataFrame], 
     timeout: int = 500, # optimization time in seconds
     auto_parameters: bool = True,
     folds: int = 7,
@@ -972,39 +1202,39 @@ def fit(self,
     verbose: int = 3,
     ) -&gt; None:
     &#39;&#39;&#39;
-    Fit AutoML
+    Fit the model.
 
     Parameters
     ----------
     X : pd.DataFrame
-        Train Dataset
-
-    y : list, np.array, pd.DataFrame
-        Target list
-
-    timeout :  int
+        data (pd.DataFrame, shape (n_samples, n_features))
+    y : Union[list, np.array, pd.DataFrame]
+        target
+    timeout : int, optional
         Optimization time in seconds.
-
-    opt_lvl : int
+    auto_parameters: bool, optional
+        If we don&#39;t want to select anything, we just set auto_parameters=True. 
+        Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
+            -folds,
+            -score_folds,
+            -cold_start,
+            -opt_lvl,
+    folds : int, optional
+        Number of folds for CrossValidation. Must be at least 2, by default 7
+    score_folds : int, optional
+        Number of score folds. Must be at least 1., by default 2
+    opt_lvl : int, optional
         by limiting the optimization time, we will have to choose how deep we should optimize the parameters. 
         Perhaps some parameters are not so important and can only give a fraction of a percent. 
         By setting the opt_lvl parameter, you control the depth of optimization.
         in the code automl_alex.models.model_lightgbm.LightGBM you can find how parameters are substituted for iteration
-
-    early_stoping : int
+        by default 2
+    early_stoping : int, optional
         stop optimization if no better parameters are found through iterations
-
-    auto_parameters : bool
-        If we don&#39;t want to select anything, we just set auto_parameters=True. 
-        Then the algorithm itself will select, depending on the time allotted to it, the optimal values for:
-            *folds
-            *score_folds
-            *cold_start
-            *opt_lvl
-
-    feature_selection : bool
-        add feature_selection in optimization
-
+    feature_selection : bool, optional
+        add feature_selection in optimization, by default True
+    verbose : int, optional
+        print state, by default 3
 
     Returns
     -------
@@ -1150,16 +1380,43 @@ def fit(self,
 </details>
 </dd>
 <dt id="automl_alex.automl_alex.AutoML.load"><code class="name flex">
-<span>def <span class="ident">load</span></span>(<span>self, name: str = 'AutoML_dump', folder: str = './')</span>
+<span>def <span class="ident">load</span></span>(<span>self, name: str = 'AutoML_dump', folder: str = './') ‑> Callable</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Loads the model and creates a function that will load the model</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>file name, by default 'AutoML_dump'</dd>
+<dt><strong><code>folder</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>target folder, by default './'</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>Callable</code></dt>
+<dd>AutoML</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@logger.catch
-def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
+def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;) -&gt; Callable:
+    &#39;&#39;&#39;
+    Loads the model and creates a function that will load the model
+
+    Parameters
+    ----------
+    name : str, optional
+        file name, by default &#39;AutoML_dump&#39;
+    folder : str, optional
+        target folder, by default &#39;./&#39;
+
+    Returns
+    -------
+    Callable
+        AutoML
+    &#39;&#39;&#39;        
     dir_tmp = folder+&#34;AutoML_tmp/&#34;
     Path(dir_tmp).mkdir(parents=True, exist_ok=True)
     shutil.unpack_archive(folder+name+&#39;.zip&#39;, dir_tmp)
@@ -1176,25 +1433,53 @@ def load(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
 </details>
 </dd>
 <dt id="automl_alex.automl_alex.AutoML.predict"><code class="name flex">
-<span>def <span class="ident">predict</span></span>(<span>self, X=None, verbose: int = 0)</span>
+<span>def <span class="ident">predict</span></span>(<span>self, X: pandas.core.frame.DataFrame, verbose: int = 0) ‑> list</span>
 </code></dt>
 <dd>
-<div class="desc"><h2 id="args">Args</h2>
-<p>X (np.array, shape (n_samples, n_features)): the input data</p>
-<h2 id="return">Return</h2>
-<p>np.array, shape (n_samples, n_classes)</p></div>
+<div class="desc"><p>Predict the target for the input data</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>X</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
+<dd>data (pd.DataFrame, shape (n_samples, n_features))</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>print state, by default 0</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>prediction</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>Exception</code></dt>
+<dd>If No fit models</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@logger.catch
-def predict(self, X=None, verbose: int = 0):
-    &#34;&#34;&#34;
-    Args:
-        X (np.array, shape (n_samples, n_features)): the input data
-    Return:
-        np.array, shape (n_samples, n_classes)
-    &#34;&#34;&#34;
+def predict(self, X: pd.DataFrame, verbose: int = 0) -&gt; list:
+    &#39;&#39;&#39;
+    Predict the target for the input data
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        data (pd.DataFrame, shape (n_samples, n_features))
+    verbose : int, optional
+        print state, by default 0
+
+    Returns
+    -------
+    list
+        prediction
+
+    Raises
+    ------
+    Exception
+        If No fit models
+    &#39;&#39;&#39;        
     if self.model_1 is None:
         raise Exception(&#34;No fit models&#34;)
 
@@ -1246,16 +1531,33 @@ def predict(self, X=None, verbose: int = 0):
 </details>
 </dd>
 <dt id="automl_alex.automl_alex.AutoML.save"><code class="name flex">
-<span>def <span class="ident">save</span></span>(<span>self, name: str = 'AutoML_dump', folder: str = './')</span>
+<span>def <span class="ident">save</span></span>(<span>self, name: str = 'AutoML_dump', folder: str = './') ‑> NoneType</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Save the model to disk</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>file name, by default 'AutoML_dump'</dd>
+<dt><strong><code>folder</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>target folder, by default './'</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@logger.catch
-def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
+def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;) -&gt; None:
+    &#39;&#39;&#39;
+    Save the model to disk
+
+    Parameters
+    ----------
+    name : str, optional
+        file name, by default &#39;AutoML_dump&#39;
+    folder : str, optional
+        target folder, by default &#39;./&#39;
+    &#39;&#39;&#39;        
     dir_tmp = folder+&#34;AutoML_tmp/&#34;
     Path(dir_tmp).mkdir(parents=True, exist_ok=True)
     self.de_1.save(name=&#39;DataPrepare_1_dump&#39;, folder=dir_tmp)
@@ -1272,41 +1574,68 @@ def save(self, name: str = &#39;AutoML_dump&#39;, folder: str = &#39;./&#39;):
 </dd>
 <dt id="automl_alex.automl_alex.AutoMLClassifier"><code class="flex name class">
 <span>class <span class="ident">AutoMLClassifier</span></span>
-<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[type, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
+<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[Callable, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>AutoML in the process of developing</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from automl_alex import AutoMLClassifier
+&gt;&gt;&gt; import sklearn
+&gt;&gt;&gt; # Get Dataset
+&gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+&gt;&gt;&gt; dataset.target = dataset.target.astype('category').cat.codes
+&gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+&gt;&gt;&gt;                                             dataset.data, 
+&gt;&gt;&gt;                                             dataset.target,
+&gt;&gt;&gt;                                             test_size=0.2,)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; model = AutoMLClassifier()
+&gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+&gt;&gt;&gt; predicts = model.predict(X_test)
+&gt;&gt;&gt; print('Test AUC: ', round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
+</code></pre>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>str</code></dt>
-<dd>classifier or regression.</dd>
-<dt><strong><code>metric</code></strong> :&ensp;<code>type</code></dt>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>Optional[str]</code>, optional</dt>
+<dd>['classifier', 'regression'], by default None</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>Callable</code>, optional</dt>
 <dd>you can use standard metrics from sklearn.metrics or add custom metrics.
 If None, the metric is selected from the type of estimator:
 classifier: sklearn.metrics.roc_auc_score
 regression: sklearn.metrics.mean_squared_error.</dd>
-<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code></dt>
-<dd>round metric score.</dd>
-<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Use GPU?.</dd>
-<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code></dt>
-<dd>RandomState instance.
-Controls the generation of the random states for each repetition.</dd>
-</dl>
-<h2 id="methods">Methods</h2>
-<p>fit():
-Fit AutoML</p>
-<p>predict():
-predict on new data</p>
-<p>save():
-save model</p>
-<p>load():
-load model</p></div>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>round metric score., by default 4</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Use GPU?, by default False</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Controls the generation of the random states for each repetition, by default 42</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class AutoMLClassifier(AutoML):
+    &#39;&#39;&#39;
+    AutoML in the process of developing
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import AutoMLClassifier
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = AutoMLClassifier()
+    &gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+    &gt;&gt;&gt; predicts = model.predict(X_test)
+    &gt;&gt;&gt; print(&#39;Test AUC: &#39;, round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
+
+    &#39;&#39;&#39;    
     _type_of_estimator=&#39;classifier&#39;
     __name__ = &#39;AutoMLClassifier&#39;</code></pre>
 </details>
@@ -1319,48 +1648,75 @@ load model</p></div>
 <li><code><b><a title="automl_alex.automl_alex.AutoML" href="#automl_alex.automl_alex.AutoML">AutoML</a></b></code>:
 <ul class="hlist">
 <li><code><a title="automl_alex.automl_alex.AutoML.fit" href="#automl_alex.automl_alex.AutoML.fit">fit</a></code></li>
+<li><code><a title="automl_alex.automl_alex.AutoML.load" href="#automl_alex.automl_alex.AutoML.load">load</a></code></li>
 <li><code><a title="automl_alex.automl_alex.AutoML.predict" href="#automl_alex.automl_alex.AutoML.predict">predict</a></code></li>
+<li><code><a title="automl_alex.automl_alex.AutoML.save" href="#automl_alex.automl_alex.AutoML.save">save</a></code></li>
 </ul>
 </li>
 </ul>
 </dd>
 <dt id="automl_alex.automl_alex.AutoMLRegressor"><code class="flex name class">
 <span>class <span class="ident">AutoMLRegressor</span></span>
-<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[type, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
+<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[Callable, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>AutoML in the process of developing</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from automl_alex import AutoMLRegressor
+&gt;&gt;&gt; import sklearn
+&gt;&gt;&gt; # Get Dataset
+&gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(data_id=543, as_frame=True)
+&gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+&gt;&gt;&gt;                                             pd.DataFrame(dataset.data), 
+&gt;&gt;&gt;                                             pd.DataFrame(dataset.target), 
+&gt;&gt;&gt;                                             test_size=0.2,)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; model = AutoMLRegressor()
+&gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+&gt;&gt;&gt; predicts = model.predict(X_test)
+&gt;&gt;&gt; print('Test MSE: ', round(sklearn.metrics.mean_squared_error(y_test, predicts),4))
+</code></pre>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>str</code></dt>
-<dd>classifier or regression.</dd>
-<dt><strong><code>metric</code></strong> :&ensp;<code>type</code></dt>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>Optional[str]</code>, optional</dt>
+<dd>['classifier', 'regression'], by default None</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>Callable</code>, optional</dt>
 <dd>you can use standard metrics from sklearn.metrics or add custom metrics.
 If None, the metric is selected from the type of estimator:
 classifier: sklearn.metrics.roc_auc_score
 regression: sklearn.metrics.mean_squared_error.</dd>
-<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code></dt>
-<dd>round metric score.</dd>
-<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code></dt>
-<dd>Use GPU?.</dd>
-<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code></dt>
-<dd>RandomState instance.
-Controls the generation of the random states for each repetition.</dd>
-</dl>
-<h2 id="methods">Methods</h2>
-<p>fit():
-Fit AutoML</p>
-<p>predict():
-predict on new data</p>
-<p>save():
-save model</p>
-<p>load():
-load model</p></div>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>round metric score., by default 4</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Use GPU?, by default False</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Controls the generation of the random states for each repetition, by default 42</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class AutoMLRegressor(AutoML):
+    &#39;&#39;&#39;
+    AutoML in the process of developing
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import AutoMLRegressor
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(data_id=543, as_frame=True)
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.data), 
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.target), 
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = AutoMLRegressor()
+    &gt;&gt;&gt; model.fit(X_train, y_train, timeout=600)
+    &gt;&gt;&gt; predicts = model.predict(X_test)
+    &gt;&gt;&gt; print(&#39;Test MSE: &#39;, round(sklearn.metrics.mean_squared_error(y_test, predicts),4))
+
+    &#39;&#39;&#39;   
     _type_of_estimator=&#39;regression&#39;
     __name__ = &#39;AutoMLRegressor&#39;</code></pre>
 </details>
@@ -1373,34 +1729,115 @@ load model</p></div>
 <li><code><b><a title="automl_alex.automl_alex.AutoML" href="#automl_alex.automl_alex.AutoML">AutoML</a></b></code>:
 <ul class="hlist">
 <li><code><a title="automl_alex.automl_alex.AutoML.fit" href="#automl_alex.automl_alex.AutoML.fit">fit</a></code></li>
+<li><code><a title="automl_alex.automl_alex.AutoML.load" href="#automl_alex.automl_alex.AutoML.load">load</a></code></li>
 <li><code><a title="automl_alex.automl_alex.AutoML.predict" href="#automl_alex.automl_alex.AutoML.predict">predict</a></code></li>
+<li><code><a title="automl_alex.automl_alex.AutoML.save" href="#automl_alex.automl_alex.AutoML.save">save</a></code></li>
 </ul>
 </li>
 </ul>
 </dd>
 <dt id="automl_alex.automl_alex.ModelsReview"><code class="flex name class">
 <span>class <span class="ident">ModelsReview</span></span>
-<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[type, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
+<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[Callable, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>ModelsReview - allows you to see which models show good results on this data</p></div>
+<div class="desc"><p>ModelsReview - allows you to see which models show good results on this data</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from automl_alex import ModelsReview, DataPrepare
+&gt;&gt;&gt; import sklearn
+&gt;&gt;&gt; # Get Dataset
+&gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+&gt;&gt;&gt; dataset.target = dataset.target.astype('category').cat.codes
+&gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+&gt;&gt;&gt;                                             dataset.data, 
+&gt;&gt;&gt;                                             dataset.target,
+&gt;&gt;&gt;                                             test_size=0.2,)
+&gt;&gt;&gt; # clean up data before use ModelsReview
+&gt;&gt;&gt; de = DataPrepare()
+&gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+&gt;&gt;&gt; clean_X_test = de.transform(X_test)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; model = ModelsReview(type_of_estimator='classifier',
+&gt;&gt;&gt;                     metric = sklearn.metrics.roc_auc_score,)
+&gt;&gt;&gt; review = model.fit(X_train=X_train, 
+&gt;&gt;&gt;                     y_train=y_train, 
+&gt;&gt;&gt;                     X_test=X_test, 
+&gt;&gt;&gt;                     y_test=y_test,)
+</code></pre>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>Optional[str]</code>, optional</dt>
+<dd>['classifier', 'regression'], by default None</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>Callable</code>, optional</dt>
+<dd>you can use standard metrics from sklearn.metrics or add custom metrics.
+If None, the metric is selected from the type of estimator:
+classifier: sklearn.metrics.roc_auc_score
+regression: sklearn.metrics.mean_squared_error.</dd>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>round metric score., by default 4</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Use GPU?, by default False</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Controls the generation of the random states for each repetition, by default 42</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ModelsReview(object):
-    &#34;&#34;&#34;
+    &#39;&#39;&#39;
     ModelsReview - allows you to see which models show good results on this data
-    &#34;&#34;&#34;
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import ModelsReview, DataPrepare
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; # clean up data before use ModelsReview
+    &gt;&gt;&gt; de = DataPrepare()
+    &gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+    &gt;&gt;&gt; clean_X_test = de.transform(X_test)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = ModelsReview(type_of_estimator=&#39;classifier&#39;,
+    &gt;&gt;&gt;                     metric = sklearn.metrics.roc_auc_score,)
+    &gt;&gt;&gt; review = model.fit(X_train=X_train, 
+    &gt;&gt;&gt;                     y_train=y_train, 
+    &gt;&gt;&gt;                     X_test=X_test, 
+    &gt;&gt;&gt;                     y_test=y_test,)
+
+    &#39;&#39;&#39;    
     __name__ = &#39;ModelsReview&#39;
 
     def __init__(self,  
                     type_of_estimator: Optional[str] = None, # classifier or regression
-                    metric: Optional[type] = None,
+                    metric: Optional[Callable] = None,
                     metric_round: int = 4,
                     gpu: bool = False, 
                     random_state: int = 42
                     ) -&gt; None:
+        &#39;&#39;&#39;
+        Parameters
+        ----------
+        type_of_estimator : Optional[str], optional
+            [&#39;classifier&#39;, &#39;regression&#39;], by default None
+        metric : Callable, optional
+            you can use standard metrics from sklearn.metrics or add custom metrics.
+            If None, the metric is selected from the type of estimator:
+            classifier: sklearn.metrics.roc_auc_score
+            regression: sklearn.metrics.mean_squared_error.
+        metric_round : int, optional
+            round metric score., by default 4
+        gpu : bool, optional
+            Use GPU?, by default False
+        random_state : int, optional
+            Controls the generation of the random states for each repetition, by default 42
+        &#39;&#39;&#39;    
         self._gpu = gpu
         self._random_state = random_state
         if type_of_estimator is not None:
@@ -1419,25 +1856,35 @@ load model</p></div>
     @logger.catch
     def fit(self,
         X_train: pd.DataFrame, 
-        y_train: Any, 
+        y_train: Union[list, np.array, pd.DataFrame],
         X_test: pd.DataFrame, 
-        y_test: Any,
-        models_names: Optional[Sequence[str]] = None,
+        y_test: Union[list, np.array, pd.DataFrame],
+        models_names: Optional[List[str]] = None,
         verbose: int = 3,
         ) -&gt; pd.DataFrame:
-        &#34;&#34;&#34;
-        Fit models (in list models_names) whis default params
+        &#39;&#39;&#39;
+        Fit models from model_list and return scores
 
-        Args:
-            X_train: Train Dataset (pd.DataFrame)
-            y_train: Target list [list, np.array, pd.DataFrame]
-            X_test: Test Dataset (pd.DataFrame)
-            y_test: Target list [list, np.array, pd.DataFrame]
-            models_names: list of models
+        Parameters
+        ----------
+        X_train : pd.DataFrame
+            train data (pd.DataFrame, shape (n_samples, n_features))
+        y_train : Union[list, np.array, pd.DataFrame]
+            target
+        X_test : pd.DataFrame
+            test data (pd.DataFrame, shape (n_samples, n_features))
+        y_test : Union[list, np.array, pd.DataFrame]
+            test target
+        models_names : Optional[List[str]], optional
+            list of models from automl_alex.models.all_models, by default None
+        verbose : int, optional
+            print state, by default 3
 
-        Returns:
-            pd.DataFrame with resuls
-        &#34;&#34;&#34;
+        Returns
+        -------
+        pd.DataFrame
+            results
+        &#39;&#39;&#39;        
         logger_print_lvl(verbose)
         result = pd.DataFrame(columns=[&#39;Model_Name&#39;, &#39;Score&#39;, &#39;Time_Fit_Sec&#39;])
         score_ls = []
@@ -1487,25 +1934,30 @@ load model</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="automl_alex.automl_alex.ModelsReview.fit"><code class="name flex">
-<span>def <span class="ident">fit</span></span>(<span>self, X_train: pandas.core.frame.DataFrame, y_train: Any, X_test: pandas.core.frame.DataFrame, y_test: Any, models_names: Union[Sequence[str], NoneType] = None, verbose: int = 3) ‑> pandas.core.frame.DataFrame</span>
+<span>def <span class="ident">fit</span></span>(<span>self, X_train: pandas.core.frame.DataFrame, y_train: Union[list, <built-in function array>, pandas.core.frame.DataFrame], X_test: pandas.core.frame.DataFrame, y_test: Union[list, <built-in function array>, pandas.core.frame.DataFrame], models_names: Union[List[str], NoneType] = None, verbose: int = 3) ‑> pandas.core.frame.DataFrame</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Fit models (in list models_names) whis default params</p>
-<h2 id="args">Args</h2>
+<div class="desc"><p>Fit models from model_list and return scores</p>
+<h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>X_train</code></strong></dt>
-<dd>Train Dataset (pd.DataFrame)</dd>
-<dt><strong><code>y_train</code></strong></dt>
-<dd>Target list [list, np.array, pd.DataFrame]</dd>
-<dt><strong><code>X_test</code></strong></dt>
-<dd>Test Dataset (pd.DataFrame)</dd>
-<dt><strong><code>y_test</code></strong></dt>
-<dd>Target list [list, np.array, pd.DataFrame]</dd>
-<dt><strong><code>models_names</code></strong></dt>
-<dd>list of models</dd>
+<dt><strong><code>X_train</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
+<dd>train data (pd.DataFrame, shape (n_samples, n_features))</dd>
+<dt><strong><code>y_train</code></strong> :&ensp;<code>Union[list, np.array, pd.DataFrame]</code></dt>
+<dd>target</dd>
+<dt><strong><code>X_test</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
+<dd>test data (pd.DataFrame, shape (n_samples, n_features))</dd>
+<dt><strong><code>y_test</code></strong> :&ensp;<code>Union[list, np.array, pd.DataFrame]</code></dt>
+<dd>test target</dd>
+<dt><strong><code>models_names</code></strong> :&ensp;<code>Optional[List[str]]</code>, optional</dt>
+<dd>list of models from automl_alex.models.all_models, by default None</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>print state, by default 3</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>pd.DataFrame with resuls</p></div>
+<dl>
+<dt><code>pd.DataFrame</code></dt>
+<dd>results</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1513,25 +1965,35 @@ load model</p></div>
 <pre><code class="python">@logger.catch
 def fit(self,
     X_train: pd.DataFrame, 
-    y_train: Any, 
+    y_train: Union[list, np.array, pd.DataFrame],
     X_test: pd.DataFrame, 
-    y_test: Any,
-    models_names: Optional[Sequence[str]] = None,
+    y_test: Union[list, np.array, pd.DataFrame],
+    models_names: Optional[List[str]] = None,
     verbose: int = 3,
     ) -&gt; pd.DataFrame:
-    &#34;&#34;&#34;
-    Fit models (in list models_names) whis default params
+    &#39;&#39;&#39;
+    Fit models from model_list and return scores
 
-    Args:
-        X_train: Train Dataset (pd.DataFrame)
-        y_train: Target list [list, np.array, pd.DataFrame]
-        X_test: Test Dataset (pd.DataFrame)
-        y_test: Target list [list, np.array, pd.DataFrame]
-        models_names: list of models
+    Parameters
+    ----------
+    X_train : pd.DataFrame
+        train data (pd.DataFrame, shape (n_samples, n_features))
+    y_train : Union[list, np.array, pd.DataFrame]
+        target
+    X_test : pd.DataFrame
+        test data (pd.DataFrame, shape (n_samples, n_features))
+    y_test : Union[list, np.array, pd.DataFrame]
+        test target
+    models_names : Optional[List[str]], optional
+        list of models from automl_alex.models.all_models, by default None
+    verbose : int, optional
+        print state, by default 3
 
-    Returns:
-        pd.DataFrame with resuls
-    &#34;&#34;&#34;
+    Returns
+    -------
+    pd.DataFrame
+        results
+    &#39;&#39;&#39;        
     logger_print_lvl(verbose)
     result = pd.DataFrame(columns=[&#39;Model_Name&#39;, &#39;Score&#39;, &#39;Time_Fit_Sec&#39;])
     score_ls = []
@@ -1578,15 +2040,77 @@ def fit(self,
 </dd>
 <dt id="automl_alex.automl_alex.ModelsReviewClassifier"><code class="flex name class">
 <span>class <span class="ident">ModelsReviewClassifier</span></span>
-<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[type, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
+<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[Callable, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>ModelsReview - allows you to see which models show good results on this data</p></div>
+<div class="desc"><p>ModelsReview - allows you to see which models show good results on this data</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from automl_alex import ModelsReviewClassifier, DataPrepare
+&gt;&gt;&gt; import sklearn
+&gt;&gt;&gt; # Get Dataset
+&gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+&gt;&gt;&gt; dataset.target = dataset.target.astype('category').cat.codes
+&gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+&gt;&gt;&gt;                                             dataset.data, 
+&gt;&gt;&gt;                                             dataset.target,
+&gt;&gt;&gt;                                             test_size=0.2,)
+&gt;&gt;&gt; # clean up data before use ModelsReview
+&gt;&gt;&gt; de = DataPrepare()
+&gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+&gt;&gt;&gt; clean_X_test = de.transform(X_test)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; model = ModelsReviewClassifier(metric = sklearn.metrics.roc_auc_score,)
+&gt;&gt;&gt; review = model.fit(X_train=X_train, 
+&gt;&gt;&gt;                     y_train=y_train, 
+&gt;&gt;&gt;                     X_test=X_test, 
+&gt;&gt;&gt;                     y_test=y_test,)
+</code></pre>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>Optional[str]</code>, optional</dt>
+<dd>['classifier', 'regression'], by default None</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>Callable</code>, optional</dt>
+<dd>you can use standard metrics from sklearn.metrics or add custom metrics.
+If None, the metric is selected from the type of estimator:
+classifier: sklearn.metrics.roc_auc_score
+regression: sklearn.metrics.mean_squared_error.</dd>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>round metric score., by default 4</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Use GPU?, by default False</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Controls the generation of the random states for each repetition, by default 42</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ModelsReviewClassifier(ModelsReview):
+    &#39;&#39;&#39;
+    ModelsReview - allows you to see which models show good results on this data
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import ModelsReviewClassifier, DataPrepare
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(name=&#39;adult&#39;, version=1, as_frame=True)
+    &gt;&gt;&gt; dataset.target = dataset.target.astype(&#39;category&#39;).cat.codes
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             dataset.data, 
+    &gt;&gt;&gt;                                             dataset.target,
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; # clean up data before use ModelsReview
+    &gt;&gt;&gt; de = DataPrepare()
+    &gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+    &gt;&gt;&gt; clean_X_test = de.transform(X_test)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = ModelsReviewClassifier(metric = sklearn.metrics.roc_auc_score,)
+    &gt;&gt;&gt; review = model.fit(X_train=X_train, 
+    &gt;&gt;&gt;                     y_train=y_train, 
+    &gt;&gt;&gt;                     X_test=X_test, 
+    &gt;&gt;&gt;                     y_test=y_test,)
+    &#39;&#39;&#39;   
     _type_of_estimator=&#39;classifier&#39;</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1604,15 +2128,75 @@ def fit(self,
 </dd>
 <dt id="automl_alex.automl_alex.ModelsReviewRegressor"><code class="flex name class">
 <span>class <span class="ident">ModelsReviewRegressor</span></span>
-<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[type, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
+<span>(</span><span>type_of_estimator: Union[str, NoneType] = None, metric: Union[Callable, NoneType] = None, metric_round: int = 4, gpu: bool = False, random_state: int = 42)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>ModelsReview - allows you to see which models show good results on this data</p></div>
+<div class="desc"><p>ModelsReview - allows you to see which models show good results on this data</p>
+<h2 id="examples">Examples</h2>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from automl_alex import ModelsReviewRegressor, DataPrepare
+&gt;&gt;&gt; import sklearn
+&gt;&gt;&gt; # Get Dataset
+&gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(data_id=543, as_frame=True)
+&gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+&gt;&gt;&gt;                                             pd.DataFrame(dataset.data), 
+&gt;&gt;&gt;                                             pd.DataFrame(dataset.target), 
+&gt;&gt;&gt;                                             test_size=0.2,)
+&gt;&gt;&gt; # clean up data before use ModelsReview
+&gt;&gt;&gt; de = DataPrepare()
+&gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+&gt;&gt;&gt; clean_X_test = de.transform(X_test)
+&gt;&gt;&gt; 
+&gt;&gt;&gt; model = ModelsReviewRegressor(metric = sklearn.metrics.mean_squared_error,)
+&gt;&gt;&gt; review = model.fit(X_train=X_train, 
+&gt;&gt;&gt;                     y_train=y_train, 
+&gt;&gt;&gt;                     X_test=X_test, 
+&gt;&gt;&gt;                     y_test=y_test,)
+</code></pre>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>type_of_estimator</code></strong> :&ensp;<code>Optional[str]</code>, optional</dt>
+<dd>['classifier', 'regression'], by default None</dd>
+<dt><strong><code>metric</code></strong> :&ensp;<code>Callable</code>, optional</dt>
+<dd>you can use standard metrics from sklearn.metrics or add custom metrics.
+If None, the metric is selected from the type of estimator:
+classifier: sklearn.metrics.roc_auc_score
+regression: sklearn.metrics.mean_squared_error.</dd>
+<dt><strong><code>metric_round</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>round metric score., by default 4</dd>
+<dt><strong><code>gpu</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>Use GPU?, by default False</dd>
+<dt><strong><code>random_state</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>Controls the generation of the random states for each repetition, by default 42</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ModelsReviewRegressor(ModelsReview):
+    &#39;&#39;&#39;
+    ModelsReview - allows you to see which models show good results on this data
+
+    Examples
+    --------
+    &gt;&gt;&gt; from automl_alex import ModelsReviewRegressor, DataPrepare
+    &gt;&gt;&gt; import sklearn
+    &gt;&gt;&gt; # Get Dataset
+    &gt;&gt;&gt; dataset = sklearn.datasets.fetch_openml(data_id=543, as_frame=True)
+    &gt;&gt;&gt; X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.data), 
+    &gt;&gt;&gt;                                             pd.DataFrame(dataset.target), 
+    &gt;&gt;&gt;                                             test_size=0.2,)
+    &gt;&gt;&gt; # clean up data before use ModelsReview
+    &gt;&gt;&gt; de = DataPrepare()
+    &gt;&gt;&gt; clean_X_train = de.fit_transform(X_train)
+    &gt;&gt;&gt; clean_X_test = de.transform(X_test)
+    &gt;&gt;&gt; 
+    &gt;&gt;&gt; model = ModelsReviewRegressor(metric = sklearn.metrics.mean_squared_error,)
+    &gt;&gt;&gt; review = model.fit(X_train=X_train, 
+    &gt;&gt;&gt;                     y_train=y_train, 
+    &gt;&gt;&gt;                     X_test=X_test, 
+    &gt;&gt;&gt;                     y_test=y_test,)
+    &#39;&#39;&#39;   
     _type_of_estimator=&#39;regression&#39;</code></pre>
 </details>
 <h3>Ancestors</h3>
