@@ -64,7 +64,7 @@ class LightGBM(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
         
@@ -83,6 +83,7 @@ class LightGBM(ModelBase):
             categorical_feature=cat_features,
             )
         dtrain=None
+        return(self)
 
 
     def predict(self, X=None):
@@ -152,19 +153,16 @@ class LightGBM(ModelBase):
         &#34;&#34;&#34;
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 50, log=True)
-            
         if opt_lvl &gt;= 1:
-            model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;lgbm_min_child_samples&#39;, 2, 100, log=True)
+            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 100, log=True)
+            model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
 
         ################################# LVL 2 ########################################
         if opt_lvl == 2:
-            model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
-            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 50, log=True)
             model_param[&#39;num_iterations&#39;] = trial.suggest_int(&#39;lgbm_num_iterations&#39;, 300, 500, step=100)
 
         if opt_lvl &gt;= 2:
+            model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;lgbm_min_child_samples&#39;, 2, 100, log=True)
             model_param[&#39;bagging_fraction&#39;] = trial.suggest_float(&#39;lgbm_bagging_fraction&#39;, 0.4, 1., step=0.1)
             if model_param[&#39;bagging_fraction&#39;] &lt; 1.:
                 model_param[&#39;feature_fraction&#39;] = trial.suggest_float(&#39;lgbm_feature_fraction&#39;, 0.4, 1., step=0.1)
@@ -172,11 +170,7 @@ class LightGBM(ModelBase):
         
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
-            model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
             model_param[&#39;num_iterations&#39;] = trial.suggest_int(&#39;lgbm_num_iterations&#39;, 300, 1000, step=100)
-        
-        if opt_lvl &gt;= 3:
-            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 100, log=True)
         
         ################################# LVL 4 ########################################
         if opt_lvl == 4:
@@ -260,7 +254,7 @@ class LightGBMRegressor(LightGBM):
 <dl>
 <dt id="automl_alex.models.model_lightgbm.LightGBM"><code class="flex name class">
 <span>class <span class="ident">LightGBM</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -305,7 +299,7 @@ If None default params are fetched.</dd>
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
         
@@ -324,6 +318,7 @@ If None default params are fetched.</dd>
             categorical_feature=cat_features,
             )
         dtrain=None
+        return(self)
 
 
     def predict(self, X=None):
@@ -393,19 +388,16 @@ If None default params are fetched.</dd>
         &#34;&#34;&#34;
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 50, log=True)
-            
         if opt_lvl &gt;= 1:
-            model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;lgbm_min_child_samples&#39;, 2, 100, log=True)
+            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 100, log=True)
+            model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
 
         ################################# LVL 2 ########################################
         if opt_lvl == 2:
-            model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
-            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 50, log=True)
             model_param[&#39;num_iterations&#39;] = trial.suggest_int(&#39;lgbm_num_iterations&#39;, 300, 500, step=100)
 
         if opt_lvl &gt;= 2:
+            model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;lgbm_min_child_samples&#39;, 2, 100, log=True)
             model_param[&#39;bagging_fraction&#39;] = trial.suggest_float(&#39;lgbm_bagging_fraction&#39;, 0.4, 1., step=0.1)
             if model_param[&#39;bagging_fraction&#39;] &lt; 1.:
                 model_param[&#39;feature_fraction&#39;] = trial.suggest_float(&#39;lgbm_feature_fraction&#39;, 0.4, 1., step=0.1)
@@ -413,11 +405,7 @@ If None default params are fetched.</dd>
         
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
-            model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
             model_param[&#39;num_iterations&#39;] = trial.suggest_int(&#39;lgbm_num_iterations&#39;, 300, 1000, step=100)
-        
-        if opt_lvl &gt;= 3:
-            model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 100, log=True)
         
         ################################# LVL 4 ########################################
         if opt_lvl == 4:
@@ -500,7 +488,7 @@ If None default params are fetched.</dd>
 <p>X (pd.DataFrame, shape (n_samples, n_features)): the input data
 y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data</p>
 <h2 id="return">Return</h2>
-<p>None</p></div>
+<p>self</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -511,7 +499,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         X (pd.DataFrame, shape (n_samples, n_features)): the input data
         y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     Return:
-        None
+        self
     &#34;&#34;&#34;
     y_train = self.y_format(y_train)
     
@@ -529,7 +517,8 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         num_boost_round=num_iterations,
         categorical_feature=cat_features,
         )
-    dtrain=None</code></pre>
+    dtrain=None
+    return(self)</code></pre>
 </details>
 </dd>
 <dt id="automl_alex.models.model_lightgbm.LightGBM.get_feature_importance"><code class="name flex">
@@ -571,19 +560,16 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     &#34;&#34;&#34;
     model_param = self._init_default_model_param()
     ################################# LVL 1 ########################################
-    if opt_lvl == 1:
-        model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 50, log=True)
-        
     if opt_lvl &gt;= 1:
-        model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;lgbm_min_child_samples&#39;, 2, 100, log=True)
+        model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 100, log=True)
+        model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
 
     ################################# LVL 2 ########################################
     if opt_lvl == 2:
-        model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
-        model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 50, log=True)
         model_param[&#39;num_iterations&#39;] = trial.suggest_int(&#39;lgbm_num_iterations&#39;, 300, 500, step=100)
 
     if opt_lvl &gt;= 2:
+        model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;lgbm_min_child_samples&#39;, 2, 100, log=True)
         model_param[&#39;bagging_fraction&#39;] = trial.suggest_float(&#39;lgbm_bagging_fraction&#39;, 0.4, 1., step=0.1)
         if model_param[&#39;bagging_fraction&#39;] &lt; 1.:
             model_param[&#39;feature_fraction&#39;] = trial.suggest_float(&#39;lgbm_feature_fraction&#39;, 0.4, 1., step=0.1)
@@ -591,11 +577,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     
     ################################# LVL 3 ########################################
     if opt_lvl == 3:
-        model_param[&#39;learning_rate&#39;] = trial.suggest_float(&#39;lgbm_learning_rate&#39;, 1e-2, 0.3, log=True)
         model_param[&#39;num_iterations&#39;] = trial.suggest_int(&#39;lgbm_num_iterations&#39;, 300, 1000, step=100)
-    
-    if opt_lvl &gt;= 3:
-        model_param[&#39;num_leaves&#39;] = trial.suggest_int(&#39;lgbm_num_leaves&#39;, 2, 100, log=True)
     
     ################################# LVL 4 ########################################
     if opt_lvl == 4:
@@ -743,7 +725,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
 </dd>
 <dt id="automl_alex.models.model_lightgbm.LightGBMClassifier"><code class="flex name class">
 <span>class <span class="ident">LightGBMClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -780,7 +762,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.model_lightgbm.LightGBMRegressor"><code class="flex name class">
 <span>class <span class="ident">LightGBMRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>

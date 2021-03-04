@@ -124,6 +124,7 @@ class BestSingleModel(object):
     def __init__(
         self,
         models_names = [&#39;LinearModel&#39;,&#39;LightGBM&#39;,&#39;ExtraTrees&#39;],
+        target_encoders_names = [&#39;JamesSteinEncoder&#39;,],
         folds=7,
         score_folds=2,
         metric=None,
@@ -149,6 +150,7 @@ class BestSingleModel(object):
         if type_of_estimator is not None:
             self._type_of_estimator = type_of_estimator
         
+        self.target_encoders_names = target_encoders_names
         self.folds = folds
         self.score_folds = score_folds
         self.metric_round = metric_round
@@ -352,6 +354,7 @@ class BestSingleModel(object):
 
         cv = CrossValidation(
             estimator=self.opt_model,
+            target_encoders_names = self.target_encoders_names,
             folds=self.folds,
             score_folds=self.score_folds,
             n_repeats=1,
@@ -620,7 +623,6 @@ class BestSingleModel(object):
         os.mkdir(TMP_FOLDER+&#39;/cross-v_tmp&#39;)
 
 
-    @logger.catch
     def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
         if not self.cv_model:
             raise Exception(&#34;No opt and fit models&#34;)
@@ -639,7 +641,6 @@ class BestSingleModel(object):
             print(&#39;Save model&#39;)
 
 
-    @logger.catch
     def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
         &#39;&#39;&#39; Load Model &#39;&#39;&#39;
         self._clean_temp_folder()
@@ -764,7 +765,7 @@ class _EarlyStoppingExceeded(optuna.exceptions.OptunaError):
 <dl>
 <dt id="automl_alex.optimizer.BestSingleModel"><code class="flex name class">
 <span>class <span class="ident">BestSingleModel</span></span>
-<span>(</span><span>models_names=['LinearModel', 'LightGBM', 'ExtraTrees'], folds=7, score_folds=2, metric=None, metric_round=4, cold_start=10, opt_lvl=1, early_stoping=50, auto_parameters=True, feature_selection=False, type_of_estimator=None, gpu=False, random_state=42, verbose=3)</span>
+<span>(</span><span>models_names=['LinearModel', 'LightGBM', 'ExtraTrees'], target_encoders_names=['JamesSteinEncoder'], folds=7, score_folds=2, metric=None, metric_round=4, cold_start=10, opt_lvl=1, early_stoping=50, auto_parameters=True, feature_selection=False, type_of_estimator=None, gpu=False, random_state=42, verbose=3)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Trying to find which model work best on our data</p>
@@ -871,6 +872,7 @@ Controls the generation of the random states for each repetition.</dd>
     def __init__(
         self,
         models_names = [&#39;LinearModel&#39;,&#39;LightGBM&#39;,&#39;ExtraTrees&#39;],
+        target_encoders_names = [&#39;JamesSteinEncoder&#39;,],
         folds=7,
         score_folds=2,
         metric=None,
@@ -896,6 +898,7 @@ Controls the generation of the random states for each repetition.</dd>
         if type_of_estimator is not None:
             self._type_of_estimator = type_of_estimator
         
+        self.target_encoders_names = target_encoders_names
         self.folds = folds
         self.score_folds = score_folds
         self.metric_round = metric_round
@@ -1099,6 +1102,7 @@ Controls the generation of the random states for each repetition.</dd>
 
         cv = CrossValidation(
             estimator=self.opt_model,
+            target_encoders_names = self.target_encoders_names,
             folds=self.folds,
             score_folds=self.score_folds,
             n_repeats=1,
@@ -1367,7 +1371,6 @@ Controls the generation of the random states for each repetition.</dd>
         os.mkdir(TMP_FOLDER+&#39;/cross-v_tmp&#39;)
 
 
-    @logger.catch
     def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
         if not self.cv_model:
             raise Exception(&#34;No opt and fit models&#34;)
@@ -1386,7 +1389,6 @@ Controls the generation of the random states for each repetition.</dd>
             print(&#39;Save model&#39;)
 
 
-    @logger.catch
     def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
         &#39;&#39;&#39; Load Model &#39;&#39;&#39;
         self._clean_temp_folder()
@@ -1481,8 +1483,7 @@ Controls the generation of the random states for each repetition.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@logger.catch
-def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
+<pre><code class="python">def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
     &#39;&#39;&#39; Load Model &#39;&#39;&#39;
     self._clean_temp_folder()
     dir_tmp = TMP_FOLDER+&#39;/opt_model_tmp/&#39;
@@ -1883,8 +1884,7 @@ Note that, If a parameter contains missing values, a trial with missing values i
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@logger.catch
-def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
+<pre><code class="python">def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
     if not self.cv_model:
         raise Exception(&#34;No opt and fit models&#34;)
 
@@ -1906,7 +1906,7 @@ def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;,
 </dd>
 <dt id="automl_alex.optimizer.BestSingleModelClassifier"><code class="flex name class">
 <span>class <span class="ident">BestSingleModelClassifier</span></span>
-<span>(</span><span>models_names=['LinearModel', 'LightGBM', 'ExtraTrees'], folds=7, score_folds=2, metric=None, metric_round=4, cold_start=10, opt_lvl=1, early_stoping=50, auto_parameters=True, feature_selection=False, type_of_estimator=None, gpu=False, random_state=42, verbose=3)</span>
+<span>(</span><span>models_names=['LinearModel', 'LightGBM', 'ExtraTrees'], target_encoders_names=['JamesSteinEncoder'], folds=7, score_folds=2, metric=None, metric_round=4, cold_start=10, opt_lvl=1, early_stoping=50, auto_parameters=True, feature_selection=False, type_of_estimator=None, gpu=False, random_state=42, verbose=3)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Trying to find which model work best on our data</p>
@@ -1989,7 +1989,7 @@ Controls the generation of the random states for each repetition.</dd>
 </dd>
 <dt id="automl_alex.optimizer.BestSingleModelRegressor"><code class="flex name class">
 <span>class <span class="ident">BestSingleModelRegressor</span></span>
-<span>(</span><span>models_names=['LinearModel', 'LightGBM', 'ExtraTrees'], folds=7, score_folds=2, metric=None, metric_round=4, cold_start=10, opt_lvl=1, early_stoping=50, auto_parameters=True, feature_selection=False, type_of_estimator=None, gpu=False, random_state=42, verbose=3)</span>
+<span>(</span><span>models_names=['LinearModel', 'LightGBM', 'ExtraTrees'], target_encoders_names=['JamesSteinEncoder'], folds=7, score_folds=2, metric=None, metric_round=4, cold_start=10, opt_lvl=1, early_stoping=50, auto_parameters=True, feature_selection=False, type_of_estimator=None, gpu=False, random_state=42, verbose=3)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Trying to find which model work best on our data</p>

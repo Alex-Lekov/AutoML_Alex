@@ -112,13 +112,13 @@ class LinearModel(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
-        self.model = self.model.fit(X_train, y_train,)
-        #return self
+        self.model.fit(X_train, y_train,)
+        return self
 
 
     def predict(self, X_test=None):
@@ -473,7 +473,7 @@ class ExtraTreesRegressor(ExtraTrees):
 <dl>
 <dt id="automl_alex.models.sklearn_models.ExtraTrees"><code class="flex name class">
 <span>class <span class="ident">ExtraTrees</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -532,7 +532,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.ExtraTreesClassifier"><code class="flex name class">
 <span>class <span class="ident">ExtraTreesClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -570,7 +570,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.ExtraTreesRegressor"><code class="flex name class">
 <span>class <span class="ident">ExtraTreesRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -608,7 +608,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.KNNClassifier"><code class="flex name class">
 <span>class <span class="ident">KNNClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -645,7 +645,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.KNNRegressor"><code class="flex name class">
 <span>class <span class="ident">KNNRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -682,7 +682,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.KNeighbors"><code class="flex name class">
 <span>class <span class="ident">KNeighbors</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -764,7 +764,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearModel"><code class="flex name class">
 <span>class <span class="ident">LinearModel</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -849,13 +849,13 @@ If None default params are fetched.</dd>
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
-        self.model = self.model.fit(X_train, y_train,)
-        #return self
+        self.model.fit(X_train, y_train,)
+        return self
 
 
     def predict(self, X_test=None):
@@ -916,7 +916,7 @@ If None default params are fetched.</dd>
 <p>X (pd.DataFrame, shape (n_samples, n_features)): the input data
 y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data</p>
 <h2 id="return">Return</h2>
-<p>None</p></div>
+<p>self</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -927,12 +927,13 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         X (pd.DataFrame, shape (n_samples, n_features)): the input data
         y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     Return:
-        None
+        self
     &#34;&#34;&#34;
     y_train = self.y_format(y_train)
 
     self.model = self._init_model(model_param=self.model_param)
-    self.model = self.model.fit(X_train, y_train,)</code></pre>
+    self.model.fit(X_train, y_train,)
+    return self</code></pre>
 </details>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearModel.get_model_opt_params"><code class="name flex">
@@ -1050,7 +1051,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearRegression"><code class="flex name class">
 <span>class <span class="ident">LinearRegression</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1086,7 +1087,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearSVClassifier"><code class="flex name class">
 <span>class <span class="ident">LinearSVClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1123,7 +1124,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearSVM"><code class="flex name class">
 <span>class <span class="ident">LinearSVM</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1224,7 +1225,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearSVRegressor"><code class="flex name class">
 <span>class <span class="ident">LinearSVRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1261,7 +1262,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LogisticRegressionClassifier"><code class="flex name class">
 <span>class <span class="ident">LogisticRegressionClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1297,7 +1298,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.MLP"><code class="flex name class">
 <span>class <span class="ident">MLP</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1385,7 +1386,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.MLPClassifier"><code class="flex name class">
 <span>class <span class="ident">MLPClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1422,7 +1423,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.MLPRegressor"><code class="flex name class">
 <span>class <span class="ident">MLPRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1459,7 +1460,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.RandomForest"><code class="flex name class">
 <span>class <span class="ident">RandomForest</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1559,7 +1560,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.RandomForestClassifier"><code class="flex name class">
 <span>class <span class="ident">RandomForestClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -1596,7 +1597,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.sklearn_models.RandomForestRegressor"><code class="flex name class">
 <span>class <span class="ident">RandomForestRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>

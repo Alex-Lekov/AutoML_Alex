@@ -130,7 +130,7 @@ class XGBoost(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         params = self.model_param.copy()
 
@@ -210,7 +210,7 @@ class XGBoostRegressor(XGBoost):
 <dl>
 <dt id="automl_alex.models.model_xgboost.XGBoost"><code class="flex name class">
 <span>class <span class="ident">XGBoost</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -322,7 +322,7 @@ If None default params are fetched.</dd>
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         params = self.model_param.copy()
 
@@ -401,7 +401,7 @@ If None default params are fetched.</dd>
 <p>X (pd.DataFrame, shape (n_samples, n_features)): the input data
 y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data</p>
 <h2 id="return">Return</h2>
-<p>None</p></div>
+<p>self</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -412,7 +412,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         X (pd.DataFrame, shape (n_samples, n_features)): the input data
         y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     Return:
-        None
+        self
     &#34;&#34;&#34;
     params = self.model_param.copy()
 
@@ -574,7 +574,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
 </dd>
 <dt id="automl_alex.models.model_xgboost.XGBoostClassifier"><code class="flex name class">
 <span>class <span class="ident">XGBoostClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -610,7 +610,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.model_xgboost.XGBoostRegressor"><code class="flex name class">
 <span>class <span class="ident">XGBoostRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
