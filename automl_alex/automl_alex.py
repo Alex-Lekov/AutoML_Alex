@@ -489,6 +489,7 @@ class AutoML(object):
         ####################################################
         logger.info(50*'#')
         logger.info('> Finish!')
+        return(self)
 
 
     @logger.catch

@@ -84,13 +84,13 @@ class LinearModel(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         """
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
-        #return self
+        return self
 
 
     def predict(self, X_test=None):

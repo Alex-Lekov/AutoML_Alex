@@ -7,7 +7,7 @@ from sklearn.datasets import fetch_openml
 from automl_alex.data_prepare import *
 
 RANDOM_SEED = 42
-
+TMP_FOLDER = '.automl-alex_tmp/'
 
 @pytest.fixture
 def get_data():
@@ -36,10 +36,10 @@ def test_default(get_data):
     assert isinstance(c_test, pd.DataFrame)
     assert not c_test.empty
 
-    de.save('test_de')
+    de.save('test_de', folder=TMP_FOLDER)
 
     de = DataPrepare()
-    de = de.load('test_de')
+    de = de.load('test_de', folder=TMP_FOLDER)
     c_test = de.transform(X_test)
     assert isinstance(c_test, pd.DataFrame)
     assert not c_test.empty
@@ -84,10 +84,10 @@ def test_save_load(get_data):
         assert not c_test.empty
         assert not (c_test.isnull().any().any())
 
-        de.save('de')
+        de.save('de', folder=TMP_FOLDER)
         de = None
         de_new = DataPrepare()
-        de_new = de_new.load('de')
+        de_new = de_new.load('de', folder=TMP_FOLDER)
 
         c_test_new = de_new.transform(X_test)
         assert isinstance(c_test_new, pd.DataFrame)
@@ -118,7 +118,8 @@ def test_clean_nans():
             columns=list('ABCD'))
         assert (df.isnull().sum().sum() > 0)
 
-        clean_nan_encoder = CleanNans(method).fit(df)
+        clean_nan_encoder = CleanNans(method)
+        clean_nan_encoder.fit(df)
         df_clean = clean_nan_encoder.transform(df)
 
         assert isinstance(df_clean, pd.DataFrame)

@@ -36,7 +36,7 @@ class LightGBM(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         """
         y_train = self.y_format(y_train)
         
@@ -55,6 +55,7 @@ class LightGBM(ModelBase):
             categorical_feature=cat_features,
             )
         dtrain=None
+        return(self)
 
 
     def predict(self, X=None):

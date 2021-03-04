@@ -89,6 +89,7 @@ class BestSingleModel(object):
     def __init__(
         self,
         models_names = ['LinearModel','LightGBM','ExtraTrees'],
+        target_encoders_names = ['JamesSteinEncoder',],
         folds=7,
         score_folds=2,
         metric=None,
@@ -114,6 +115,7 @@ class BestSingleModel(object):
         if type_of_estimator is not None:
             self._type_of_estimator = type_of_estimator
         
+        self.target_encoders_names = target_encoders_names
         self.folds = folds
         self.score_folds = score_folds
         self.metric_round = metric_round
@@ -317,6 +319,7 @@ class BestSingleModel(object):
 
         cv = CrossValidation(
             estimator=self.opt_model,
+            target_encoders_names = self.target_encoders_names,
             folds=self.folds,
             score_folds=self.score_folds,
             n_repeats=1,

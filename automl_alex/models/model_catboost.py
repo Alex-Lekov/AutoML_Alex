@@ -46,7 +46,7 @@ class CatBoost(ModelBase):
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
             cat_features (list)
         Return:
-            None
+            self
         """
         y_train = self.y_format(y_train)
 
@@ -60,7 +60,7 @@ class CatBoost(ModelBase):
         self.model = self._init_model(model_param=params)
         self.model.fit(train_pool, verbose=False, plot=False,)
         train_pool=None
-        #return self
+        return self
 
 
     def predict(self, X=None):

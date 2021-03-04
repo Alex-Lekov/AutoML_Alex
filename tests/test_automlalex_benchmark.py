@@ -9,7 +9,7 @@ import sklearn
 from sklearn.datasets import fetch_openml
 
 import automl_alex
-from automl_alex.logger import *
+from automl_alex._logger import *
 from automl_alex.models import *
 from automl_alex.data_prepare import *
 from automl_alex import AutoMLClassifier

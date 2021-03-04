@@ -55,6 +55,7 @@ from sklearn.base import clone
 from sklearn.model_selection import RepeatedKFold, RepeatedStratifiedKFold
 
 from automl_alex._logger import *
+from ._encoders import *
 
 predict_proba_metrics = [&#39;roc_auc_score&#39;, &#39;log_loss&#39;, &#39;brier_score_loss&#39;]
 TMP_FOLDER = &#39;.automl-alex_tmp/&#39;
@@ -91,11 +92,13 @@ class CrossValidation(object):
     &#39;&#39;&#39;dictionary with trained models&#39;&#39;&#39; 
     estimator = None
     &#39;&#39;&#39;model&#39;&#39;&#39; 
+    _fit_target_enc = {}
 
 
     def __init__(
         self,  
         estimator, # model
+        target_encoders_names = [],
         folds=7,
         score_folds=5,
         n_repeats=1,
@@ -111,16 +114,17 @@ class CrossValidation(object):
         self.n_repeats = n_repeats
         self.print_metric = print_metric
         self.metric_round = metric_round
+        self.target_encoders_names = target_encoders_names
 
         if metric is None:
-            if estimator.type_of_estimator == &#39;classifier&#39;:
+            if estimator._type_of_estimator == &#39;classifier&#39;:
                 self.metric = sklearn.metrics.roc_auc_score
-            elif estimator.type_of_estimator == &#39;regression&#39;:
+            elif estimator._type_of_estimator == &#39;regression&#39;:
                 self.metric = sklearn.metrics.mean_squared_error
         else:
             self.metric = metric
 
-        if estimator.type_of_estimator == &#39;classifier&#39;:
+        if estimator._type_of_estimator == &#39;classifier&#39;:
             self.skf = RepeatedStratifiedKFold(
                 n_splits=folds, 
                 n_repeats=n_repeats,
@@ -148,10 +152,27 @@ class CrossValidation(object):
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                train_x_copy = train_x.copy()
+                for target_enc_name in self.target_encoders_names:
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = \
+                        copy.deepcopy(target_encoders_names[target_enc_name](drop_invariant=True))
+                    
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = \
+                        self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].fit(train_x_copy, train_y)
+                    
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(train_x_copy)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                    train_x = train_x.join(data_encodet.reset_index(drop=True))
+                train_x_copy = None
+
             # Fit
             self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
             self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;] = copy.deepcopy(self.estimator)
         self._fit_models = True
+        return(self)
 
 
     @logger.catch
@@ -162,7 +183,16 @@ class CrossValidation(object):
         stacking_y_pred_test = np.zeros(len(X_test))
 
         for i in range(self.folds*self.n_repeats):
-            y_pred_test = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(X_test)
+            X_test_tmp = X_test.copy()
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(X_test)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                    X_test_tmp = X_test_tmp.join(data_encodet.reset_index(drop=True))
+            # Predict
+            y_pred_test = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(X_test_tmp)
             stacking_y_pred_test += y_pred_test
         predict = stacking_y_pred_test / (self.folds*self.n_repeats)
         
@@ -178,6 +208,15 @@ class CrossValidation(object):
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             val_x = X.iloc[valid_idx]
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                val_x_copy = val_x.copy()
+                for target_enc_name in self.target_encoders_names:
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(val_x_copy)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                    val_x = val_x.join(data_encodet.reset_index(drop=True))
+                val_x_copy = None
+
             y_pred = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(val_x)
             stacking_y_pred_train[valid_idx] += y_pred
         
@@ -197,11 +236,20 @@ class CrossValidation(object):
         feature_importance_df = pd.DataFrame(np.zeros(len(X.columns)), index=X.columns)
 
         for i in range(self.folds*self.n_repeats):
+            X_tmp = X.copy()
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(X)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                    X_tmp = X_tmp.join(data_encodet.reset_index(drop=True))
+            # Get feature_importance
             if i == 0:
                 feature_importance_df = \
-                    self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X)
+                    self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X_tmp)
             feature_importance_df[&#39;value&#39;] += \
-                self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X)[&#39;value&#39;]
+                self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X_tmp)[&#39;value&#39;]
         
         return(feature_importance_df)
 
@@ -219,6 +267,25 @@ class CrossValidation(object):
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                val_x_copy = val_x.copy()
+                train_x_copy = train_x.copy()
+                for target_enc_name in self.target_encoders_names:
+                    target_enc = target_encoders_names[target_enc_name](drop_invariant=True)
+                    
+                    data_encodet = target_enc.fit_transform(train_x_copy, train_y)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                    train_x = train_x.join(data_encodet.reset_index(drop=True))
+                    data_encodet = None
+
+                    val_x_data_encodet = target_enc.transform(val_x_copy)
+                    val_x_data_encodet = val_x_data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                    val_x = val_x.join(val_x_data_encodet.reset_index(drop=True))
+                    val_x_data_encodet = None
+                val_x_copy = None
+                train_x_copy = None
+
             # Fit
 
             score_model = self.estimator.fit_score( 
@@ -270,6 +337,12 @@ class CrossValidation(object):
         self._clean_temp_folder()
 
         for i in range(self.folds*self.n_repeats):
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    joblib.dump(self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;], \
+                        f&#39;{dir_tmp}{target_enc_name} _fold_{i}.pkl&#39;)
+            # Models
             self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].save(f&#39;{dir_tmp}model_{self.estimator.__name__}_fold_{i}&#39;, verbose=0)
 
         joblib.dump(self, dir_tmp+&#39;CV&#39;+&#39;.pkl&#39;)
@@ -291,6 +364,11 @@ class CrossValidation(object):
         cv = joblib.load(dir_tmp+&#39;CV&#39;+&#39;.pkl&#39;)
 
         for i in range(cv.folds*cv.n_repeats):
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = joblib.load(f&#39;{dir_tmp}{target_enc_name} _fold_{i}.pkl&#39;)
+            # Models
             cv.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;] = \
                 copy.deepcopy(cv.estimator.load(f&#39;{dir_tmp}model_{self.estimator.__name__}_fold_{i}&#39;, verbose=0))
 
@@ -311,7 +389,7 @@ class CrossValidation(object):
 <dl>
 <dt id="automl_alex.cross_validation.CrossValidation"><code class="flex name class">
 <span>class <span class="ident">CrossValidation</span></span>
-<span>(</span><span>estimator, folds=7, score_folds=5, n_repeats=1, metric=None, print_metric=False, metric_round=4, random_state=42)</span>
+<span>(</span><span>estimator, target_encoders_names=[], folds=7, score_folds=5, n_repeats=1, metric=None, print_metric=False, metric_round=4, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Allows you to wrap any of your models in a Cross-validation</p>
@@ -375,11 +453,13 @@ Controls the generation of the random states for each repetition.</dd>
     &#39;&#39;&#39;dictionary with trained models&#39;&#39;&#39; 
     estimator = None
     &#39;&#39;&#39;model&#39;&#39;&#39; 
+    _fit_target_enc = {}
 
 
     def __init__(
         self,  
         estimator, # model
+        target_encoders_names = [],
         folds=7,
         score_folds=5,
         n_repeats=1,
@@ -395,16 +475,17 @@ Controls the generation of the random states for each repetition.</dd>
         self.n_repeats = n_repeats
         self.print_metric = print_metric
         self.metric_round = metric_round
+        self.target_encoders_names = target_encoders_names
 
         if metric is None:
-            if estimator.type_of_estimator == &#39;classifier&#39;:
+            if estimator._type_of_estimator == &#39;classifier&#39;:
                 self.metric = sklearn.metrics.roc_auc_score
-            elif estimator.type_of_estimator == &#39;regression&#39;:
+            elif estimator._type_of_estimator == &#39;regression&#39;:
                 self.metric = sklearn.metrics.mean_squared_error
         else:
             self.metric = metric
 
-        if estimator.type_of_estimator == &#39;classifier&#39;:
+        if estimator._type_of_estimator == &#39;classifier&#39;:
             self.skf = RepeatedStratifiedKFold(
                 n_splits=folds, 
                 n_repeats=n_repeats,
@@ -432,10 +513,27 @@ Controls the generation of the random states for each repetition.</dd>
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                train_x_copy = train_x.copy()
+                for target_enc_name in self.target_encoders_names:
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = \
+                        copy.deepcopy(target_encoders_names[target_enc_name](drop_invariant=True))
+                    
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = \
+                        self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].fit(train_x_copy, train_y)
+                    
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(train_x_copy)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                    train_x = train_x.join(data_encodet.reset_index(drop=True))
+                train_x_copy = None
+
             # Fit
             self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
             self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;] = copy.deepcopy(self.estimator)
         self._fit_models = True
+        return(self)
 
 
     @logger.catch
@@ -446,7 +544,16 @@ Controls the generation of the random states for each repetition.</dd>
         stacking_y_pred_test = np.zeros(len(X_test))
 
         for i in range(self.folds*self.n_repeats):
-            y_pred_test = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(X_test)
+            X_test_tmp = X_test.copy()
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(X_test)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                    X_test_tmp = X_test_tmp.join(data_encodet.reset_index(drop=True))
+            # Predict
+            y_pred_test = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(X_test_tmp)
             stacking_y_pred_test += y_pred_test
         predict = stacking_y_pred_test / (self.folds*self.n_repeats)
         
@@ -462,6 +569,15 @@ Controls the generation of the random states for each repetition.</dd>
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             val_x = X.iloc[valid_idx]
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                val_x_copy = val_x.copy()
+                for target_enc_name in self.target_encoders_names:
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(val_x_copy)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                    val_x = val_x.join(data_encodet.reset_index(drop=True))
+                val_x_copy = None
+
             y_pred = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(val_x)
             stacking_y_pred_train[valid_idx] += y_pred
         
@@ -481,11 +597,20 @@ Controls the generation of the random states for each repetition.</dd>
         feature_importance_df = pd.DataFrame(np.zeros(len(X.columns)), index=X.columns)
 
         for i in range(self.folds*self.n_repeats):
+            X_tmp = X.copy()
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(X)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                    X_tmp = X_tmp.join(data_encodet.reset_index(drop=True))
+            # Get feature_importance
             if i == 0:
                 feature_importance_df = \
-                    self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X)
+                    self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X_tmp)
             feature_importance_df[&#39;value&#39;] += \
-                self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X)[&#39;value&#39;]
+                self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X_tmp)[&#39;value&#39;]
         
         return(feature_importance_df)
 
@@ -503,6 +628,25 @@ Controls the generation of the random states for each repetition.</dd>
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                val_x_copy = val_x.copy()
+                train_x_copy = train_x.copy()
+                for target_enc_name in self.target_encoders_names:
+                    target_enc = target_encoders_names[target_enc_name](drop_invariant=True)
+                    
+                    data_encodet = target_enc.fit_transform(train_x_copy, train_y)
+                    data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                    train_x = train_x.join(data_encodet.reset_index(drop=True))
+                    data_encodet = None
+
+                    val_x_data_encodet = target_enc.transform(val_x_copy)
+                    val_x_data_encodet = val_x_data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                    val_x = val_x.join(val_x_data_encodet.reset_index(drop=True))
+                    val_x_data_encodet = None
+                val_x_copy = None
+                train_x_copy = None
+
             # Fit
 
             score_model = self.estimator.fit_score( 
@@ -554,6 +698,12 @@ Controls the generation of the random states for each repetition.</dd>
         self._clean_temp_folder()
 
         for i in range(self.folds*self.n_repeats):
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    joblib.dump(self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;], \
+                        f&#39;{dir_tmp}{target_enc_name} _fold_{i}.pkl&#39;)
+            # Models
             self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].save(f&#39;{dir_tmp}model_{self.estimator.__name__}_fold_{i}&#39;, verbose=0)
 
         joblib.dump(self, dir_tmp+&#39;CV&#39;+&#39;.pkl&#39;)
@@ -575,6 +725,11 @@ Controls the generation of the random states for each repetition.</dd>
         cv = joblib.load(dir_tmp+&#39;CV&#39;+&#39;.pkl&#39;)
 
         for i in range(cv.folds*cv.n_repeats):
+            # Target Encoder
+            if len(self.target_encoders_names) &gt; 0:
+                for target_enc_name in self.target_encoders_names:
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = joblib.load(f&#39;{dir_tmp}{target_enc_name} _fold_{i}.pkl&#39;)
+            # Models
             cv.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;] = \
                 copy.deepcopy(cv.estimator.load(f&#39;{dir_tmp}model_{self.estimator.__name__}_fold_{i}&#39;, verbose=0))
 
@@ -612,10 +767,27 @@ def fit(self, X, y, cat_features=None):
 
     for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
         train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            train_x_copy = train_x.copy()
+            for target_enc_name in self.target_encoders_names:
+                self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = \
+                    copy.deepcopy(target_encoders_names[target_enc_name](drop_invariant=True))
+                
+                self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = \
+                    self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].fit(train_x_copy, train_y)
+                
+                data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(train_x_copy)
+                data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                train_x = train_x.join(data_encodet.reset_index(drop=True))
+            train_x_copy = None
+
         # Fit
         self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
         self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;] = copy.deepcopy(self.estimator)
-    self._fit_models = True</code></pre>
+    self._fit_models = True
+    return(self)</code></pre>
 </details>
 </dd>
 <dt id="automl_alex.cross_validation.CrossValidation.fit_score"><code class="name flex">
@@ -640,6 +812,25 @@ def fit_score(self, X, y, print_metric=None, trial=None):
     for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
         train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
         val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            val_x_copy = val_x.copy()
+            train_x_copy = train_x.copy()
+            for target_enc_name in self.target_encoders_names:
+                target_enc = target_encoders_names[target_enc_name](drop_invariant=True)
+                
+                data_encodet = target_enc.fit_transform(train_x_copy, train_y)
+                data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                train_x = train_x.join(data_encodet.reset_index(drop=True))
+                data_encodet = None
+
+                val_x_data_encodet = target_enc.transform(val_x_copy)
+                val_x_data_encodet = val_x_data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                val_x = val_x.join(val_x_data_encodet.reset_index(drop=True))
+                val_x_data_encodet = None
+            val_x_copy = None
+            train_x_copy = None
+
         # Fit
 
         score_model = self.estimator.fit_score( 
@@ -702,11 +893,20 @@ def get_feature_importance(self, X):
     feature_importance_df = pd.DataFrame(np.zeros(len(X.columns)), index=X.columns)
 
     for i in range(self.folds*self.n_repeats):
+        X_tmp = X.copy()
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            for target_enc_name in self.target_encoders_names:
+                data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(X)
+                data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                X_tmp = X_tmp.join(data_encodet.reset_index(drop=True))
+        # Get feature_importance
         if i == 0:
             feature_importance_df = \
-                self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X)
+                self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X_tmp)
         feature_importance_df[&#39;value&#39;] += \
-            self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X)[&#39;value&#39;]
+            self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].get_feature_importance(X_tmp)[&#39;value&#39;]
     
     return(feature_importance_df)</code></pre>
 </details>
@@ -730,6 +930,11 @@ def load(self, name=&#39;cv_dump&#39;, folder=&#39;./&#39;, verbose=1):
     cv = joblib.load(dir_tmp+&#39;CV&#39;+&#39;.pkl&#39;)
 
     for i in range(cv.folds*cv.n_repeats):
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            for target_enc_name in self.target_encoders_names:
+                self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;] = joblib.load(f&#39;{dir_tmp}{target_enc_name} _fold_{i}.pkl&#39;)
+        # Models
         cv.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;] = \
             copy.deepcopy(cv.estimator.load(f&#39;{dir_tmp}model_{self.estimator.__name__}_fold_{i}&#39;, verbose=0))
 
@@ -756,7 +961,16 @@ def predict_test(self, X_test):
     stacking_y_pred_test = np.zeros(len(X_test))
 
     for i in range(self.folds*self.n_repeats):
-        y_pred_test = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(X_test)
+        X_test_tmp = X_test.copy()
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            for target_enc_name in self.target_encoders_names:
+                data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(X_test)
+                data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+
+                X_test_tmp = X_test_tmp.join(data_encodet.reset_index(drop=True))
+        # Predict
+        y_pred_test = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(X_test_tmp)
         stacking_y_pred_test += y_pred_test
     predict = stacking_y_pred_test / (self.folds*self.n_repeats)
     
@@ -781,6 +995,15 @@ def predict_train(self, X):
 
     for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
         val_x = X.iloc[valid_idx]
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            val_x_copy = val_x.copy()
+            for target_enc_name in self.target_encoders_names:
+                data_encodet = self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;].transform(val_x_copy)
+                data_encodet = data_encodet.add_prefix(target_enc_name + &#39;_&#39;)
+                val_x = val_x.join(data_encodet.reset_index(drop=True))
+            val_x_copy = None
+
         y_pred = self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].predict_or_predict_proba(val_x)
         stacking_y_pred_train[valid_idx] += y_pred
     
@@ -807,6 +1030,12 @@ def save(self, name=&#39;cv_dump&#39;, folder=&#39;./&#39;, verbose=1):
     self._clean_temp_folder()
 
     for i in range(self.folds*self.n_repeats):
+        # Target Encoder
+        if len(self.target_encoders_names) &gt; 0:
+            for target_enc_name in self.target_encoders_names:
+                joblib.dump(self._fit_target_enc[f&#39;{target_enc_name} _fold_{i}&#39;], \
+                    f&#39;{dir_tmp}{target_enc_name} _fold_{i}.pkl&#39;)
+        # Models
         self.fited_models[f&#39;model_{self.estimator.__name__}_fold_{i}&#39;].save(f&#39;{dir_tmp}model_{self.estimator.__name__}_fold_{i}&#39;, verbose=0)
 
     joblib.dump(self, dir_tmp+&#39;CV&#39;+&#39;.pkl&#39;)

@@ -112,13 +112,13 @@ class LinearModel(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
-        #return self
+        return self
 
 
     def predict(self, X_test=None):
@@ -849,13 +849,13 @@ If None default params are fetched.</dd>
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
         self.model = self.model.fit(X_train, y_train,)
-        #return self
+        return self
 
 
     def predict(self, X_test=None):
@@ -916,7 +916,7 @@ If None default params are fetched.</dd>
 <p>X (pd.DataFrame, shape (n_samples, n_features)): the input data
 y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data</p>
 <h2 id="return">Return</h2>
-<p>None</p></div>
+<p>self</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -927,12 +927,13 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         X (pd.DataFrame, shape (n_samples, n_features)): the input data
         y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     Return:
-        None
+        self
     &#34;&#34;&#34;
     y_train = self.y_format(y_train)
 
     self.model = self._init_model(model_param=self.model_param)
-    self.model = self.model.fit(X_train, y_train,)</code></pre>
+    self.model = self.model.fit(X_train, y_train,)
+    return self</code></pre>
 </details>
 </dd>
 <dt id="automl_alex.models.sklearn_models.LinearModel.get_model_opt_params"><code class="name flex">

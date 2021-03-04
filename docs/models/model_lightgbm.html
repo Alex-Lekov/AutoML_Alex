@@ -64,7 +64,7 @@ class LightGBM(ModelBase):
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
         
@@ -83,6 +83,7 @@ class LightGBM(ModelBase):
             categorical_feature=cat_features,
             )
         dtrain=None
+        return(self)
 
 
     def predict(self, X=None):
@@ -305,7 +306,7 @@ If None default params are fetched.</dd>
             X (pd.DataFrame, shape (n_samples, n_features)): the input data
             y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         Return:
-            None
+            self
         &#34;&#34;&#34;
         y_train = self.y_format(y_train)
         
@@ -324,6 +325,7 @@ If None default params are fetched.</dd>
             categorical_feature=cat_features,
             )
         dtrain=None
+        return(self)
 
 
     def predict(self, X=None):
@@ -500,7 +502,7 @@ If None default params are fetched.</dd>
 <p>X (pd.DataFrame, shape (n_samples, n_features)): the input data
 y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data</p>
 <h2 id="return">Return</h2>
-<p>None</p></div>
+<p>self</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -511,7 +513,7 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         X (pd.DataFrame, shape (n_samples, n_features)): the input data
         y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
     Return:
-        None
+        self
     &#34;&#34;&#34;
     y_train = self.y_format(y_train)
     
@@ -529,7 +531,8 @@ y (pd.DataFrame, shape (n_samples, ) or (n_samples, n_outputs)): the target data
         num_boost_round=num_iterations,
         categorical_feature=cat_features,
         )
-    dtrain=None</code></pre>
+    dtrain=None
+    return(self)</code></pre>
 </details>
 </dd>
 <dt id="automl_alex.models.model_lightgbm.LightGBM.get_feature_importance"><code class="name flex">

@@ -15,9 +15,13 @@ import gc
 from pathlib import Path
 import shutil
 
+import tensorflow.keras.layers as L
+from tensorflow.keras import Model
+
 from ._encoders import *
 from ._logger import *
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 
 # disable chained assignments
 pd.options.mode.chained_assignment = None 
@@ -25,6 +29,158 @@ pd.options.mode.chained_assignment = None
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 random.seed(RANDOM_SEED)
+
+
+class DenoisingAutoencoder(object):
+    '''
+    Denoising autoencoders (DAE) for numerical features. try to achieve a good representation by changing the reconstruction criterion
+    https://en.wikipedia.org/wiki/Autoencoder#Denoising_autoencoder_(DAE)
+
+    Examples
+    --------
+    >>> from automl_alex import DenoisingAutoencoder, CleanNans
+    >>> import sklearn
+    >>> # Get Dataset
+    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+    >>> dataset.target = dataset.target.astype('category').cat.codes
+    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    >>>                                             dataset.data, 
+    >>>                                             dataset.target,
+    >>>                                             test_size=0.2,)
+    >>> 
+    >>> # clean nans before use
+    >>> cn = CleanNans()
+    >>> clean_X_train = cn.fit_transform(X_train)
+    >>> clean_X_test = cn.transform(X_test)
+    >>>
+    >>> # get Numeric Features
+    >>> num_columns = list(clean_X_train.select_dtypes('number').columns)
+    >>> 
+    >>> nf = DenoisingAutoencoder()
+    >>> new_features_X_train = nf.fit_transform(clean_X_train, num_columns)
+    >>> new_features_X_test = nf.transform(clean_X_test)
+    '''    
+    autoencoder = None
+
+    def __init__(self, verbose: int = 0) -> None:
+        '''
+        Parameters
+        ----------
+        verbose : int,
+            print state, by default 0
+        '''        
+        self.verbose = verbose
+
+    def _get_dae(self, caunt_columns: int):
+        # denoising autoencoder
+        inputs = L.Input((caunt_columns,))
+        x = L.Dense(1000, activation='relu')(inputs) # 1500 original
+        x = L.Dense(1000, activation='relu')(x) # 1500 original
+        x = L.Dense(1000, activation='relu')(x) # 1500 original
+        outputs = L.Dense(caunt_columns, activation='relu')(x)
+        model = Model(inputs=inputs, outputs=outputs)
+        model.compile(optimizer='adam', loss='mse')
+        return model
+
+
+    @logger.catch
+    def fit(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> None:
+        '''
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        cols : Optional[List[str]], optional
+            cols list features, by default None
+
+        Returns
+        -------
+        self
+
+        Raises
+        ------
+        Exception
+            No numerical features
+        '''        
+        if cols is not None:
+            data = data[cols]
+        
+        data = data._get_numeric_data()
+        self.columns = data.columns
+        count_columns = len(self.columns)
+
+        if count_columns < 1:
+            raise ValueError('No numerical features')
+
+        self.scaler = MinMaxScaler().fit(data)
+        s_data = self.scaler.transform(data)
+
+        self.autoencoder = self._get_dae(count_columns)
+        self.autoencoder.fit (s_data, s_data,
+                    epochs=50,
+                    batch_size=124,
+                    shuffle=True,
+                    verbose=self.verbose)
+        return(self)
+
+
+    @logger.catch
+    def transform(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> pd.DataFrame:
+        '''
+        Transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        cols : Optional[List[str]], optional
+            cols list features, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataset with Transform data
+
+        Raises
+        ------
+        Exception
+            if No fit autoencoder
+        '''
+        if self.autoencoder is None:
+            raise Exception("No fit autoencoder")
+
+        if cols is not None:
+            data = data[cols]
+
+        s_data = self.scaler.transform(data[self.columns])
+        encodet_data = self.autoencoder.predict(s_data)
+        encodet_data = pd.DataFrame(encodet_data, columns=self.columns)
+        return(encodet_data)
+
+
+    def fit_transform(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> pd.DataFrame:
+        '''
+        Fit and Transforms the dataset.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            dataset (pd.DataFrame shape = (n_samples, n_features))
+        cols : Optional[List[str]], optional
+            cols list features, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            The dataset with Transform data
+
+        Raises
+        ------
+        Exception
+            No numerical features
+        '''        
+        self.fit(data, cols)
+        return self.transform(data)
 
 
 
@@ -76,7 +232,7 @@ class CleanNans(object):
 
         Returns
         -------
-        None
+        self
         '''        
         if cols is not None:
             data = data[cols]
@@ -99,7 +255,7 @@ class CleanNans(object):
             self.fill_value = data.mean()
         else:
             raise ValueError('Wrong fill method')
-        return self
+        return(self)
 
 
     @logger.catch
@@ -207,9 +363,14 @@ class NumericInteractionFeatures(object):
         ----------
         columns : List[str]
             list features names
+
+        Returns
+        -------
+        self
         '''        
         self.columns = columns
         self._cols_combinations = list(combinations(columns,2))
+        return(self)
 
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -400,7 +561,6 @@ class CleanOutliers(object):
         return(filtered_entries)
 
 
-    @logger.catch
     def fit(self, data: pd.DataFrame, columns: List[str],) -> None:
         '''
         Fit CleanOutliers
@@ -411,6 +571,10 @@ class CleanOutliers(object):
             dataset (pd.DataFrame shape = (n_samples, n_features))
         columns : List[str]
             list features names
+
+        Returns
+        -------
+        self
 
         Raises
         ------
@@ -426,7 +590,7 @@ class CleanOutliers(object):
 
         for column in chek_columns:
             if self.method == 'IQR':
-                lower_bound, upper_bound = self._IQR(data,col=column,threshold=self.threshold)
+                lower_bound, upper_bound = self._IQR(data,colum_name=column,threshold=self.threshold)
                 self._weight[column] = [lower_bound, upper_bound]
                 #logger.info(self._weight)
                 if self.verbose:
@@ -445,9 +609,9 @@ class CleanOutliers(object):
                 if total_outliers > 0:
                     logger.info(f'Num of outlier detected: {total_outliers} in Feature {column}')
                     logger.info(f'Proportion of outlier detected: {round((100/(len(data)/total_outliers)),1)} %')
+        return(self)
 
 
-    @logger.catch
     def transform(self, data: pd.DataFrame,) -> pd.DataFrame:
         '''
         Transforms the dataset.
@@ -552,6 +716,7 @@ class DataPrepare(object):
                 drop_invariant: bool = True,
                 num_generator_features: bool = True,
                 operations_num_generator: List[str] = ['/','*','-',],
+                num_denoising_autoencoder: bool = True,
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
                 normalization: bool = True,
@@ -579,6 +744,8 @@ class DataPrepare(object):
             generate num features, by default True
         operations_num_generator : List[str], optional
             operations for generate num features, by default ['/','*','-',]
+        num_denoising_autoencoder : bool, optional
+            generate num denoising autoencoder features, by default True
         normalization : bool, optional
             On or Off, by default True
         reduce_memory : bool, optional
@@ -601,6 +768,7 @@ class DataPrepare(object):
         self._drop_invariant = drop_invariant
         self._outliers_method = outliers_method
         self._num_generator_features = num_generator_features
+        self._num_denoising_autoencoder = num_denoising_autoencoder
         self._operations_num_generator = operations_num_generator
         self._normalization = normalization
         self._reduce_memory = reduce_memory
@@ -657,11 +825,12 @@ class DataPrepare(object):
             (data.nunique(dropna=False) >2)]
         if len(cat_features) < 1:
             cat_features = None
+        else:
+            cat_features = list(cat_features)
         #cat_features = list(set([*object_features, *cat_features]))
-        return(list(cat_features))
+        return(cat_features)
 
 
-    @logger.catch
     def fit_transform(self, data: pd.DataFrame, verbose: bool = None) -> pd.DataFrame:
         '''
         Fit and transforms the dataset.
@@ -757,6 +926,30 @@ class DataPrepare(object):
                 data = data.join(data_encodet.reset_index(drop=True))
 
         ########### Numerical Features ######################
+
+        # CleanNans
+        if self._clean_nan:
+            if self._check_num_nans(data):
+                self._clean_nan_encoder = CleanNans(verbose=self.verbose)
+                self._clean_nan_encoder.fit(data[self.num_features])
+                data = self._clean_nan_encoder.transform(data)
+                logger.info(f'> CleanNans, total nans columns: {len(self._clean_nan_encoder.nan_columns)}')
+            else:
+                logger.info('  No nans features')
+
+        # DenoisingAutoencoder
+        if self._num_denoising_autoencoder:
+            if len(self.num_features) > 2:
+                logger.info('> Start fit DenoisingAutoencoder')
+                self._autoencoder = DenoisingAutoencoder(verbose=self.verbose)
+                data_encodet = self._autoencoder.fit_transform(data[self.num_features])
+                data_encodet = data_encodet.add_prefix('DenoisingAutoencoder_')
+                data = pd.concat([
+                            data.reset_index(drop=True), 
+                            data_encodet.reset_index(drop=True)], 
+                            axis=1,)
+                logger.info('> Add Denoising features')
+
         # CleanOutliers
         if self._clean_outliers:
             logger.info('> CleanOutliers',)
@@ -764,18 +957,8 @@ class DataPrepare(object):
                 threshold=self._outliers_threshold, 
                 method=self._outliers_method,
                 verbose=self.verbose)
-            self._clean_outliers_enc.fit(data, cols=self.num_features)
+            self._clean_outliers_enc.fit(data, columns=self.num_features)
             data = self._clean_outliers_enc.transform(data)
-
-        # CleanNans
-        if self._clean_nan:
-            if self._check_num_nans(data):
-                self._clean_nan_encoder = CleanNans(verbose=self.verbose)
-                self._clean_nan_encoder = self._clean_nan_encoder.fit(data[self.num_features])
-                data = self._clean_nan_encoder.transform(data)
-                logger.info(f'> CleanNans, total nans columns: {len(self._clean_nan_encoder.nan_columns)}')
-            else:
-                logger.info('  No nans features')
 
         # Generator interaction Num Features
         if self._num_generator_features:
@@ -793,6 +976,7 @@ class DataPrepare(object):
                         axis=1,)
                 #data = data.join(fe_df.reset_index(drop=True))
                 logger.info(f' ADD features: {fe_df.shape[1]}')
+
         
         data.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.data_median_dict = data.median()
@@ -829,7 +1013,6 @@ class DataPrepare(object):
         return data
 
 
-    @logger.catch
     def transform(self, data: pd.DataFrame, verbose: bool = None) -> pd.DataFrame:
         '''
         Transforms the dataset.
@@ -900,14 +1083,26 @@ class DataPrepare(object):
                 data = data.join(data_encodet.reset_index(drop=True))
 
         ########### Numerical Features ######################
-        # CleanOutliers
-        if self._clean_outliers:
-            data = self._clean_outliers_enc.transform(data)
 
         # CleanNans
         if self._clean_nan_encoder:
             data = self._clean_nan_encoder.transform(data)
             logger.info('> Clean Nans')
+
+        # DenoisingAutoencoder
+        if self._num_denoising_autoencoder:
+            if len(self.num_features) > 2:
+                data_encodet = self._autoencoder.transform(data[self.num_features])
+                data_encodet = data_encodet.add_prefix('DenoisingAutoencoder_')
+                data = pd.concat([
+                            data.reset_index(drop=True), 
+                            data_encodet.reset_index(drop=True)], 
+                            axis=1,)
+                logger.info('> Add Denoising features')
+
+        # CleanOutliers
+        if self._clean_outliers:
+            data = self._clean_outliers_enc.transform(data)
 
         # Generator interaction Num Features
         if self._num_generator_features:
@@ -956,7 +1151,6 @@ class DataPrepare(object):
         return data
 
 
-    @logger.catch
     def save(self, name: str = 'DataPrepare_dump', folder: str = './') -> None:
         '''
         Save data prepare
@@ -983,7 +1177,6 @@ class DataPrepare(object):
         logger.info('Save DataPrepare')
 
 
-    @logger.catch
     def load(self, name: str = 'DataPrepare_dump', folder: str = './') -> Callable:
         '''
         Load data prepare

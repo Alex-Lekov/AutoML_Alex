@@ -518,6 +518,7 @@ class AutoML(object):
         ####################################################
         logger.info(50*&#39;#&#39;)
         logger.info(&#39;&gt; Finish!&#39;)
+        return(self)
 
 
     @logger.catch
@@ -1006,6 +1007,7 @@ regression: sklearn.metrics.mean_squared_error.</dd>
         ####################################################
         logger.info(50*&#39;#&#39;)
         logger.info(&#39;&gt; Finish!&#39;)
+        return(self)
 
 
     @logger.catch
@@ -1376,7 +1378,8 @@ def fit(self,
 
     ####################################################
     logger.info(50*&#39;#&#39;)
-    logger.info(&#39;&gt; Finish!&#39;)</code></pre>
+    logger.info(&#39;&gt; Finish!&#39;)
+    return(self)</code></pre>
 </details>
 </dd>
 <dt id="automl_alex.automl_alex.AutoML.load"><code class="name flex">
