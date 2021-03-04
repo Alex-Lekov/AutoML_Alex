@@ -53,7 +53,6 @@ class ModelsReview(object):
     >>>                     y_train=y_train, 
     >>>                     X_test=X_test, 
     >>>                     y_test=y_test,)
-
     '''    
     __name__ = 'ModelsReview'
 
@@ -96,7 +95,6 @@ class ModelsReview(object):
         self._metric_round = metric_round
 
 
-    @logger.catch
     def fit(self,
         X_train: pd.DataFrame, 
         y_train: Union[list, np.array, pd.DataFrame],
@@ -300,7 +298,6 @@ class AutoML(object):
         self._metric_round = metric_round
 
 
-    @logger.catch
     def fit(self,
         X: pd.DataFrame, 
         y: Union[list, np.array, pd.DataFrame], 
@@ -371,7 +368,7 @@ class AutoML(object):
             type_of_estimator=self._type_of_estimator, 
             random_state=self._random_state,
             gpu=self._gpu,
-            verbose=verbose,
+            #verbose=verbose,
             )
         self.model_1 = self.model_1.fit(X, y, cat_features=self.cat_features.tolist())
         X = None
@@ -385,7 +382,7 @@ class AutoML(object):
             #outliers_threshold=3,
             normalization=True,
             random_state=self._random_state, 
-            verbose=verbose
+            #verbose=verbose
             )
         X = self.de_1.fit_transform(X_source,)
         if self.de_1.cat_features is not None:
@@ -425,7 +422,7 @@ class AutoML(object):
         self.model_3 = automl_alex.MLP(
             type_of_estimator=self._type_of_estimator, 
             random_state=self._random_state,
-            verbose=verbose,
+            #verbose=verbose,
             )
         self.model_3 = self.model_3.fit(X, y)
 
@@ -444,7 +441,7 @@ class AutoML(object):
             #outliers_threshold=3,
             normalization=False,
             random_state=self._random_state, 
-            verbose=verbose
+            #verbose=verbose
             )
         X = self.de_2.fit_transform(X_source)
         #X = X.drop(self.de_2.cat_features, axis = 1)
@@ -456,7 +453,7 @@ class AutoML(object):
             type_of_estimator=self._type_of_estimator, 
             random_state=self._random_state,
             gpu=self._gpu,
-            verbose=verbose,
+            #verbose=verbose,
             )
 
         self.model_4 = self.model_4.fit(X, y)
@@ -481,7 +478,7 @@ class AutoML(object):
             **params,
             )
 
-        history = self.model_5.opt(X,y, timeout=time_to_opt, verbose=verbose)
+        history = self.model_5.opt(X,y, timeout=time_to_opt,)
         self.model_5.save(name='model_5', folder=TMP_FOLDER,)
 
         total_step_4 = (time.time() - start_step_3)
@@ -492,7 +489,6 @@ class AutoML(object):
         return(self)
 
 
-    @logger.catch
     def predict(self, X: pd.DataFrame, verbose: int = 0) -> list:
         '''
         Predict the target for the input data

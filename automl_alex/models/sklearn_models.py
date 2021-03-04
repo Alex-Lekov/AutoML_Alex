@@ -89,7 +89,7 @@ class LinearModel(ModelBase):
         y_train = self.y_format(y_train)
 
         self.model = self._init_model(model_param=self.model_param)
-        self.model = self.model.fit(X_train, y_train,)
+        self.model.fit(X_train, y_train,)
         return self
 
 

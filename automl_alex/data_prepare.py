@@ -71,12 +71,12 @@ class DenoisingAutoencoder(object):
         '''        
         self.verbose = verbose
 
-    def _get_dae(self, caunt_columns: int):
+    def _get_dae(self, caunt_columns: int, units: Optional[int] = 512,):
         # denoising autoencoder
         inputs = L.Input((caunt_columns,))
-        x = L.Dense(1000, activation='relu')(inputs) # 1500 original
-        x = L.Dense(1000, activation='relu')(x) # 1500 original
-        x = L.Dense(1000, activation='relu')(x) # 1500 original
+        x = L.Dense(units, activation='relu')(inputs) # 1500 original
+        x = L.Dense(units, activation='relu')(x) # 1500 original
+        x = L.Dense(units, activation='relu')(x) # 1500 original
         outputs = L.Dense(caunt_columns, activation='relu')(x)
         model = Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer='adam', loss='mse')
@@ -115,7 +115,11 @@ class DenoisingAutoencoder(object):
         self.scaler = MinMaxScaler().fit(data)
         s_data = self.scaler.transform(data)
 
-        self.autoencoder = self._get_dae(count_columns)
+        units = 512
+        if count_columns > 512:
+            units = count_columns
+
+        self.autoencoder = self._get_dae(count_columns, units=units)
         self.autoencoder.fit (s_data, s_data,
                     epochs=50,
                     batch_size=124,
@@ -716,10 +720,10 @@ class DataPrepare(object):
                 drop_invariant: bool = True,
                 num_generator_features: bool = True,
                 operations_num_generator: List[str] = ['/','*','-',],
-                num_denoising_autoencoder: bool = True,
+                num_denoising_autoencoder: bool = False,
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
-                normalization: bool = True,
+                normalization: bool = False,
                 reduce_memory: bool = False,
                 random_state: int = 42,
                 verbose: int = 3) -> None:
@@ -745,7 +749,7 @@ class DataPrepare(object):
         operations_num_generator : List[str], optional
             operations for generate num features, by default ['/','*','-',]
         num_denoising_autoencoder : bool, optional
-            generate num denoising autoencoder features, by default True
+            generate num denoising autoencoder features, by default False
         normalization : bool, optional
             On or Off, by default True
         reduce_memory : bool, optional

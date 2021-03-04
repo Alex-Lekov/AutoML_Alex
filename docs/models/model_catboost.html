@@ -159,25 +159,17 @@ class CatBoost(ModelBase):
         &#34;&#34;&#34;
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [6, 10])
-
         if opt_lvl &gt;= 1:
             model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;cb_min_child_samples&#39;, 1, 100)
+            model_param[&#39;depth&#39;] = trial.suggest_int(&#39;cb_depth&#39;, 4, 10)
             
 
         ################################# LVL 2 ########################################
-        if opt_lvl == 2:
-            model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [4, 6, 10])
-
         if opt_lvl &gt;= 2:
             model_param[&#39;bagging_temperature&#39;] = trial.suggest_int(&#39;cb_bagging_temperature&#39;, 0, 10,)
             model_param[&#39;subsample&#39;] = trial.suggest_discrete_uniform(&#39;cb_subsample&#39;, 0.1, 1.0, 0.1)
         
         ################################# LVL 3 ########################################
-        if opt_lvl == 3:
-            model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [4, 6, 8, 10])
-
         if opt_lvl &gt;= 3:
             if self._type_of_estimator == &#39;classifier&#39;:
                 model_param[&#39;objective&#39;] = trial.suggest_categorical(&#39;cb_objective&#39;, 
@@ -240,7 +232,7 @@ class CatBoostRegressor(CatBoost):
 <dl>
 <dt id="automl_alex.models.model_catboost.CatBoost"><code class="flex name class">
 <span>class <span class="ident">CatBoost</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -379,25 +371,17 @@ If None default params are fetched.</dd>
         &#34;&#34;&#34;
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [6, 10])
-
         if opt_lvl &gt;= 1:
             model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;cb_min_child_samples&#39;, 1, 100)
+            model_param[&#39;depth&#39;] = trial.suggest_int(&#39;cb_depth&#39;, 4, 10)
             
 
         ################################# LVL 2 ########################################
-        if opt_lvl == 2:
-            model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [4, 6, 10])
-
         if opt_lvl &gt;= 2:
             model_param[&#39;bagging_temperature&#39;] = trial.suggest_int(&#39;cb_bagging_temperature&#39;, 0, 10,)
             model_param[&#39;subsample&#39;] = trial.suggest_discrete_uniform(&#39;cb_subsample&#39;, 0.1, 1.0, 0.1)
         
         ################################# LVL 3 ########################################
-        if opt_lvl == 3:
-            model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [4, 6, 8, 10])
-
         if opt_lvl &gt;= 3:
             if self._type_of_estimator == &#39;classifier&#39;:
                 model_param[&#39;objective&#39;] = trial.suggest_categorical(&#39;cb_objective&#39;, 
@@ -526,25 +510,17 @@ cat_features (list)</p>
     &#34;&#34;&#34;
     model_param = self._init_default_model_param()
     ################################# LVL 1 ########################################
-    if opt_lvl == 1:
-        model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [6, 10])
-
     if opt_lvl &gt;= 1:
         model_param[&#39;min_child_samples&#39;] = trial.suggest_int(&#39;cb_min_child_samples&#39;, 1, 100)
+        model_param[&#39;depth&#39;] = trial.suggest_int(&#39;cb_depth&#39;, 4, 10)
         
 
     ################################# LVL 2 ########################################
-    if opt_lvl == 2:
-        model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [4, 6, 10])
-
     if opt_lvl &gt;= 2:
         model_param[&#39;bagging_temperature&#39;] = trial.suggest_int(&#39;cb_bagging_temperature&#39;, 0, 10,)
         model_param[&#39;subsample&#39;] = trial.suggest_discrete_uniform(&#39;cb_subsample&#39;, 0.1, 1.0, 0.1)
     
     ################################# LVL 3 ########################################
-    if opt_lvl == 3:
-        model_param[&#39;depth&#39;] = trial.suggest_categorical(&#39;cb_depth&#39;, [4, 6, 8, 10])
-
     if opt_lvl &gt;= 3:
         if self._type_of_estimator == &#39;classifier&#39;:
             model_param[&#39;objective&#39;] = trial.suggest_categorical(&#39;cb_objective&#39;, 
@@ -670,7 +646,7 @@ cat_features (list)</p>
 </dd>
 <dt id="automl_alex.models.model_catboost.CatBoostClassifier"><code class="flex name class">
 <span>class <span class="ident">CatBoostClassifier</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -708,7 +684,7 @@ If None default params are fetched.</dd>
 </dd>
 <dt id="automl_alex.models.model_catboost.CatBoostRegressor"><code class="flex name class">
 <span>class <span class="ident">CatBoostRegressor</span></span>
-<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=0, random_state=42)</span>
+<span>(</span><span>model_param=None, type_of_estimator=None, gpu=False, verbose=None, random_state=42)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>

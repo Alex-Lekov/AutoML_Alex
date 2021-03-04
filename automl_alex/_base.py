@@ -40,12 +40,13 @@ class ModelBase(object):
                     model_param=None, 
                     type_of_estimator=None, # classifier or regression
                     gpu=False, 
-                    verbose=0,
+                    verbose=None,
                     random_state=42
                     ):
         self._gpu = gpu
         self._random_state = random_state
-        logger_print_lvl(verbose)
+        if verbose is not None:
+            logger_print_lvl(verbose)
 
         if type_of_estimator is not None:
             self._type_of_estimator = type_of_estimator
@@ -133,7 +134,6 @@ class ModelBase(object):
         raise NotImplementedError("Pure virtual class.")
 
 
-    @logger.catch
     def score(self, 
             X_test, 
             y_test,
@@ -163,7 +163,6 @@ class ModelBase(object):
         return(score)
 
 
-    @logger.catch
     def fit_score(self, 
             X_train, 
             y_train, 

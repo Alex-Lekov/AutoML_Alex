@@ -131,25 +131,17 @@ class CatBoost(ModelBase):
         """
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param['depth'] = trial.suggest_categorical('cb_depth', [6, 10])
-
         if opt_lvl >= 1:
             model_param['min_child_samples'] = trial.suggest_int('cb_min_child_samples', 1, 100)
+            model_param['depth'] = trial.suggest_int('cb_depth', 4, 10)
             
 
         ################################# LVL 2 ########################################
-        if opt_lvl == 2:
-            model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 10])
-
         if opt_lvl >= 2:
             model_param['bagging_temperature'] = trial.suggest_int('cb_bagging_temperature', 0, 10,)
             model_param['subsample'] = trial.suggest_discrete_uniform('cb_subsample', 0.1, 1.0, 0.1)
         
         ################################# LVL 3 ########################################
-        if opt_lvl == 3:
-            model_param['depth'] = trial.suggest_categorical('cb_depth', [4, 6, 8, 10])
-
         if opt_lvl >= 3:
             if self._type_of_estimator == 'classifier':
                 model_param['objective'] = trial.suggest_categorical('cb_objective', 

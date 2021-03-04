@@ -588,7 +588,6 @@ class BestSingleModel(object):
         os.mkdir(TMP_FOLDER+'/cross-v_tmp')
 
 
-    @logger.catch
     def save(self, name: str = 'opt_model_dump', folder: str = './', verbose: int = 3) -> None:
         if not self.cv_model:
             raise Exception("No opt and fit models")
@@ -607,7 +606,6 @@ class BestSingleModel(object):
             print('Save model')
 
 
-    @logger.catch
     def load(self, name: str = 'opt_model_dump', folder: str = './', verbose: int = 1):
         ''' Load Model '''
         self._clean_temp_folder()

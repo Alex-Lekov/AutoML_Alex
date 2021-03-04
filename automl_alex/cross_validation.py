@@ -5,6 +5,10 @@ Then the model is trained on k − 1 pieces of data, and the rest of the data is
 The procedure is repeated k times; in the end, each of the k pieces of data is used for testing. 
 The result is an assessment of the effectiveness of the selected model with the most even use of the available data.
 '''
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Union
 
 import pandas as pd
 import numpy as np
@@ -26,32 +30,36 @@ from ._encoders import *
 predict_proba_metrics = ['roc_auc_score', 'log_loss', 'brier_score_loss']
 TMP_FOLDER = '.automl-alex_tmp/'
 
+
 class CrossValidation(object):
-    """
-    Allows you to wrap any of your models in a Cross-validation
-    
-    Parameters
-    ----------
-    estimator : type
-        model object from automl_alex.models
-        The object to use to fit model.
-    folds : int
-        Number of folds. Must be at least 2.
-    score_folds : int
-        Number of score folds. Must be at least 1.
-    n_repeats : int
-        Number of times cross-validator needs to be repeated.
-    metric : type
-        you can use standard metrics from sklearn.metrics or add custom metrics.
-        If None, the metric is selected from the type of estimator:
-        classifier: sklearn.metrics.roc_auc_score
-        regression: sklearn.metrics.mean_squared_error.
-    print_metric : bool
-    metric_round : int
-    random_state : int
-        RandomState instance or None, default=42
-        Controls the generation of the random states for each repetition.
-    """
+    '''Allows you to wrap any of your models in a Cross-validation.
+
+    Examples
+    --------
+    >>> from automl_alex import LightGBMClassifier, DataPrepare, CrossValidation
+    >>> import sklearn
+    >>> # Get Dataset
+    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
+    >>> dataset.target = dataset.target.astype('category').cat.codes
+    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    >>>                                             dataset.data, 
+    >>>                                             dataset.target,
+    >>>                                             test_size=0.2,)
+    >>> # clean up data before use ModelsReview
+    >>> de = DataPrepare()
+    >>> clean_X_train = de.fit_transform(X_train)
+    >>> clean_X_test = de.transform(X_test)
+    >>> 
+    >>> # Model
+    >>> model = LightGBMClassifier()
+    >>> 
+    >>> # CrossValidation
+    >>> cv = CrossValidation(estimator=model,)
+    >>> score, score_std = cv.fit_score(X_train, y_train, print_metric=True)
+    >>> cv.fit(X_train, y_train)
+    >>> predicts = cv.predict_test(X_test)
+    >>> print('Test AUC: ', round(sklearn.metrics.roc_auc_score(y_test, predicts),4))
+    '''    
     __name__ = 'CrossValidation'
     _fit_models = False
     fited_models = {}
@@ -63,17 +71,42 @@ class CrossValidation(object):
 
     def __init__(
         self,  
-        estimator, # model
-        target_encoders_names = [],
-        folds=7,
-        score_folds=5,
-        n_repeats=1,
-        metric=None,
-        print_metric=False, 
-        metric_round=4, 
-        random_state=42
+        estimator: Callable, # model
+        target_encoders_names: List[str] = [],
+        folds: int = 7,
+        score_folds: int = 5,
+        n_repeats: int = 1,
+        metric: Optional[Callable] = None,
+        print_metric: bool = False, 
+        metric_round: int = 4, 
+        random_state: int = 42
         ):
-        
+        '''
+        Parameters
+        ----------
+        estimator : Callable
+            model object from automl_alex.models
+            The object to use to fit model.
+        target_encoders_names : List[str]
+            name encoders (from automl_alex._encoders.target_encoders_names)
+        folds : int, optional
+            Number of folds., by default 7
+        score_folds : int, optional
+            Number of score folds, by default 5
+        n_repeats : int, optional
+            Number of times cross-validator needs to be repeated, by default 1
+        metric : Optional[Callable], optional
+            you can use standard metrics from sklearn.metrics or add custom metrics.
+            If None, the metric is selected from the type of estimator:
+            classifier: sklearn.metrics.roc_auc_score
+            regression: sklearn.metrics.mean_squared_error., by default None
+        print_metric : bool, optional
+            print metric, by default False
+        metric_round : int, optional
+            round metric score, by default 4
+        random_state : int, optional
+            Controls the generation of the random states for each repetition, by default 42
+        '''
         self.estimator = estimator
         self.folds = folds
         self.score_folds = score_folds
@@ -111,8 +144,23 @@ class CrossValidation(object):
         os.mkdir(TMP_FOLDER+'cross-v_tmp')
 
 
-    @logger.catch
-    def fit(self, X, y, cat_features=None):
+    def fit(self, 
+        X: pd.DataFrame, 
+        y: Union[list, np.array, pd.DataFrame],  
+        cat_features: Optional[List[str]] = None,
+        ):
+        '''
+        Fit the model to the data.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            data (pd.DataFrame, shape (n_samples, n_features))
+        y : Union[list, np.array, pd.DataFrame]
+            target
+        cat_features : Optional[List[str]], optional
+            features name list, by default None
+        '''        
         self._clean_temp_folder()
         self.cv_split_idx = [(train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)]
 
@@ -133,6 +181,7 @@ class CrossValidation(object):
 
                     train_x = train_x.join(data_encodet.reset_index(drop=True))
                 train_x_copy = None
+                train_x.fillna(0, inplace=True)
 
             # Fit
             self.estimator.fit(X_train=train_x, y_train=train_y, cat_features=cat_features)
@@ -141,7 +190,6 @@ class CrossValidation(object):
         return(self)
 
 
-    @logger.catch
     def predict_test(self, X_test):
         if not self._fit_models:
             raise Exception("No fit models")
@@ -157,6 +205,7 @@ class CrossValidation(object):
                     data_encodet = data_encodet.add_prefix(target_enc_name + '_')
 
                     X_test_tmp = X_test_tmp.join(data_encodet.reset_index(drop=True))
+                X_test_tmp.fillna(0, inplace=True)
             # Predict
             y_pred_test = self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].predict_or_predict_proba(X_test_tmp)
             stacking_y_pred_test += y_pred_test
@@ -165,7 +214,6 @@ class CrossValidation(object):
         return(predict)
 
 
-    @logger.catch
     def predict_train(self, X):
         if not self._fit_models:
             raise Exception("No fit models")
@@ -182,6 +230,7 @@ class CrossValidation(object):
                     data_encodet = data_encodet.add_prefix(target_enc_name + '_')
                     val_x = val_x.join(data_encodet.reset_index(drop=True))
                 val_x_copy = None
+                val_x.fillna(0, inplace=True)
 
             y_pred = self.fited_models[f'model_{self.estimator.__name__}_fold_{i}'].predict_or_predict_proba(val_x)
             stacking_y_pred_train[valid_idx] += y_pred
@@ -191,7 +240,6 @@ class CrossValidation(object):
         return(predict)
 
 
-    @logger.catch
     def get_feature_importance(self, X):
         if not self._fit_models:
             raise Exception("No fit models")
@@ -210,6 +258,7 @@ class CrossValidation(object):
                     data_encodet = data_encodet.add_prefix(target_enc_name + '_')
 
                     X_tmp = X_tmp.join(data_encodet.reset_index(drop=True))
+            X_tmp.fillna(0, inplace=True)
             # Get feature_importance
             if i == 0:
                 feature_importance_df = \
@@ -220,8 +269,11 @@ class CrossValidation(object):
         return(feature_importance_df)
 
 
-    @logger.catch
-    def fit_score(self, X, y, print_metric=None, trial=None):
+    def fit_score(self, 
+        X: pd.DataFrame, 
+        y: Union[list, np.array, pd.DataFrame], 
+        print_metric=None, 
+        trial=None,):
         self._pruned_cv = False
         if print_metric is None:
             print_metric = self.print_metric
@@ -251,6 +303,8 @@ class CrossValidation(object):
                     val_x_data_encodet = None
                 val_x_copy = None
                 train_x_copy = None
+                train_x.fillna(0, inplace=True)
+                val_x.fillna(0, inplace=True)
 
             # Fit
 
@@ -294,7 +348,6 @@ class CrossValidation(object):
         return(score, score_std)
 
 
-    @logger.catch
     def save(self, name='cv_dump', folder='./', verbose=1):
         if not self._fit_models:
             raise Exception("No fit models")
@@ -320,7 +373,6 @@ class CrossValidation(object):
             print('Save CrossValidation')
 
 
-    @logger.catch
     def load(self, name='cv_dump', folder='./', verbose=1):
         self._clean_temp_folder()
         dir_tmp = TMP_FOLDER+'cross-v_tmp/'

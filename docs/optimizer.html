@@ -623,7 +623,6 @@ class BestSingleModel(object):
         os.mkdir(TMP_FOLDER+&#39;/cross-v_tmp&#39;)
 
 
-    @logger.catch
     def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
         if not self.cv_model:
             raise Exception(&#34;No opt and fit models&#34;)
@@ -642,7 +641,6 @@ class BestSingleModel(object):
             print(&#39;Save model&#39;)
 
 
-    @logger.catch
     def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
         &#39;&#39;&#39; Load Model &#39;&#39;&#39;
         self._clean_temp_folder()
@@ -1373,7 +1371,6 @@ Controls the generation of the random states for each repetition.</dd>
         os.mkdir(TMP_FOLDER+&#39;/cross-v_tmp&#39;)
 
 
-    @logger.catch
     def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
         if not self.cv_model:
             raise Exception(&#34;No opt and fit models&#34;)
@@ -1392,7 +1389,6 @@ Controls the generation of the random states for each repetition.</dd>
             print(&#39;Save model&#39;)
 
 
-    @logger.catch
     def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
         &#39;&#39;&#39; Load Model &#39;&#39;&#39;
         self._clean_temp_folder()
@@ -1487,8 +1483,7 @@ Controls the generation of the random states for each repetition.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@logger.catch
-def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
+<pre><code class="python">def load(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 1):
     &#39;&#39;&#39; Load Model &#39;&#39;&#39;
     self._clean_temp_folder()
     dir_tmp = TMP_FOLDER+&#39;/opt_model_tmp/&#39;
@@ -1889,8 +1884,7 @@ Note that, If a parameter contains missing values, a trial with missing values i
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@logger.catch
-def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
+<pre><code class="python">def save(self, name: str = &#39;opt_model_dump&#39;, folder: str = &#39;./&#39;, verbose: int = 3) -&gt; None:
     if not self.cv_model:
         raise Exception(&#34;No opt and fit models&#34;)
 

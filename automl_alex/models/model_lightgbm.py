@@ -125,19 +125,16 @@ class LightGBM(ModelBase):
         """
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50, log=True)
-            
         if opt_lvl >= 1:
-            model_param['min_child_samples'] = trial.suggest_int('lgbm_min_child_samples', 2, 100, log=True)
+            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100, log=True)
+            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-2, 0.3, log=True)
 
         ################################# LVL 2 ########################################
         if opt_lvl == 2:
-            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-2, 0.3, log=True)
-            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 50, log=True)
             model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 300, 500, step=100)
 
         if opt_lvl >= 2:
+            model_param['min_child_samples'] = trial.suggest_int('lgbm_min_child_samples', 2, 100, log=True)
             model_param['bagging_fraction'] = trial.suggest_float('lgbm_bagging_fraction', 0.4, 1., step=0.1)
             if model_param['bagging_fraction'] < 1.:
                 model_param['feature_fraction'] = trial.suggest_float('lgbm_feature_fraction', 0.4, 1., step=0.1)
@@ -145,11 +142,7 @@ class LightGBM(ModelBase):
         
         ################################# LVL 3 ########################################
         if opt_lvl == 3:
-            model_param['learning_rate'] = trial.suggest_float('lgbm_learning_rate', 1e-2, 0.3, log=True)
             model_param['num_iterations'] = trial.suggest_int('lgbm_num_iterations', 300, 1000, step=100)
-        
-        if opt_lvl >= 3:
-            model_param['num_leaves'] = trial.suggest_int('lgbm_num_leaves', 2, 100, log=True)
         
         ################################# LVL 4 ########################################
         if opt_lvl == 4:

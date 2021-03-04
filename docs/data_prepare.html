@@ -100,12 +100,12 @@ class DenoisingAutoencoder(object):
         &#39;&#39;&#39;        
         self.verbose = verbose
 
-    def _get_dae(self, caunt_columns: int):
+    def _get_dae(self, caunt_columns: int, units: Optional[int] = 512,):
         # denoising autoencoder
         inputs = L.Input((caunt_columns,))
-        x = L.Dense(1000, activation=&#39;relu&#39;)(inputs) # 1500 original
-        x = L.Dense(1000, activation=&#39;relu&#39;)(x) # 1500 original
-        x = L.Dense(1000, activation=&#39;relu&#39;)(x) # 1500 original
+        x = L.Dense(units, activation=&#39;relu&#39;)(inputs) # 1500 original
+        x = L.Dense(units, activation=&#39;relu&#39;)(x) # 1500 original
+        x = L.Dense(units, activation=&#39;relu&#39;)(x) # 1500 original
         outputs = L.Dense(caunt_columns, activation=&#39;relu&#39;)(x)
         model = Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer=&#39;adam&#39;, loss=&#39;mse&#39;)
@@ -144,7 +144,11 @@ class DenoisingAutoencoder(object):
         self.scaler = MinMaxScaler().fit(data)
         s_data = self.scaler.transform(data)
 
-        self.autoencoder = self._get_dae(count_columns)
+        units = 512
+        if count_columns &gt; 512:
+            units = count_columns
+
+        self.autoencoder = self._get_dae(count_columns, units=units)
         self.autoencoder.fit (s_data, s_data,
                     epochs=50,
                     batch_size=124,
@@ -745,10 +749,10 @@ class DataPrepare(object):
                 drop_invariant: bool = True,
                 num_generator_features: bool = True,
                 operations_num_generator: List[str] = [&#39;/&#39;,&#39;*&#39;,&#39;-&#39;,],
-                num_denoising_autoencoder: bool = True,
+                num_denoising_autoencoder: bool = False,
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
-                normalization: bool = True,
+                normalization: bool = False,
                 reduce_memory: bool = False,
                 random_state: int = 42,
                 verbose: int = 3) -&gt; None:
@@ -774,7 +778,7 @@ class DataPrepare(object):
         operations_num_generator : List[str], optional
             operations for generate num features, by default [&#39;/&#39;,&#39;*&#39;,&#39;-&#39;,]
         num_denoising_autoencoder : bool, optional
-            generate num denoising autoencoder features, by default True
+            generate num denoising autoencoder features, by default False
         normalization : bool, optional
             On or Off, by default True
         reduce_memory : bool, optional
@@ -2117,7 +2121,7 @@ try different values threshold and method</p>
 </dd>
 <dt id="automl_alex.data_prepare.DataPrepare"><code class="flex name class">
 <span>class <span class="ident">DataPrepare</span></span>
-<span>(</span><span>cat_features: Union[List[str], NoneType] = None, clean_and_encod_data: bool = True, cat_encoder_names: List[str] = ['HelmertEncoder', 'CountEncoder'], clean_nan: bool = True, clean_outliers: bool = True, outliers_method: str = 'IQR', outliers_threshold: int = 2, drop_invariant: bool = True, num_generator_features: bool = True, operations_num_generator: List[str] = ['/', '*', '-'], num_denoising_autoencoder: bool = True, normalization: bool = True, reduce_memory: bool = False, random_state: int = 42, verbose: int = 3)</span>
+<span>(</span><span>cat_features: Union[List[str], NoneType] = None, clean_and_encod_data: bool = True, cat_encoder_names: List[str] = ['HelmertEncoder', 'CountEncoder'], clean_nan: bool = True, clean_outliers: bool = True, outliers_method: str = 'IQR', outliers_threshold: int = 2, drop_invariant: bool = True, num_generator_features: bool = True, operations_num_generator: List[str] = ['/', '*', '-'], num_denoising_autoencoder: bool = False, normalization: bool = False, reduce_memory: bool = False, random_state: int = 42, verbose: int = 3)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Сlass for cleaning, encoding and processing your dataset</p>
@@ -2157,7 +2161,7 @@ try different values threshold and method</p>
 <dt><strong><code>operations_num_generator</code></strong> :&ensp;<code>List[str]</code>, optional</dt>
 <dd>operations for generate num features, by default ['/','*','-',]</dd>
 <dt><strong><code>num_denoising_autoencoder</code></strong> :&ensp;<code>bool</code>, optional</dt>
-<dd>generate num denoising autoencoder features, by default True</dd>
+<dd>generate num denoising autoencoder features, by default False</dd>
 <dt><strong><code>normalization</code></strong> :&ensp;<code>bool</code>, optional</dt>
 <dd>On or Off, by default True</dd>
 <dt><strong><code>reduce_memory</code></strong> :&ensp;<code>bool</code>, optional</dt>
@@ -2211,10 +2215,10 @@ try different values threshold and method</p>
                 drop_invariant: bool = True,
                 num_generator_features: bool = True,
                 operations_num_generator: List[str] = [&#39;/&#39;,&#39;*&#39;,&#39;-&#39;,],
-                num_denoising_autoencoder: bool = True,
+                num_denoising_autoencoder: bool = False,
                 #group_generator_features=False,
                 #frequency_enc_num_features=False,
-                normalization: bool = True,
+                normalization: bool = False,
                 reduce_memory: bool = False,
                 random_state: int = 42,
                 verbose: int = 3) -&gt; None:
@@ -2240,7 +2244,7 @@ try different values threshold and method</p>
         operations_num_generator : List[str], optional
             operations for generate num features, by default [&#39;/&#39;,&#39;*&#39;,&#39;-&#39;,]
         num_denoising_autoencoder : bool, optional
-            generate num denoising autoencoder features, by default True
+            generate num denoising autoencoder features, by default False
         normalization : bool, optional
             On or Off, by default True
         reduce_memory : bool, optional
@@ -3296,12 +3300,12 @@ shape = (n_samples, n_features)</dd>
         &#39;&#39;&#39;        
         self.verbose = verbose
 
-    def _get_dae(self, caunt_columns: int):
+    def _get_dae(self, caunt_columns: int, units: Optional[int] = 512,):
         # denoising autoencoder
         inputs = L.Input((caunt_columns,))
-        x = L.Dense(1000, activation=&#39;relu&#39;)(inputs) # 1500 original
-        x = L.Dense(1000, activation=&#39;relu&#39;)(x) # 1500 original
-        x = L.Dense(1000, activation=&#39;relu&#39;)(x) # 1500 original
+        x = L.Dense(units, activation=&#39;relu&#39;)(inputs) # 1500 original
+        x = L.Dense(units, activation=&#39;relu&#39;)(x) # 1500 original
+        x = L.Dense(units, activation=&#39;relu&#39;)(x) # 1500 original
         outputs = L.Dense(caunt_columns, activation=&#39;relu&#39;)(x)
         model = Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer=&#39;adam&#39;, loss=&#39;mse&#39;)
@@ -3340,7 +3344,11 @@ shape = (n_samples, n_features)</dd>
         self.scaler = MinMaxScaler().fit(data)
         s_data = self.scaler.transform(data)
 
-        self.autoencoder = self._get_dae(count_columns)
+        units = 512
+        if count_columns &gt; 512:
+            units = count_columns
+
+        self.autoencoder = self._get_dae(count_columns, units=units)
         self.autoencoder.fit (s_data, s_data,
                     epochs=50,
                     batch_size=124,
@@ -3473,7 +3481,11 @@ def fit(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -&gt; None:
     self.scaler = MinMaxScaler().fit(data)
     s_data = self.scaler.transform(data)
 
-    self.autoencoder = self._get_dae(count_columns)
+    units = 512
+    if count_columns &gt; 512:
+        units = count_columns
+
+    self.autoencoder = self._get_dae(count_columns, units=units)
     self.autoencoder.fit (s_data, s_data,
                 epochs=50,
                 batch_size=124,
