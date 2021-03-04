@@ -5,8 +5,6 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Sequence
-from typing import Type
 from typing import Union
 from sklearn.metrics import *
 from tqdm import tqdm
