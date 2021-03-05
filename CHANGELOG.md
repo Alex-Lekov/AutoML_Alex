@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [1.3.7]
+### Fix
+- target encoder in model.opt
+
+
 ## [1.3.6]
 ### ADD
 - add dosc on CV
