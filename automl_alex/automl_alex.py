@@ -485,7 +485,8 @@ class AutoML(object):
         time.sleep(0.1)
 
         self.model_5 = automl_alex.BestSingleModel(
-            models_names=["LightGBM", "ExtraTrees"],
+            models_names=["LightGBM", "ExtraTrees", "RandomForest"],
+            target_encoders_names=["CatBoostEncoder",],
             feature_selection=feature_selection,
             **params,
         )
