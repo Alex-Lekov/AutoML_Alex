@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [1.3.10]
+### Fix
+- TypeError in data_prepare Outliers filter
+
+
 ## [1.3.9]
 ### ADD
 - Up score AutoML (Blend best top5 models in AutoML)
