@@ -347,12 +347,12 @@ class ModelBase(object):
     @logger.catch
     def save(self, name, verbose=1):
         joblib.dump(self, name + ".pkl")
-        logger.info("Save Model")
+        # logger.info("Save Model")
 
     @logger.catch
     def load(self, name, verbose=1):
         model = joblib.load(name + ".pkl")
-        logger.info("Load Model")
+        # logger.info("Load Model")
         return model
 
 

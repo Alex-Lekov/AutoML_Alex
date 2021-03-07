@@ -11,6 +11,9 @@ from tqdm import tqdm
 import pandas as pd
 import time
 import joblib
+import os
+import contextlib
+import copy
 import automl_alex
 from .models import *
 from .cross_validation import *
@@ -231,7 +234,6 @@ class ModelsReviewRegressor(ModelsReview):
 
 
 ##################################### Stacking #########################################
-
 # in progress...
 
 ##################################### AutoML #########################################
@@ -430,25 +432,48 @@ class AutoML(object):
         # Model 2
         self.model_2 = automl_alex.BestSingleModel(
             models_names=[
-                "LinearModel",
+                # "LinearModel",
                 "LightGBM",
                 # "ExtraTrees",
                 # "RandomForest",
                 # "MLP",
             ],
-            **params
+            **params,
         )
 
-        timeout_model_2 = (timeout * 0.25) - (time.time() - start_step_0)
+        timeout_model_2 = (timeout) - (time.time() - start_step_0) - 120
         history = self.model_2.opt(
             X=X,
             y=y,
             timeout=timeout_model_2,
             verbose=verbose,
+            fit_end=False,
         )
         # self.model_2.save(name="model_2", folder=TMP_FOLDER)
         ####################################################
+        # Blend top5 models
+        logger.info(50 * "#")
+        logger.info("> Fit Best Models")
+        logger.info(50 * "#")
 
+        if self.model_2.direction == "maximize":
+            top_10_cfg = history.sort_values("value", ascending=False).head(5)
+        else:
+            top_10_cfg = history.sort_values("value", ascending=True).head(5)
+
+        self._tmp_models_folder = TMP_FOLDER + "automl_models/"
+        if os.path.isdir(self._tmp_models_folder):
+            shutil.rmtree(self._tmp_models_folder)
+
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            for i in range(5):
+                n_model = top_10_cfg.number.values[i]
+                model = self.model_2.get_model_from_iter(
+                    X, y, self.model_2.study.trials[n_model].params
+                )
+                model.save(f"model_{i+1}", folder=self._tmp_models_folder)
+
+        ####################################################
         logger.info(50 * "#")
         logger.info("> Finish!")
         return self
@@ -477,6 +502,8 @@ class AutoML(object):
         if self.model_1 is None:
             raise Exception("No fit models")
 
+        logger_print_lvl(verbose)
+
         X_source = X.copy()
         ####################################################
         # STEP 1
@@ -491,13 +518,22 @@ class AutoML(object):
         # STEP 2
         # MODEL 2
         # self.model_2 = self.model_2.load(name="model_2", folder=TMP_FOLDER)
-        self.predict_model_2 = self.model_2.predict(X_source)
 
+        models_predicts = []
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            for i in range(5):
+                model = self.model_2.load(
+                    f"model_{i+1}", folder=self._tmp_models_folder, verbose=0
+                )
+                predicts = model.predict(X_source)
+                models_predicts.append(predicts)
+
+        self.predict_model_2 = pd.DataFrame(models_predicts).mean()
 
         ####################################################
         # STEP 3
         # Blend
-        predicts = (self.predict_model_1 + self.predict_model_2) / 2
+        predicts = (self.predict_model_1 * 0.4) + (self.predict_model_2 * 0.6)
         return predicts
 
     @logger.catch
@@ -516,6 +552,9 @@ class AutoML(object):
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         joblib.dump(self, dir_tmp + "AutoML" + ".pkl")
         self.model_2.save(name="model_2", folder=dir_tmp)
+        if os.path.isdir(dir_tmp + "automl_models/"):
+            shutil.rmtree(dir_tmp + "automl_models/")
+        shutil.copytree(self._tmp_models_folder, dir_tmp + "automl_models/")
         shutil.make_archive(folder + name, "zip", dir_tmp)
         shutil.rmtree(dir_tmp)
         logger.info("Save AutoML")
@@ -537,12 +576,18 @@ class AutoML(object):
         Callable
             AutoML
         """
-        dir_tmp = folder + "AutoML_tmp/"
-        Path(dir_tmp).mkdir(parents=True, exist_ok=True)
-        shutil.unpack_archive(folder + name + ".zip", dir_tmp)
-        model = joblib.load(dir_tmp + "AutoML" + ".pkl")
-        model.model_2 = model.model_2.load(name="model_2", folder=dir_tmp)
-        shutil.rmtree(dir_tmp)
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            dir_tmp = folder + "AutoML_tmp/"
+            Path(dir_tmp).mkdir(parents=True, exist_ok=True)
+            shutil.unpack_archive(folder + name + ".zip", dir_tmp)
+            model = joblib.load(dir_tmp + "AutoML" + ".pkl")
+            model.model_2 = model.model_2.load(
+                name="model_2", folder=dir_tmp, verbose=0
+            )
+            if os.path.isdir(model._tmp_models_folder):
+                shutil.rmtree(model._tmp_models_folder)
+            shutil.copytree(dir_tmp + "automl_models/", model._tmp_models_folder)
+            shutil.rmtree(dir_tmp)
         logger.info("Load AutoML")
         return model
 
