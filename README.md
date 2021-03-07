@@ -165,6 +165,8 @@ $ optuna-dashboard sqlite:///db.sqlite3
 
 -   [x] Add opt Pruners
 
+-   [x] Docs Site
+
 -   [ ] DL Encoders
 
 -   [ ] Add More libs (NNs)
@@ -172,8 +174,6 @@ $ optuna-dashboard sqlite:///db.sqlite3
 -   [ ] Multiclass Classification
 
 -   [ ] Build pipelines
-
--   [ ] Docs Site
 
 
 # Contact
