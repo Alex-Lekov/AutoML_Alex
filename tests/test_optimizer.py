@@ -28,9 +28,6 @@ def test_bestsinglemodelclassifier_default_classification():
                                                             dataset.target[:crop],
                                                             test_size=0.2, 
                                                             random_state=RANDOM_SEED,)
-        de = DataPrepare(normalization=True,verbose=0)
-        X_train = de.fit_transform(X_train)
-        X_test = de.transform(X_test)
 
         optimizer = automl_alex.BestSingleModelClassifier(models_names = ['LinearModel','KNeighbors','RandomForest','LightGBM','ExtraTrees','MLP'])
         history = optimizer.opt(X_train, y_train, timeout=400, verbose=3)

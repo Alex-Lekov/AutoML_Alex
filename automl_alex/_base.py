@@ -169,6 +169,7 @@ class ModelBase(object):
         y_train,
         X_test,
         y_test,
+        cat_features=None,
         metric=None,
         print_metric=False,
         metric_round=4,
@@ -178,6 +179,7 @@ class ModelBase(object):
         self.fit(
             X_train,
             y_train,
+            cat_features=cat_features,
         )
 
         total_time_fit = round((time.time() - start), 2)
@@ -268,6 +270,7 @@ class ModelBase(object):
         logger.info(f"{self._type_of_estimator} optimize: {self.direction}")
 
         self.optimizer = BestSingleModel(
+            clean_and_encod_data=False,
             type_of_estimator=self._type_of_estimator,
             models_names=[self.__name__],
             target_encoders_names=[],

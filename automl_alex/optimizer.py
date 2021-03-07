@@ -23,6 +23,7 @@ import sklearn
 
 from automl_alex._logger import *
 from .cross_validation import *
+from .data_prepare import *
 import automl_alex
 
 optuna.logging.disable_default_handler()
@@ -89,24 +90,53 @@ class BestSingleModel(object):
 
     def __init__(
         self,
-        models_names=["LinearModel", "LightGBM", "ExtraTrees"],
-        target_encoders_names=["JamesSteinEncoder",],
-        folds=7,
-        score_folds=2,
-        metric=None,
-        metric_round=4,
-        cold_start=10,
-        opt_lvl=1,
-        early_stoping=50,
-        auto_parameters=True,
-        feature_selection=False,
+        clean_and_encod_data: bool = False,
+        models_names: List[str] = ["LinearModel", "LightGBM", "ExtraTrees"],
+        opt_data_prepare: bool = False,
+        cat_encoder_names: List[str] = [
+            "HelmertEncoder",
+            "OneHotEncoder",
+            "CountEncoder",
+            "HashingEncoder",
+            "BackwardDifferenceEncoder",
+        ],
+        target_encoders_names: List[str] = [
+            "TargetEncoder",
+            "JamesSteinEncoder",
+            "CatBoostEncoder",
+            "WOEEncoder",
+        ],
+        clean_outliers: List[bool] = [True, False],
+        num_generator_select_operations: bool = True,
+        num_generator_operations: List[str] = ["/", "*", "-"],
+        normalization=False,
+        folds: int = 7,
+        score_folds: int = 2,
+        metric: Optional[Callable] = None,
+        metric_round: int = 4,
+        cold_start: int = 15,
+        opt_lvl: int = 1,
+        early_stoping: int = 50,
+        auto_parameters: bool = True,
+        feature_selection: bool = False,
         type_of_estimator=None,  # classifier or regression
-        gpu=False,
-        random_state=42,
-        verbose=3,
+        gpu: bool = False,
+        random_state: int = 42,
+        verbose: Optional[bool] = None,
     ):
+        if verbose is not None:
+            logger_print_lvl(verbose)
+            self._verbose = verbose
         self._random_state = random_state
         self._gpu = gpu
+        self._clean_and_encod_data = clean_and_encod_data
+        self._opt_data_prepare = opt_data_prepare
+        self._cat_encoder_names = cat_encoder_names
+        self._target_encoders_names = target_encoders_names
+        self._clean_outliers = clean_outliers
+        self._num_generator_select_operations = num_generator_select_operations
+        self._num_generator_operations = num_generator_operations
+        self._normalization = normalization
 
         if models_names is None:
             self.models_names = list(automl_alex.models.all_models.keys())
@@ -116,7 +146,6 @@ class BestSingleModel(object):
         if type_of_estimator is not None:
             self._type_of_estimator = type_of_estimator
 
-        self.target_encoders_names = target_encoders_names
         self.folds = folds
         self.score_folds = score_folds
         self.metric_round = metric_round
@@ -186,20 +215,17 @@ class BestSingleModel(object):
         """
         early_stoping = 25
         folds = 7
-        score_folds = 2
+        score_folds = 3
         opt_lvl = 1
-        cold_start = 10
+        cold_start = 15
 
         if possible_iters > 100:
             opt_lvl = 2
-            folds = 7
-            score_folds = 2
             cold_start = 20
             early_stoping = 30
 
         if possible_iters > 500:
             opt_lvl = 3
-            score_folds = 3
             cold_start = 25
             early_stoping = cold_start * 2
 
@@ -236,7 +262,7 @@ class BestSingleModel(object):
         logger.info(f"Metric = {self.metric.__name__}")
         logger.info(f"Direction = {self.direction}")
 
-    def _tqdm_opt_print(self, pbar, score_opt, pruned=False):
+    def _tqdm_opt_print(self, pbar, score_opt):
         """
         Printing information in tqdm. Use pbar.
         See the documentation for tqdm: https://github.com/tqdm/tqdm
@@ -245,42 +271,22 @@ class BestSingleModel(object):
             self.best_score = self.study.best_value
 
             message = f"| Model: {self.model_name} | OptScore: {score_opt} | Best {self.metric.__name__}: {self.best_score} "
-            if pruned:
-                message += f"| Trail Pruned! "
             pbar.set_postfix_str(message)
             pbar.update(1)
 
     def _set_opt_info(self, model, timeout):
         self.study.set_user_attr("Type_estimator", self._type_of_estimator)
-        self.study.set_user_attr(
-            "Metric",
-            self.metric.__name__,
-        )
-        self.study.set_user_attr(
-            "direction",
-            self.direction,
-        )
+        self.study.set_user_attr("Metric", self.metric.__name__)
+        self.study.set_user_attr("direction", self.direction)
         self.study.set_user_attr("Timeout", timeout)
         self.study.set_user_attr("auto_parameters", self._auto_parameters)
         self.study.set_user_attr("early_stoping", self.early_stoping)
         self.study.set_user_attr("cold_start", self.cold_start)
-        self.study.set_user_attr(
-            "opt_lvl",
-            self.opt_lvl,
-        )
+        self.study.set_user_attr("opt_lvl", self.opt_lvl)
         self.study.set_user_attr("Folds", self.folds)
-        self.study.set_user_attr(
-            "Score_folds",
-            self.score_folds,
-        )
-        self.study.set_user_attr(
-            "Opt_lvl",
-            self.opt_lvl,
-        )
-        self.study.set_user_attr(
-            "random_state",
-            self._random_state,
-        )
+        self.study.set_user_attr("Score_folds", self.score_folds)
+        self.study.set_user_attr("Opt_lvl", self.opt_lvl)
+        self.study.set_user_attr("random_state", self._random_state)
         self.study.set_system_attr("System", platform.system())
         self.study.set_system_attr("CPU", platform.processor())
         self.study.set_system_attr("CPU cores", psutil.cpu_count())
@@ -293,6 +299,22 @@ class BestSingleModel(object):
             psutil.virtual_memory().available * 100 / psutil.virtual_memory().total, 1
         )
         self.study.set_system_attr("Free RAM %", free_mem)
+
+    def get_model_from_iter(self, X, y, params):
+        # Opt objective
+        def objective(trial, self, X, y, verbose=1):
+            # self._set_opt_sys_info()
+            return self._opt_objective(trial, X, y, return_model=True, verbose=verbose)
+
+        ###################################
+        self.cv_model = objective(
+            optuna.trial.FixedTrial(params),
+            self,
+            X=X,
+            y=y,
+            verbose=self._verbose,
+        )
+        return self
 
     def _get_opt_model_(self, trial):
         """
@@ -307,7 +329,7 @@ class BestSingleModel(object):
             type_of_estimator=self._type_of_estimator,
             random_state=self._random_state,
             gpu=self._gpu,
-            verbose=self.verbose,
+            verbose=None,
         )
         return opt_model
 
@@ -333,6 +355,67 @@ class BestSingleModel(object):
             result = list(columns)
         return result
 
+    def _opt_encoder_selector(self, columns, trial):
+        """
+        Description of _opt_feature_selector
+
+        Args:
+            columns (list):
+            trial (undefined):
+
+        Returns:
+            selected columns (list)
+        """
+        select_columns = {}
+        for colum in columns:
+            select_columns[colum] = trial.suggest_categorical(colum, [True, False])
+        select_columns_ = {k: v for k, v in select_columns.items() if v is True}
+
+        if select_columns_:
+            result = list(select_columns_.keys())
+        else:
+            result = []
+        return result
+
+    def _opt_data_prepare_func(self, X: pd.DataFrame, trial):
+        self.de_cfg = {
+            "num_generator_features": True,
+            "random_state": self._random_state,
+            "verbose": 1,
+        }
+
+        self.de_cfg["cat_encoder_names"] = self._opt_encoder_selector(
+            self._cat_encoder_names,
+            trial,
+        )
+
+        self._select_target_encoders_names = self._opt_encoder_selector(
+            self._target_encoders_names,
+            trial,
+        )
+
+        if len(self._clean_outliers) > 1:
+            self.de_cfg["clean_outliers"] = trial.suggest_categorical(
+                "de_clean_outliers", [True, False]
+            )
+        else:
+            self.de_cfg["clean_outliers"] = self._clean_outliers[0]
+
+        if self._num_generator_select_operations:
+            self.de_cfg["num_generator_operations"] = self._opt_encoder_selector(
+                self._num_generator_operations, trial
+            )
+
+        if self.model_name in automl_alex.models.need_norm_data_models:
+            self.de_cfg["normalization"] = True
+        else:
+            self.de_cfg["normalization"] = False
+
+        self.de = DataPrepare(**self.de_cfg)
+        X = self.de.fit_transform(X)
+        logger_print_lvl(self._verbose)
+        return X
+
     def _opt_objective(self, trial, X, y, return_model=False, verbose=1):
         if len(self.models_names) > 1:
             self.opt_model = self._get_opt_model_(trial)
@@ -341,9 +424,14 @@ class BestSingleModel(object):
             opt_lvl=self.opt_lvl,
         )
 
+        if self._opt_data_prepare:
+            X = self._opt_data_prepare_func(self._X_source, trial)
+        else:
+            self._select_target_encoders_names = self._target_encoders_names
+
         cv = CrossValidation(
             estimator=self.opt_model,
-            target_encoders_names=self.target_encoders_names,
+            target_encoders_names=self._select_target_encoders_names,
             folds=self.folds,
             score_folds=self.score_folds,
             n_repeats=1,
@@ -375,7 +463,7 @@ class BestSingleModel(object):
         X,
         y,
         timeout=600,  # optimization time in seconds
-        verbose=0,
+        verbose=None,
     ):
         """
         Description of opt:
@@ -393,19 +481,34 @@ class BestSingleModel(object):
         start_opt_time = time.time()
         self.study = None
 
-        self.verbose = verbose
-        logger_print_lvl(self.verbose)
-
-        if verbose > 0:
-            disable_tqdm = False
-        else:
-            disable_tqdm = True
+        disable_tqdm = True
+        if verbose is not None:
+            logger_print_lvl(verbose)
+            self._verbose = verbose
+            if verbose > 0:
+                disable_tqdm = False
 
         if self.metric is not None:
             self.direction = self.__metric_direction_detected__(self.metric, y)
 
         # model = self.estimator
+        ###############################################################################
+        # Data
+        if self._clean_and_encod_data and not self._opt_data_prepare:
+            self.de_cfg = {
+                "cat_encoder_names": self._cat_encoder_names,
+                "clean_outliers": self._clean_outliers,
+                "normalization": self._normalization,
+                "num_generator_operations": self._num_generator_operations,
+                "num_generator_features": True,
+                "random_state": self._random_state,
+                "verbose": 1,
+            }
+            self.de = DataPrepare(**self.de_cfg)
+            X = self.de.fit_transform(X)
 
+        if self._clean_and_encod_data and self._opt_data_prepare:
+            self._X_source = X.copy()
         ###############################################################################
         # Optuna _EarlyStoppingExceeded
         es = _EarlyStoppingExceeded()
@@ -428,27 +531,25 @@ class BestSingleModel(object):
             return_model=False,
             verbose=1,
         ):
-            self._set_opt_sys_info()
+            # self._set_opt_sys_info()
+            score, score_std = self._opt_objective(
+                trial,
+                X,
+                y,
+                return_model=return_model,
+                verbose=verbose,
+            )
+            score_opt = round(
+                self.__calc_combined_score_opt__(self.direction, score, score_std),
+                self.metric_round,
+            )
+            if trial.should_prune():
+                # logger.info(f'- {trial.number} Trial Pruned, Score: {score_opt}')
+                raise optuna.TrialPruned()
 
-            if not return_model:
-                score, score_std = self._opt_objective(
-                    trial, X, y, return_model=return_model, verbose=verbose
-                )
-                score_opt = round(
-                    self.__calc_combined_score_opt__(self.direction, score, score_std),
-                    self.metric_round,
-                )
-                if trial.should_prune():
-                    # logger.info(f'- {trial.number} Trial Pruned, Score: {score_opt}')
-                    raise optuna.TrialPruned()
-                if verbose >= 1 and step > 1:
-                    self._tqdm_opt_print(pbar, score_opt, trial.should_prune())
-
-                return score_opt
-            else:
-                return self._opt_objective(
-                    trial, X, y, return_model=return_model, verbose=verbose
-                )
+            if verbose >= 1 and step > 1:
+                self._tqdm_opt_print(pbar, score_opt)
+            return score_opt
 
         ###############################################################################
         # Optuna
@@ -470,6 +571,7 @@ class BestSingleModel(object):
         )
 
         self._set_opt_info(self, timeout)
+        self._set_opt_sys_info()
 
         # if self.estimator._is_model_start_opt_params():
         #     dafault_params = self.estimator.get_model_start_opt_params()
@@ -478,7 +580,7 @@ class BestSingleModel(object):
         obj_config = {
             "X": X,
             "y": y,
-            "verbose": self.verbose,
+            "verbose": self._verbose,
         }
 
         # init opt model
@@ -488,7 +590,7 @@ class BestSingleModel(object):
             type_of_estimator=self._type_of_estimator,
             random_state=self._random_state,
             gpu=self._gpu,
-            verbose=self.verbose,
+            verbose=self._verbose,
         )
 
         ###############################################################################
@@ -556,23 +658,13 @@ class BestSingleModel(object):
         self._print_opt_parameters()
         logger.info("#" * 50)
 
-        with tqdm(
-            file=sys.stderr,
-            desc="Optimize: ",
-            disable=disable_tqdm,
-        ) as pbar:
+        timeout_step2 = timeout - (time.time() - start_opt_time)
+        timeout_step2 = timeout_step2 - (iter_time * self.folds)  # prediction time
+        with tqdm(file=sys.stderr, desc="Optimize: ", disable=disable_tqdm) as pbar:
             try:
                 self.study.optimize(
-                    lambda trial: objective(
-                        trial,
-                        self,
-                        step=2,
-                        **obj_config,
-                    ),
-                    timeout=(
-                        (timeout - (start_opt_time - time.time()))
-                        - (iter_time * self.folds)
-                    ),
+                    lambda trial: objective(trial, self, step=2, **obj_config),
+                    timeout=timeout_step2,
                     callbacks=[es_callback],
                     show_progress_bar=False,
                 )
@@ -587,13 +679,11 @@ class BestSingleModel(object):
         ###############################################################################
         # fit CV model
         logger.info(f"> Finish Opt!")
-        self.cv_model = objective(
-            optuna.trial.FixedTrial(self.study.best_params),
-            self,
-            return_model=True,
-            **obj_config,
-        )
+
+        self.get_model_from_iter(X, y, self.study.best_params)
+
         logger.info(f"Best Score: {self.study.best_value} {self.metric.__name__}")
+
         self.best_model_name = self.cv_model.estimator.__name__
         self.best_model_param = self.cv_model.estimator.model_param
         return self.study.trials_dataframe()
@@ -601,6 +691,9 @@ class BestSingleModel(object):
     def predict_test(self, X):
         if not self.cv_model:
             raise Exception("No opt and fit models")
+
+        if self._clean_and_encod_data:
+            X = self.de.transform(X)
 
         if self.feature_selection:
             X = X[self.select_columns]
@@ -614,6 +707,9 @@ class BestSingleModel(object):
     def predict_train(self, X):
         if not self.cv_model:
             raise Exception("No opt and fit models")
+
+        if self._clean_and_encod_data:
+            X = self.de.transform(X)
 
         if self.feature_selection:
             X = X[self.select_columns]
@@ -636,8 +732,10 @@ class BestSingleModel(object):
         dir_tmp = TMP_FOLDER + "/opt_model_tmp/"
         self._clean_temp_folder()
 
-        self.cv_model.save(name="opt_model_cv", folder=dir_tmp, verbose=0)
+        if self._clean_and_encod_data:
+            self.de.save(name="DataPrepare_dump", folder=dir_tmp)
 
+        self.cv_model.save(name="opt_model_cv", folder=dir_tmp, verbose=0)
         joblib.dump(self, dir_tmp + "opt_model" + ".pkl")
 
         shutil.make_archive(folder + name, "zip", dir_tmp)
@@ -654,6 +752,11 @@ class BestSingleModel(object):
         shutil.unpack_archive(folder + name + ".zip", dir_tmp)
 
         model = joblib.load(dir_tmp + "opt_model" + ".pkl")
+
+        if model._clean_and_encod_data:
+            model.de = DataPrepare()
+            model.de = model.de.load("DataPrepare_dump", folder=dir_tmp)
+
         model.cv_model = model.cv_model.load(
             name="opt_model_cv",
             folder=dir_tmp,
