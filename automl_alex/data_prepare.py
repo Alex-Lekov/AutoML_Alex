@@ -690,7 +690,7 @@ class CleanOutliers(object):
                     data[weight_values] > self._weight[weight_values][1], weight_values
                 ] = self._weight[weight_values][1]
 
-                feature_name = weight_values + "_Is_Outliers_" + self.method
+                feature_name = str(weight_values) + "_Is_Outliers_" + self.method
                 data[feature_name] = 0
                 data.loc[
                     (data[weight_values] < self._weight[weight_values][0])
@@ -708,7 +708,7 @@ class CleanOutliers(object):
                 )
                 data.loc[filtered_entries, weight_values] = data[weight_values].median()
 
-                feature_name = weight_values + "_Is_Outliers_" + self.method
+                feature_name = str(weight_values) + "_Is_Outliers_" + self.method
                 data[feature_name] = 0
                 data.loc[filtered_entries, feature_name] = 1
 
