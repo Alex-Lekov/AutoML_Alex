@@ -1307,7 +1307,7 @@ class DataPrepare(object):
             )
 
         shutil.rmtree(dir_tmp)
-        logger.info("Load DataPrepare")
+        # logger.info("Load DataPrepare")
         return de
 
 

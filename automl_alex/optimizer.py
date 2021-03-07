@@ -464,6 +464,7 @@ class BestSingleModel(object):
         y,
         timeout=600,  # optimization time in seconds
         verbose=None,
+        fit_end=True,
     ):
         """
         Description of opt:
@@ -680,12 +681,12 @@ class BestSingleModel(object):
         # fit CV model
         logger.info(f"> Finish Opt!")
 
-        self.get_model_from_iter(X, y, self.study.best_params)
+        if fit_end:
+            self.get_model_from_iter(X, y, self.study.best_params)
+            self.best_model_name = self.cv_model.estimator.__name__
+            self.best_model_param = self.cv_model.estimator.model_param
 
         logger.info(f"Best Score: {self.study.best_value} {self.metric.__name__}")
-
-        self.best_model_name = self.cv_model.estimator.__name__
-        self.best_model_param = self.cv_model.estimator.model_param
         return self.study.trials_dataframe()
 
     def predict_test(self, X):

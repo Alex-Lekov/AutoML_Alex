@@ -11,6 +11,9 @@ from tqdm import tqdm
 import pandas as pd
 import time
 import joblib
+import os
+import contextlib
+import copy
 import automl_alex
 from .models import *
 from .cross_validation import *
@@ -231,229 +234,7 @@ class ModelsReviewRegressor(ModelsReview):
 
 
 ##################################### Stacking #########################################
-
-
-class Stacking(BestSingleModel):
-    __name__ = "Stacking"
-    history_trials = []
-    fited_models = {}
-    _fit_target_enc = {}
-
-    def stack_cv(
-        self,
-        X,
-        y,
-        trial,
-        estimator,
-        metric,
-        cat_features: Optional[List[str]] = None,
-        target_encoders=[],
-        folds=7,
-        score_folds=3,
-        n_repeats=1,
-        metric_round=4,
-        random_state=42,
-    ):
-
-        if cat_features is None:
-            cat_features = X.columns[(X.nunique() < (len(X) // 100))]
-        else:
-            cat_features = cat_features
-
-        if estimator._type_of_estimator == "classifier":
-            self.skf = RepeatedStratifiedKFold(
-                n_splits=folds,
-                n_repeats=n_repeats,
-                random_state=random_state,
-            )
-        else:
-            self.skf = RepeatedKFold(
-                n_splits=folds,
-                n_repeats=n_repeats,
-                random_state=random_state,
-            )
-
-        self.cv_split_idx = [
-            (train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)
-        ]
-
-        folds_predicts = {}
-        folds_y = {}
-        folds_scores = []
-
-        self._pruned_cv = False
-
-        for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
-            train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
-            val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
-            # Target Encoder
-            if len(target_encoders) > 0:
-                val_x_copy = val_x[cat_features].copy()
-                train_x_copy = train_x[cat_features].copy()
-                for target_enc_name in target_encoders:
-                    encoder_prefix = f"{trial.number}_model_{target_enc_name} _fold_{i}"
-                    self._fit_target_enc[encoder_prefix] = copy.deepcopy(
-                        target_encoders_names[target_enc_name](drop_invariant=True)
-                    )
-
-                    self._fit_target_enc[encoder_prefix] = self._fit_target_enc[
-                        encoder_prefix
-                    ].fit(train_x_copy, train_y)
-
-                    data_encodet = self._fit_target_enc[encoder_prefix].transform(
-                        train_x_copy
-                    )
-                    data_encodet = data_encodet.add_prefix(target_enc_name + "_")
-                    train_x = train_x.join(data_encodet.reset_index(drop=True))
-                    data_encodet = None
-
-                    val_x_data_encodet = self._fit_target_enc[encoder_prefix].transform(
-                        val_x_copy
-                    )
-                    val_x_data_encodet = val_x_data_encodet.add_prefix(
-                        target_enc_name + "_"
-                    )
-                    val_x = val_x.join(val_x_data_encodet.reset_index(drop=True))
-                    val_x_data_encodet = None
-                train_x_copy = None
-                train_x.fillna(0, inplace=True)
-                val_x.fillna(0, inplace=True)
-
-            # Fit
-            estimator.fit(X_train=train_x, y_train=train_y)
-            # moder_prefix = f"{trial.number}_model_fold_{i}"
-            # self.fited_models[moder_prefix] = copy.deepcopy(estimator)
-            if metric.__name__ in predict_proba_metrics:
-                y_pred = estimator.predict_or_predict_proba(val_x)
-            else:
-                y_pred = estimator.predict(val_x)
-
-            folds_predicts[f"y_pred_fold_{i}"] = y_pred
-            folds_y[f"y_fold_{i}"] = val_y
-
-            score_model = round(metric(val_y, y_pred), metric_round)
-            folds_scores.append(score_model)
-
-            if (trial is not None) and i < 1:
-                trial.report(score_model, i)
-                # Handle pruning based on the intermediate value.
-                if trial.should_prune():
-                    self._pruned_cv = True
-                    break
-
-            # score_folds
-            if i + 1 >= score_folds:
-                break
-
-        if self._pruned_cv:
-            score = score_model
-            score_std = 0
-
-        else:
-            if score_folds > 1:
-                score = round(np.mean(folds_scores), metric_round)
-                score_std = round(np.std(folds_scores), metric_round + 2)
-            else:
-                score = round(score_model, metric_round)
-                score_std = 0
-
-        return (score, score_std, folds_predicts, folds_y)
-
-    def mean_score_from_df(self, data, folds_y):
-        folds_scores = []
-        for i in range(self.score_folds):
-            y_pred = data[f"y_pred_fold_{i}"].mean()
-            y = folds_y[f"y_fold_{i}"]
-            score_model = round(self.metric(y, y_pred), self.metric_round)
-            folds_scores.append(score_model)
-
-        all_models_score = round(np.mean(folds_scores), self.metric_round)
-        all_models_score_std = round(np.std(folds_scores), self.metric_round + 2)
-        return (all_models_score, all_models_score_std)
-
-    def _opt_objective(self, trial, X, y, return_model=False, verbose=1):
-        if len(self.models_names) > 1:
-            self.opt_model = self._get_opt_model_(trial)
-        self.opt_model.model_param = self.opt_model.get_model_opt_params(
-            trial=trial,
-            opt_lvl=self.opt_lvl,
-        )
-
-        if self._opt_data_prepare:
-            X = self._opt_data_prepare_func(self._X_source, trial)
-        else:
-            self._select_target_encoders_names = self._target_encoders_names
-
-        cv_config = {
-            #'X':X,
-            #'y':y,
-            "trial": trial,
-            "estimator": self.opt_model,
-            "target_encoders": self._select_target_encoders_names,
-            "folds": self.folds,
-            "score_folds": self.score_folds,
-            "n_repeats": 1,
-            "metric": self.metric,
-            "metric_round": self.metric_round,
-            "random_state": self._random_state,
-        }
-
-        self.select_columns = None
-        if self.feature_selection:
-            self.select_columns = self._opt_feature_selector(X.columns, trial=trial)
-            score, score_std, folds_predicts, folds_y = self.stack_cv(
-                X[self.select_columns], y, **cv_config
-            )
-        else:
-            score, score_std, folds_predicts, folds_y = self.stack_cv(X, y, **cv_config)
-
-        if not self._pruned_cv:
-            # trail_config
-            trail_config = {
-                "trial_number": trial.number,
-                "model_score": score,
-                "score_std": score_std,
-                "model_name": self.opt_model.__name__,
-                "model_param": self.opt_model.model_param,
-                "columns": self.select_columns,
-                "folds": self.folds,
-                "score_folds": self.score_folds,
-            }
-            trail_config.update(folds_predicts)
-            self.history_trials.append(trail_config)
-
-            # print(f'Single Model Score: {score}, std: {score_std}')
-
-            self.history_trials_dataframe = pd.DataFrame(
-                self.history_trials
-            ).sort_values("model_score", ascending=True)
-            if self.direction == "maximize":
-                self.history_trials_dataframe = pd.DataFrame(
-                    self.history_trials
-                ).sort_values("model_score", ascending=False)
-
-            # all mean
-            models_score, models_score_std = self.mean_score_from_df(
-                self.history_trials_dataframe, folds_y
-            )
-            print(f"ALL MODELS MEAN Score: {models_score}, std: {models_score_std}")
-
-            models_score, models_score_std = self.mean_score_from_df(
-                self.history_trials_dataframe.head(10), folds_y
-            )
-            print(f"TOP10 MODELS MEAN Score: {models_score}, std: {models_score_std}")
-            print("#" * 50)
-
-        return (score, score_std)
-
-
-class StackingClassifier(Stacking):
-    _type_of_estimator = "classifier"
-
-
-class StackingRegressor(Stacking):
-    _type_of_estimator = "regression"
-
+# in progress...
 
 ##################################### AutoML #########################################
 
@@ -651,7 +432,7 @@ class AutoML(object):
         # Model 2
         self.model_2 = automl_alex.BestSingleModel(
             models_names=[
-                "LinearModel",
+                # "LinearModel",
                 "LightGBM",
                 # "ExtraTrees",
                 # "RandomForest",
@@ -660,16 +441,39 @@ class AutoML(object):
             **params,
         )
 
-        timeout_model_2 = (timeout * 0.25) - (time.time() - start_step_0)
+        timeout_model_2 = (timeout) - (time.time() - start_step_0) - 120
         history = self.model_2.opt(
             X=X,
             y=y,
             timeout=timeout_model_2,
             verbose=verbose,
+            fit_end=False,
         )
         # self.model_2.save(name="model_2", folder=TMP_FOLDER)
         ####################################################
+        # Blend top5 models
+        logger.info(50 * "#")
+        logger.info("> Fit Best Models")
+        logger.info(50 * "#")
 
+        if self.model_2.direction == "maximize":
+            top_10_cfg = history.sort_values("value", ascending=False).head(5)
+        else:
+            top_10_cfg = history.sort_values("value", ascending=True).head(5)
+
+        self._tmp_models_folder = TMP_FOLDER + "automl_models/"
+        if os.path.isdir(self._tmp_models_folder):
+            shutil.rmtree(self._tmp_models_folder)
+
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            for i in range(5):
+                n_model = top_10_cfg.number.values[i]
+                model = self.model_2.get_model_from_iter(
+                    X, y, self.model_2.study.trials[n_model].params
+                )
+                model.save(f"model_{i+1}", folder=self._tmp_models_folder)
+
+        ####################################################
         logger.info(50 * "#")
         logger.info("> Finish!")
         return self
@@ -698,6 +502,8 @@ class AutoML(object):
         if self.model_1 is None:
             raise Exception("No fit models")
 
+        logger_print_lvl(verbose)
+
         X_source = X.copy()
         ####################################################
         # STEP 1
@@ -712,12 +518,22 @@ class AutoML(object):
         # STEP 2
         # MODEL 2
         # self.model_2 = self.model_2.load(name="model_2", folder=TMP_FOLDER)
-        self.predict_model_2 = self.model_2.predict(X_source)
+
+        models_predicts = []
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            for i in range(5):
+                model = self.model_2.load(
+                    f"model_{i+1}", folder=self._tmp_models_folder, verbose=0
+                )
+                predicts = model.predict(X_source)
+                models_predicts.append(predicts)
+
+        self.predict_model_2 = pd.DataFrame(models_predicts).mean()
 
         ####################################################
         # STEP 3
         # Blend
-        predicts = (self.predict_model_1 + self.predict_model_2) / 2
+        predicts = (self.predict_model_1 * 0.4) + (self.predict_model_2 * 0.6)
         return predicts
 
     @logger.catch
@@ -736,6 +552,9 @@ class AutoML(object):
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         joblib.dump(self, dir_tmp + "AutoML" + ".pkl")
         self.model_2.save(name="model_2", folder=dir_tmp)
+        if os.path.isdir(dir_tmp + "automl_models/"):
+            shutil.rmtree(dir_tmp + "automl_models/")
+        shutil.copytree(self._tmp_models_folder, dir_tmp + "automl_models/")
         shutil.make_archive(folder + name, "zip", dir_tmp)
         shutil.rmtree(dir_tmp)
         logger.info("Save AutoML")
@@ -757,12 +576,18 @@ class AutoML(object):
         Callable
             AutoML
         """
-        dir_tmp = folder + "AutoML_tmp/"
-        Path(dir_tmp).mkdir(parents=True, exist_ok=True)
-        shutil.unpack_archive(folder + name + ".zip", dir_tmp)
-        model = joblib.load(dir_tmp + "AutoML" + ".pkl")
-        model.model_2 = model.model_2.load(name="model_2", folder=dir_tmp)
-        shutil.rmtree(dir_tmp)
+        with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+            dir_tmp = folder + "AutoML_tmp/"
+            Path(dir_tmp).mkdir(parents=True, exist_ok=True)
+            shutil.unpack_archive(folder + name + ".zip", dir_tmp)
+            model = joblib.load(dir_tmp + "AutoML" + ".pkl")
+            model.model_2 = model.model_2.load(
+                name="model_2", folder=dir_tmp, verbose=0
+            )
+            if os.path.isdir(model._tmp_models_folder):
+                shutil.rmtree(model._tmp_models_folder)
+            shutil.copytree(dir_tmp + "automl_models/", model._tmp_models_folder)
+            shutil.rmtree(dir_tmp)
         logger.info("Load AutoML")
         return model
 
