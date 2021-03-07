@@ -309,13 +309,13 @@ class AutoML(object):
         self,
         X: pd.DataFrame,
         y: Union[list, np.array, pd.DataFrame],
-        timeout: int = 500,  # optimization time in seconds
+        timeout: int = 600,  # optimization time in seconds
         auto_parameters: bool = True,
         folds: int = 7,
-        score_folds: int = 2,
+        score_folds: int = 3,
         opt_lvl: int = 2,
         early_stoping: int = 100,
-        feature_selection: bool = True,
+        feature_selection: bool = False,
         verbose: int = 3,
     ) -> None:
         """
@@ -339,7 +339,7 @@ class AutoML(object):
         folds : int, optional
             Number of folds for CrossValidation. Must be at least 2, by default 7
         score_folds : int, optional
-            Number of score folds. Must be at least 1., by default 2
+            Number of score folds. Must be at least 1., by default 3
         opt_lvl : int, optional
             by limiting the optimization time, we will have to choose how deep we should optimize the parameters.
             Perhaps some parameters are not so important and can only give a fraction of a percent.
@@ -358,21 +358,25 @@ class AutoML(object):
         None
         """
         logger_print_lvl(verbose)
-        X_source = X.copy()
+        ####################################################
+        # STEP 0
+        logger.info("> Start Fit Base Model")
+        if timeout < 600:
+            logger.warning(
+                "! Not enough time to find the optimal parameters. \n \
+                    Please, Increase the 'timeout' parameter for normal optimization. (min 600 sec)"
+            )
         ####################################################
         # STEP 0
         start_step_0 = time.time()
-        logger.info("> Start Fit Base Model")
-        if timeout < 400:
-            logger.warning(
-                "! Not enough time to find the optimal parameters. \n \
-                    Please, Increase the 'timeout' parameter for normal optimization. (min 500 sec)"
-            )
 
-        self.cat_features = X.columns[(X.dtypes == "object") | (X.dtypes == "category")]
-        X[self.cat_features] = X[self.cat_features].astype("str")
-        X.fillna(0, inplace=True)
-        X[self.cat_features] = X[self.cat_features].astype("category")
+        X_tmp = X.copy()
+        self._cat_cat_features = X_tmp.columns[
+            (X_tmp.dtypes == "object") | (X_tmp.dtypes == "category")
+        ]
+        X_tmp[self._cat_cat_features] = X_tmp[self._cat_cat_features].astype("str")
+        X_tmp.fillna(0, inplace=True)
+        X_tmp[self._cat_cat_features] = X_tmp[self._cat_cat_features].astype("category")
 
         self.model_1 = automl_alex.CatBoost(
             type_of_estimator=self._type_of_estimator,
@@ -380,27 +384,16 @@ class AutoML(object):
             gpu=self._gpu,
             # verbose=verbose,
         )
-        self.model_1 = self.model_1.fit(X, y, cat_features=self.cat_features.tolist())
-        X = None
+        self.model_1 = self.model_1.fit(
+            X_tmp, y, cat_features=self._cat_cat_features.tolist()
+        )
+        X_tmp = None
 
-        ####################################################
-        # STEP 1
         start_step_1 = time.time()
-        logger.info("> DATA PREPROC")
-        self.de_1 = automl_alex.DataPrepare(
-            cat_encoder_names=["OneHotEncoder", "CountEncoder"],
-            # outliers_threshold=3,
-            normalization=True,
-            random_state=self._random_state,
-            # verbose=verbose
-        )
-        X = self.de_1.fit_transform(
-            X_source,
-        )
-        if self.de_1.cat_features is not None:
-            X = X.drop(self.de_1.cat_features, axis=1)
 
         params = {
+            "clean_and_encod_data": True,
+            "opt_data_prepare": True,
             "metric": self.metric,
             "metric_round": self._metric_round,
             "auto_parameters": auto_parameters,
@@ -408,102 +401,54 @@ class AutoML(object):
             "score_folds": score_folds,
             "opt_lvl": opt_lvl,
             "early_stoping": early_stoping,
+            "feature_selection": feature_selection,
             "type_of_estimator": self._type_of_estimator,
             "random_state": self._random_state,
             "gpu": self._gpu,
+            "cat_encoder_names": [
+                "HelmertEncoder",
+                "OneHotEncoder",
+                "CountEncoder",
+                "HashingEncoder",
+                "BackwardDifferenceEncoder",
+            ],
+            "target_encoders_names": [
+                "TargetEncoder",
+                "JamesSteinEncoder",
+                "CatBoostEncoder",
+            ],
+            "clean_outliers": [True, False],
+            "num_generator_select_operations": True,
+            "num_generator_operations": ["/", "*", "-", "+"],
             #'iteration_check': False,
         }
-
-        # logger.info(50*'#')
-        # logger.info('> Start Fit Models 2')
-        # logger.info(50*'#')
-        # # Model 2
-        # self.model_2 = automl_alex.BestSingleModel(
-        #     models_names = ['LinearModel',],
-        #     feature_selection=False,
-        #     **params,
-        #     )
-
-        # history = self.model_2.opt(X,y, timeout=100, verbose=verbose)
-        # self.model_2.save(name='model_2', folder=TMP_FOLDER,)
-
-        logger.info(50 * "#")
-        logger.info("> Start Fit Models 3")
-        logger.info(50 * "#")
-        # Model 3
-        self.model_3 = automl_alex.MLP(
-            type_of_estimator=self._type_of_estimator,
-            random_state=self._random_state,
-            # verbose=verbose,
-        )
-        self.model_3 = self.model_3.fit(X, y)
-
-        X = None
-
-        total_step_1 = time.time() - start_step_1
-
         ####################################################
-        # STEP 2
-        start_step_2 = time.time()
-
-        logger.info("> DATA PREPROC")
-
-        self.de_2 = DataPrepare(
-            cat_encoder_names=["HelmertEncoder", "CountEncoder", "HashingEncoder"],
-            # outliers_threshold=3,
-            normalization=False,
-            random_state=self._random_state,
-            # verbose=verbose
-        )
-        X = self.de_2.fit_transform(X_source)
-        # X = X.drop(self.de_2.cat_features, axis = 1)
 
         logger.info(50 * "#")
-        logger.info("> Start Fit Models 4")
-
-        self.model_4 = automl_alex.CatBoost(
-            type_of_estimator=self._type_of_estimator,
-            random_state=self._random_state,
-            gpu=self._gpu,
-            # verbose=verbose,
+        logger.info("> Start Fit Models 2")
+        logger.info(50 * "#")
+        # Model 2
+        self.model_2 = automl_alex.BestSingleModel(
+            models_names=[
+                "LinearModel",
+                "LightGBM",
+                # "ExtraTrees",
+                # "RandomForest",
+                # "MLP",
+            ],
+            **params
         )
 
-        self.model_4 = self.model_4.fit(X, y)
-
-        total_step_2 = time.time() - start_step_2
-
+        timeout_model_2 = (timeout * 0.25) - (time.time() - start_step_0)
+        history = self.model_2.opt(
+            X=X,
+            y=y,
+            timeout=timeout_model_2,
+            verbose=verbose,
+        )
+        # self.model_2.save(name="model_2", folder=TMP_FOLDER)
         ####################################################
-        # STEP 3
-        # Model 2 - 3
-        start_step_3 = time.time()
 
-        logger.info(50 * "#")
-        logger.info("> Start Fit Models 5")
-        logger.info(50 * "#")
-
-        time_to_opt = (timeout - (time.time() - start_step_0)) - 60
-        time.sleep(0.1)
-
-        self.model_5 = automl_alex.BestSingleModel(
-            models_names=["LightGBM", "ExtraTrees", "RandomForest"],
-            target_encoders_names=["CatBoostEncoder",],
-            feature_selection=feature_selection,
-            **params,
-        )
-
-        history = self.model_5.opt(
-            X,
-            y,
-            timeout=time_to_opt,
-        )
-        self.model_5.save(
-            name="model_5",
-            folder=TMP_FOLDER,
-        )
-
-        total_step_4 = time.time() - start_step_3
-
-        ####################################################
         logger.info(50 * "#")
         logger.info("> Finish!")
         return self
@@ -534,52 +479,25 @@ class AutoML(object):
 
         X_source = X.copy()
         ####################################################
-        # STEP 0
-        X[self.cat_features] = X[self.cat_features].astype("str")
+        # STEP 1
+        X[self._cat_cat_features] = X[self._cat_cat_features].astype("str")
         X.fillna(0, inplace=True)
-        X[self.cat_features] = X[self.cat_features].astype("category")
+        X[self._cat_cat_features] = X[self._cat_cat_features].astype("category")
 
         # MODEL 1
         self.predict_model_1 = self.model_1.predict_or_predict_proba(X)
 
         ####################################################
-        # STEP 1
-        X = self.de_1.transform(X_source, verbose=verbose)
-        if self.de_1.cat_features is not None:
-            X = X.drop(self.de_1.cat_features, axis=1)
-
-        # MODEL 2
-        # self.model_2 = self.model_2.load(name='model_2', folder=TMP_FOLDER,)
-        # self.predict_model_2 = self.model_2.predict(X)
-
-        # MODEL 3
-        self.predict_model_3 = self.model_3.predict_or_predict_proba(X)
-
-        ####################################################
         # STEP 2
-        X = self.de_2.transform(X_source, verbose=verbose)
-        # X = X.drop(self.de_2.cat_features, axis = 1)
+        # MODEL 2
+        # self.model_2 = self.model_2.load(name="model_2", folder=TMP_FOLDER)
+        self.predict_model_2 = self.model_2.predict(X_source)
 
-        # MODEL 4
-        self.predict_model_4 = self.model_4.predict_or_predict_proba(X)
-
-        # MODEL 5
-        self.model_5 = self.model_5.load(
-            name="model_5",
-            folder=TMP_FOLDER,
-        )
-        self.predict_model_5 = self.model_5.predict(X)
 
         ####################################################
-        # STEP 4
+        # STEP 3
         # Blend
-        predicts = (
-            self.predict_model_1
-            # +self.predict_model_2
-            + self.predict_model_3
-            + self.predict_model_4
-            + self.predict_model_5
-        ) / 4
+        predicts = (self.predict_model_1 + self.predict_model_2) / 2
         return predicts
 
     @logger.catch
@@ -596,14 +514,8 @@ class AutoML(object):
         """
         dir_tmp = folder + "AutoML_tmp/"
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
-        self.de_1.save(name="DataPrepare_1_dump", folder=dir_tmp)
-        self.de_2.save(name="DataPrepare_2_dump", folder=dir_tmp)
         joblib.dump(self, dir_tmp + "AutoML" + ".pkl")
-        # self.model_2.save(name='model_2', folder=dir_tmp,)
-        self.model_5.save(
-            name="model_5",
-            folder=dir_tmp,
-        )
+        self.model_2.save(name="model_2", folder=dir_tmp)
         shutil.make_archive(folder + name, "zip", dir_tmp)
         shutil.rmtree(dir_tmp)
         logger.info("Save AutoML")
@@ -629,15 +541,7 @@ class AutoML(object):
         Path(dir_tmp).mkdir(parents=True, exist_ok=True)
         shutil.unpack_archive(folder + name + ".zip", dir_tmp)
         model = joblib.load(dir_tmp + "AutoML" + ".pkl")
-        model.de_1 = DataPrepare()
-        model.de_1 = model.de_1.load("DataPrepare_1_dump", folder=dir_tmp)
-        model.de_2 = DataPrepare()
-        model.de_2 = model.de_2.load("DataPrepare_2_dump", folder=dir_tmp)
-        # model.model_2 = model.model_2.load(name='model_2', folder=dir_tmp,)
-        model.model_5 = model.model_5.load(
-            name="model_5",
-            folder=dir_tmp,
-        )
+        model.model_2 = model.model_2.load(name="model_2", folder=dir_tmp)
         shutil.rmtree(dir_tmp)
         logger.info("Load AutoML")
         return model

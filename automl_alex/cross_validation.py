@@ -158,9 +158,15 @@ class CrossValidation(object):
         y : Union[list, np.array, pd.DataFrame]
             target
         cat_features : Optional[List[str]], optional
-            features name list, by default None
+            features name list. if None -> Auto-detection categorical_features, by default None
         """
         self._clean_temp_folder()
+        # cat_features
+        if cat_features is None:
+            self.cat_features = X.columns[(X.nunique() < (len(X) // 100))]
+        else:
+            self.cat_features = cat_features
+
         self.cv_split_idx = [
             (train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)
         ]
@@ -169,7 +175,7 @@ class CrossValidation(object):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             # Target Encoder
             if len(self.target_encoders_names) > 0:
-                train_x_copy = train_x.copy()
+                train_x_copy = train_x[self.cat_features].copy()
                 for target_enc_name in self.target_encoders_names:
                     self._fit_target_enc[
                         f"{target_enc_name} _fold_{i}"
@@ -193,9 +199,7 @@ class CrossValidation(object):
                 train_x.fillna(0, inplace=True)
 
             # Fit
-            self.estimator.fit(
-                X_train=train_x, y_train=train_y, cat_features=cat_features
-            )
+            self.estimator.fit(X_train=train_x, y_train=train_y)
             self.fited_models[
                 f"model_{self.estimator.__name__}_fold_{i}"
             ] = copy.deepcopy(self.estimator)
@@ -212,10 +216,11 @@ class CrossValidation(object):
             X_test_tmp = X_test.copy()
             # Target Encoder
             if len(self.target_encoders_names) > 0:
+                X_cat_features = X_test_tmp[self.cat_features].copy()
                 for target_enc_name in self.target_encoders_names:
                     data_encodet = self._fit_target_enc[
                         f"{target_enc_name} _fold_{i}"
-                    ].transform(X_test)
+                    ].transform(X_cat_features)
                     data_encodet = data_encodet.add_prefix(target_enc_name + "_")
 
                     X_test_tmp = X_test_tmp.join(data_encodet.reset_index(drop=True))
@@ -239,7 +244,7 @@ class CrossValidation(object):
             val_x = X.iloc[valid_idx]
             # Target Encoder
             if len(self.target_encoders_names) > 0:
-                val_x_copy = val_x.copy()
+                val_x_copy = val_x[self.cat_features].copy()
                 for target_enc_name in self.target_encoders_names:
                     data_encodet = self._fit_target_enc[
                         f"{target_enc_name} _fold_{i}"
@@ -271,10 +276,11 @@ class CrossValidation(object):
             X_tmp = X.copy()
             # Target Encoder
             if len(self.target_encoders_names) > 0:
+                X_cat_features = X[self.cat_features].copy()
                 for target_enc_name in self.target_encoders_names:
                     data_encodet = self._fit_target_enc[
                         f"{target_enc_name} _fold_{i}"
-                    ].transform(X)
+                    ].transform(X_cat_features)
                     data_encodet = data_encodet.add_prefix(target_enc_name + "_")
 
                     X_tmp = X_tmp.join(data_encodet.reset_index(drop=True))
@@ -294,12 +300,17 @@ class CrossValidation(object):
         self,
         X: pd.DataFrame,
         y: Union[list, np.array, pd.DataFrame],
+        cat_features: Optional[List[str]] = None,
         print_metric=None,
         trial=None,
     ):
         self._pruned_cv = False
         if print_metric is None:
             print_metric = self.print_metric
+
+        # cat_features
+        if cat_features is None:
+            cat_features = X.columns[(X.nunique() < (len(X) // 100))]
 
         self.cv_split_idx = [
             (train_idx, valid_idx) for (train_idx, valid_idx) in self.skf.split(X, y)
@@ -312,8 +323,8 @@ class CrossValidation(object):
             val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
             # Target Encoder
             if len(self.target_encoders_names) > 0:
-                val_x_copy = val_x.copy()
-                train_x_copy = train_x.copy()
+                val_x_copy = val_x[cat_features].copy()
+                train_x_copy = train_x[cat_features].copy()
                 for target_enc_name in self.target_encoders_names:
                     target_enc = target_encoders_names[target_enc_name](
                         drop_invariant=True

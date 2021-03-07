@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.8]
+### ADD
+- optimization DataPreproc parametrs in BestSingleModel
+- rebuild AutoML pepline  (light version)
+### Fix
+- target encodet only cat features
+
 
 ## [1.3.7]
 ### Fix

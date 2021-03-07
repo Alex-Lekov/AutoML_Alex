@@ -19,3 +19,5 @@ all_models = {
     "CatBoost": CatBoost,
     "MLP": MLP,
 }
+
+need_norm_data_models = ["LinearModel", "KNeighbors", "LinearModel", "MLP"]

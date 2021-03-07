@@ -22,25 +22,25 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from tqdm import tqdm
 import sys
 
-logger.info('automl_alex v:', automl_alex.__version__)
+logger.info(f'automl_alex v: {automl_alex.__version__}')
 
 
 RANDOM_SEED = 42
-TIME_LIMIT = 900 # 15m
+TIME_LIMIT = 3600 # 1h
 CV = 5
 
 
 def test_automl_classifier_bench():
     for data_id in [
             #179,
-            4135, 
+            #4135, 
             1461, 
-            1226,
-            31,
+            #1226,
+            #31,
             1471,
             151,
-            1067,
-            1046,
+            #1067,
+            #1046,
             1489,
             1494,
             ]:
@@ -49,7 +49,7 @@ def test_automl_classifier_bench():
 
         logger.info('='*75)
         logger.info('LOAD DATASET')
-        logger.info('Dataset: ', data_id, dataset.data.shape,)
+        logger.info(f'Dataset: {data_id} {dataset.data.shape}')
 
         y = dataset.target 
         X = dataset.data 
@@ -86,13 +86,13 @@ def test_automl_classifier_bench():
             #model.save(f'AutoML_fold_{count}', folder='./result/')
 
             logger.info('*'*75)
-            logger.info('AUC: ', round(roc_auc_score(y_test, predicts),4))
+            logger.info(f'AUC: {round(roc_auc_score(y_test, predicts),4)}')
 
-            logger.info('predict_model_1 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_1),4))
-            #logger.info('predict_model_2 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_2),4))
-            logger.info('predict_model_3 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_3),4))
-            logger.info('predict_model_4 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_4),4))
-            logger.info('predict_model_5 AUC: ', round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_5),4))
+            logger.info(f'predict_model_1 AUC: {round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_1),4)}')
+            logger.info(f'predict_model_2 AUC: {round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_2),4)}')
+            logger.info(f'predict_model_3 AUC: {round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_3),4)}')
+            # logger.info(f'predict_model_4 AUC: {round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_4),4)}')
+            # logger.info(f'predict_model_5 AUC: {round(sklearn.metrics.roc_auc_score(y_test, model.predict_model_5),4)}')
             logger.info('-'*75)
 
             END_EXPERIMENT = time.time()

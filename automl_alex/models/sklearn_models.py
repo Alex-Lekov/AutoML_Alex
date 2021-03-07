@@ -523,6 +523,50 @@ class ExtraTrees(RandomForest):
             model = ensemble.ExtraTreesRegressor(**model_param)
         return model
 
+    def get_model_opt_params(
+        self,
+        trial,
+        opt_lvl,
+    ):
+        """
+        Return:
+            dict of DistributionWrappers
+        """
+        model_param = self._init_default_model_param()
+        ################################# LVL 1 ########################################
+        if opt_lvl >= 1:
+            model_param["min_samples_split"] = trial.suggest_int(
+                "ext_min_samples_split", 2, 100
+            )
+            model_param["max_depth"] = trial.suggest_int(
+                "ext_max_depth", 10, 100, step=10
+            )
+
+        ################################# LVL 2 ########################################
+        if opt_lvl >= 2:
+            model_param["n_estimators"] = trial.suggest_int(
+                "ext_n_estimators", 100, 1000, step=100
+            )
+            # model_param['max_features'] = trial.suggest_categorical('rf_max_features', [
+            #    'auto',
+            #    'sqrt',
+            #    'log2'
+            #    ])
+
+        ################################# LVL 3 ########################################
+        if opt_lvl >= 3:
+            model_param["bootstrap"] = trial.suggest_categorical(
+                "ext_bootstrap", [True, False]
+            )
+            if model_param["bootstrap"]:
+                model_param["oob_score"] = trial.suggest_categorical(
+                    "ext_oob_score", [True, False]
+                )
+            # if self._type_of_estimator == 'classifier':
+            #    model_param['class_weight'] = trial.suggest_categorical('rf_class_weight',[None, 'balanced'])
+        return model_param
+
+
 
 class ExtraTreesClassifier(ExtraTrees):
     _type_of_estimator = "classifier"
