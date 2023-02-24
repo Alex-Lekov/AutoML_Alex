@@ -1,4 +1,4 @@
-name: Python application test with Github Actions
+name: Jiyad Khan
 on: 
   push:
     branches: [ main ]
