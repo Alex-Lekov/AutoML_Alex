@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "automl-alex"
-version = "2023.3.10"
+version = "2023.3.11"
 description = "State-of-the art Automated Machine Learning python library for Tabular Data"
 authors = ["Alex-Lekov <61644712+Alex-Lekov@users.noreply.github.com>"]
 license = "MIT"

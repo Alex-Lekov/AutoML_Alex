@@ -139,7 +139,6 @@ alexautoml/.DS_Store
 catboost_info/*
 *.pkl
 test_de.zip
-.gitignore
 dask-worker-space/*
 de.zip
 .automl-alex_tmp
@@ -148,3 +147,6 @@ examples/prod_sample/catboost_info/*
 result
 .devcontainer
 poetry.lock
+examples/cv_1.zip
+examples/AutoML_model_1.zip
+model_1.zip

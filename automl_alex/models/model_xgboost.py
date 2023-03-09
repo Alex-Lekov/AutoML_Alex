@@ -44,41 +44,29 @@ class XGBoost(ModelBase):
             dict of DistributionWrappers
         """
         model_param = self._init_default_model_param()
-        ################################# LVL 1 ########################################
-        if opt_lvl == 1:
-            model_param["max_depth"] = trial.suggest_int(
-                "xgb_max_depth",
-                2,
-                8,
-            )
-            model_param["min_child_weight"] = trial.suggest_int(
-                "xgb_min_child_weight", 2, 7
-            )
-
-        ################################# LVL 2 ########################################
-        if opt_lvl == 2:
-            model_param["max_depth"] = trial.suggest_int(
-                "xgb_max_depth",
-                2,
-                12,
-            )
-            model_param["min_child_weight"] = trial.suggest_int(
-                "xgb_min_child_weight", 2, 10
-            )
-
-        if opt_lvl >= 2:
-            model_param["learning_rate"] = (
-                trial.suggest_int("xgb_learning_rate", 1, 100) / 1000
-            )
-            model_param["subsample"] = trial.suggest_discrete_uniform(
-                "xgb_subsample", 0.1, 1.0, 0.1
-            )
-            model_param["colsample_bytree"] = trial.suggest_discrete_uniform(
-                "xgb_colsample_bytree", 0.1, 1.0, 0.1
-            )
+        
+        #if opt_lvl == 1:
+        model_param["max_depth"] = trial.suggest_int(
+            "xgb_max_depth",
+            2,
+            12,
+        )
+        model_param["min_child_weight"] = trial.suggest_int(
+            "xgb_min_child_weight", 2, 10
+        )
+        #if opt_lvl >= 2:
+        model_param["learning_rate"] = (
+            trial.suggest_int("xgb_learning_rate", 1, 100) / 1000
+        )
+        model_param["subsample"] = trial.suggest_discrete_uniform(
+            "xgb_subsample", 0.1, 1.0, 0.1
+        )
+        model_param["colsample_bytree"] = trial.suggest_discrete_uniform(
+            "xgb_colsample_bytree", 0.1, 1.0, 0.1
+        )
 
         ################################# LVL 3 ########################################
-        if opt_lvl >= 3:
+        #if opt_lvl >= 3:
             # model_param["booster"] = trial.suggest_categorical(
             #     "xgb_booster", ["gbtree", "dart", "gblinear"]
             # )
@@ -108,31 +96,31 @@ class XGBoost(ModelBase):
             #         "xgb_skip_drop", 1e-8, 1.0
             #     )
 
-            model_param["n_estimators"] = (
-                trial.suggest_int(
-                    "xgb_n_estimators",
-                    1,
-                    10,
-                )
-                * 100
-            )
+            # model_param["n_estimators"] = (
+            #     trial.suggest_int(
+            #         "xgb_n_estimators",
+            #         1,
+            #         10,
+            #     )
+            #     * 100
+            # )
 
         ################################# LVL 4 ########################################
-        if opt_lvl >= 4:
-            if self._type_of_estimator == "regression":
-                model_param["objective"] = trial.suggest_categorical(
-                    "xgb_objective",
-                    [
-                        "reg:squarederror",
-                        "reg:squaredlogerror",
-                        "reg:logistic",
-                    ],
-                )
+        # if opt_lvl >= 4:
+        #     if self._type_of_estimator == "regression":
+        #         model_param["objective"] = trial.suggest_categorical(
+        #             "xgb_objective",
+        #             [
+        #                 "reg:squarederror",
+        #                 "reg:squaredlogerror",
+        #                 "reg:logistic",
+        #             ],
+        #         )
 
-            model_param["lambda"] = trial.suggest_loguniform("xg_lambda", 1e-8, 1.0)
-            model_param["regalpha_alpha"] = trial.suggest_loguniform(
-                "XG_alpha", 1e-8, 1.0
-            )
+        #     model_param["lambda"] = trial.suggest_loguniform("xg_lambda", 1e-8, 1.0)
+        #     model_param["regalpha_alpha"] = trial.suggest_loguniform(
+        #         "XG_alpha", 1e-8, 1.0
+        #     )
 
         ################################# Other ########################################
         return model_param
