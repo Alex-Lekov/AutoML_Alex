@@ -429,6 +429,7 @@ class AutoML(object):
             models_names = [
                 "LightGBM",
                 "XGBoost",
+                "LinearModel",
                 ]
         elif self._type_of_estimator == "regression":
             models_names = [

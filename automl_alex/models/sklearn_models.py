@@ -67,37 +67,37 @@ class LinearModel(ModelBase):
         )
         if self._type_of_estimator == "classifier":
             ################################# LVL 1 ########################################
-            if opt_lvl >= 1:
-                model_param["C"] = trial.suggest_uniform("lr_C", 0.1, 100.0)
+            #if opt_lvl >= 1:
+            model_param["C"] = trial.suggest_uniform("lr_C", 0.1, 100.0)
 
             ################################# LVL 2 ########################################
-            if opt_lvl >= 2:
-                model_param["solver"] = trial.suggest_categorical(
-                    "lr_solver", ["lbfgs", "saga", "liblinear"]
-                )
-                model_param["tol"] = trial.suggest_uniform("lr_tol", 1e-6, 0.1)
-                model_param["class_weight"] = trial.suggest_categorical(
-                    "lr_class_weight", [None, "balanced"]
-                )
+            # if opt_lvl >= 2:
+            model_param["solver"] = trial.suggest_categorical(
+                "lr_solver", ["lbfgs", "saga", "liblinear"]
+            )
+            model_param["tol"] = trial.suggest_uniform("lr_tol", 1e-6, 0.1)
+            model_param["class_weight"] = trial.suggest_categorical(
+                "lr_class_weight", [None, "balanced"]
+            )
 
-                if model_param["solver"] == "saga":
-                    model_param["penalty"] = trial.suggest_categorical(
-                        "lr_penalty",
-                        [
-                            "l1",
-                            "l2",
-                            "elasticnet",
-                        ],
+            if model_param["solver"] == "saga":
+                model_param["penalty"] = trial.suggest_categorical(
+                    "lr_penalty",
+                    [
+                        "l1",
+                        "l2",
+                        "elasticnet",
+                    ],
+                )
+                if model_param["penalty"] == "elasticnet":
+                    model_param["l1_ratio"] = trial.suggest_uniform(
+                        "lr_l1_ratio", 0.0, 1.0
                     )
-                    if model_param["penalty"] == "elasticnet":
-                        model_param["l1_ratio"] = trial.suggest_uniform(
-                            "lr_l1_ratio", 0.0, 1.0
-                        )
-                        model_param["max_iter"] = 5000
-                if model_param["solver"] == "liblinear":
-                    model_param["n_jobs"] = 1
-                if model_param["solver"] == "lbfgs":
                     model_param["max_iter"] = 5000
+            if model_param["solver"] == "liblinear":
+                model_param["n_jobs"] = 1
+            if model_param["solver"] == "lbfgs":
+                model_param["max_iter"] = 5000
         return model_param
 
     def _is_model_start_opt_params(
@@ -210,38 +210,38 @@ class LinearSVM(LinearModel):
         """
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl >= 1:
-            model_param["tol"] = trial.suggest_uniform("svc_tol", 1e-7, 1e-2)
-            model_param["C"] = trial.suggest_uniform("svc_C", 1e-4, 50.0)
-            model_param["fit_intercept"] = trial.suggest_categorical(
-                "svc_fit_intercept", [True, False]
-            )
+        #if opt_lvl >= 1:
+        model_param["tol"] = trial.suggest_uniform("svc_tol", 1e-7, 1e-2)
+        model_param["C"] = trial.suggest_uniform("svc_C", 1e-4, 50.0)
+        model_param["fit_intercept"] = trial.suggest_categorical(
+            "svc_fit_intercept", [True, False]
+        )
 
         ################################# LVL 2 ########################################
-        if opt_lvl >= 2:
-            if self._type_of_estimator == "classifier":
-                model_param["loss"] = trial.suggest_categorical(
-                    "svc_loss",
-                    [
-                        "hinge",
-                        "squared_hinge",
-                    ],
-                )
-                # model_param['class_weight'] = trial.suggest_categorical('svc_class_weight',[None, 'balanced'])
-                if model_param["loss"] == "squared_hinge":
-                    model_param["penalty"] = trial.suggest_categorical(
-                        "svc_penalty",
-                        [
-                            "l2",
-                            "l1",
-                        ],
-                    )
-                    if model_param["penalty"] == "l2":
-                        model_param["dual"] = trial.suggest_categorical(
-                            "svc_dual", [True, False]
-                        )
-                    if model_param["penalty"] == "l1":
-                        model_param["dual"] = False
+        # if opt_lvl >= 2:
+        #     if self._type_of_estimator == "classifier":
+        #         model_param["loss"] = trial.suggest_categorical(
+        #             "svc_loss",
+        #             [
+        #                 "hinge",
+        #                 "squared_hinge",
+        #             ],
+        #         )
+        #         # model_param['class_weight'] = trial.suggest_categorical('svc_class_weight',[None, 'balanced'])
+        #         if model_param["loss"] == "squared_hinge":
+        #             model_param["penalty"] = trial.suggest_categorical(
+        #                 "svc_penalty",
+        #                 [
+        #                     "l2",
+        #                     "l1",
+        #                 ],
+        #             )
+        #             if model_param["penalty"] == "l2":
+        #                 model_param["dual"] = trial.suggest_categorical(
+        #                     "svc_dual", [True, False]
+        #                 )
+        #             if model_param["penalty"] == "l1":
+        #                 model_param["dual"] = False
         return model_param
 
     def is_possible_predict_proba(self):
@@ -458,19 +458,22 @@ class RandomForest(LinearModel):
         """
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl >= 1:
-            model_param["min_samples_split"] = trial.suggest_int(
-                "rf_min_samples_split", 2, 100
-            )
-            model_param["max_depth"] = trial.suggest_int(
-                "rf_max_depth", 10, 100, step=10
-            )
+        #if opt_lvl >= 1:
+        model_param["min_samples_split"] = trial.suggest_int(
+            "rf_min_samples_split", 2, 100
+        )
+        model_param["max_depth"] = trial.suggest_int(
+            "rf_max_depth", 10, 100, step=10
+        )
+        model_param["n_estimators"] = trial.suggest_int(
+            "rf_n_estimators", 100, 1000, step=100
+        )
 
         ################################# LVL 2 ########################################
-        if opt_lvl >= 2:
-            model_param["n_estimators"] = trial.suggest_int(
-                "rf_n_estimators", 100, 1000, step=100
-            )
+        # if opt_lvl >= 2:
+        #     model_param["n_estimators"] = trial.suggest_int(
+        #         "rf_n_estimators", 100, 1000, step=100
+        #     )
             # model_param['max_features'] = trial.suggest_categorical('rf_max_features', [
             #    'auto',
             #    'sqrt',
@@ -478,14 +481,14 @@ class RandomForest(LinearModel):
             #    ])
 
         ################################# LVL 3 ########################################
-        if opt_lvl >= 3:
-            model_param["bootstrap"] = trial.suggest_categorical(
-                "rf_bootstrap", [True, False]
-            )
-            if model_param["bootstrap"]:
-                model_param["oob_score"] = trial.suggest_categorical(
-                    "rf_oob_score", [True, False]
-                )
+        # if opt_lvl >= 3:
+        #     model_param["bootstrap"] = trial.suggest_categorical(
+        #         "rf_bootstrap", [True, False]
+        #     )
+        #     if model_param["bootstrap"]:
+        #         model_param["oob_score"] = trial.suggest_categorical(
+        #             "rf_oob_score", [True, False]
+        #         )
             # if self._type_of_estimator == 'classifier':
             #    model_param['class_weight'] = trial.suggest_categorical('rf_class_weight',[None, 'balanced'])
         return model_param
@@ -534,19 +537,22 @@ class ExtraTrees(RandomForest):
         """
         model_param = self._init_default_model_param()
         ################################# LVL 1 ########################################
-        if opt_lvl >= 1:
-            model_param["min_samples_split"] = trial.suggest_int(
-                "ext_min_samples_split", 2, 100
-            )
-            model_param["max_depth"] = trial.suggest_int(
-                "ext_max_depth", 10, 100, step=10
-            )
+        #if opt_lvl >= 1:
+        model_param["min_samples_split"] = trial.suggest_int(
+            "ext_min_samples_split", 2, 100
+        )
+        model_param["max_depth"] = trial.suggest_int(
+            "ext_max_depth", 10, 100, step=10
+        )
+        model_param["n_estimators"] = trial.suggest_int(
+            "ext_n_estimators", 100, 1000, step=100
+        )
 
         ################################# LVL 2 ########################################
-        if opt_lvl >= 2:
-            model_param["n_estimators"] = trial.suggest_int(
-                "ext_n_estimators", 100, 1000, step=100
-            )
+        # if opt_lvl >= 2:
+        #     model_param["n_estimators"] = trial.suggest_int(
+        #         "ext_n_estimators", 100, 1000, step=100
+        #     )
             # model_param['max_features'] = trial.suggest_categorical('rf_max_features', [
             #    'auto',
             #    'sqrt',
@@ -554,14 +560,14 @@ class ExtraTrees(RandomForest):
             #    ])
 
         ################################# LVL 3 ########################################
-        if opt_lvl >= 3:
-            model_param["bootstrap"] = trial.suggest_categorical(
-                "ext_bootstrap", [True, False]
-            )
-            if model_param["bootstrap"]:
-                model_param["oob_score"] = trial.suggest_categorical(
-                    "ext_oob_score", [True, False]
-                )
+        # if opt_lvl >= 3:
+        #     model_param["bootstrap"] = trial.suggest_categorical(
+        #         "ext_bootstrap", [True, False]
+        #     )
+        #     if model_param["bootstrap"]:
+        #         model_param["oob_score"] = trial.suggest_categorical(
+        #             "ext_oob_score", [True, False]
+        #         )
             # if self._type_of_estimator == 'classifier':
             #    model_param['class_weight'] = trial.suggest_categorical('rf_class_weight',[None, 'balanced'])
         return model_param

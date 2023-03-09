@@ -7,4 +7,4 @@ from .cross_validation import *
 from .optimizer import *
 from ._logger import *
 
-__version__ = "2023.3.10"
+__version__ = "2023.3.11"
