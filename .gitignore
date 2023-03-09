@@ -147,3 +147,4 @@ de.zip
 test_save.zip
 examples/prod_sample/catboost_info/*
 result
+.devcontainer

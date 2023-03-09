@@ -100,12 +100,6 @@ class BestSingleModel(object):
             "HashingEncoder",
             "BackwardDifferenceEncoder",
         ],
-        target_encoders_names: List[str] = [
-            "TargetEncoder",
-            "JamesSteinEncoder",
-            "CatBoostEncoder",
-            "WOEEncoder",
-        ],
         clean_outliers: List[bool] = [True, False],
         num_generator_select_operations: bool = True,
         num_generator_operations: List[str] = ["/", "*", "-"],
@@ -132,7 +126,6 @@ class BestSingleModel(object):
         self._clean_and_encod_data = clean_and_encod_data
         self._opt_data_prepare = opt_data_prepare
         self._cat_encoder_names = cat_encoder_names
-        self._target_encoders_names = target_encoders_names
         self._clean_outliers = clean_outliers
         self._num_generator_select_operations = num_generator_select_operations
         self._num_generator_operations = num_generator_operations
@@ -389,11 +382,6 @@ class BestSingleModel(object):
             trial,
         )
 
-        self._select_target_encoders_names = self._opt_encoder_selector(
-            self._target_encoders_names,
-            trial,
-        )
-
         if len(self._clean_outliers) > 1:
             self.de_cfg["clean_outliers"] = trial.suggest_categorical(
                 "de_clean_outliers", [True, False]
@@ -426,12 +414,9 @@ class BestSingleModel(object):
 
         if self._opt_data_prepare:
             X = self._opt_data_prepare_func(self._X_source, trial)
-        else:
-            self._select_target_encoders_names = self._target_encoders_names
 
         cv = CrossValidation(
             estimator=self.opt_model,
-            target_encoders_names=self._select_target_encoders_names,
             folds=self.folds,
             score_folds=self.score_folds,
             n_repeats=1,

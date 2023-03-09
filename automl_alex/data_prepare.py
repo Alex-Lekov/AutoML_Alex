@@ -7,7 +7,6 @@ from typing import List
 from typing import Tuple
 
 import warnings
-
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import pandas as pd
@@ -21,9 +20,6 @@ import gc
 from pathlib import Path
 import shutil
 
-import tensorflow.keras.layers as L
-from tensorflow.keras import Model
-
 from ._encoders import *
 from ._logger import *
 from sklearn.preprocessing import StandardScaler
@@ -35,172 +31,6 @@ pd.options.mode.chained_assignment = None
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 random.seed(RANDOM_SEED)
-
-
-class DenoisingAutoencoder(object):
-    """
-    Denoising autoencoders (DAE) for numerical features. try to achieve a good representation by changing the reconstruction criterion
-    https://en.wikipedia.org/wiki/Autoencoder#Denoising_autoencoder_(DAE)
-
-    Examples
-    --------
-    >>> from automl_alex import DenoisingAutoencoder, CleanNans
-    >>> import sklearn
-    >>> # Get Dataset
-    >>> dataset = sklearn.datasets.fetch_openml(name='adult', version=1, as_frame=True)
-    >>> dataset.target = dataset.target.astype('category').cat.codes
-    >>> X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-    >>>                                             dataset.data,
-    >>>                                             dataset.target,
-    >>>                                             test_size=0.2,)
-    >>>
-    >>> # clean nans before use
-    >>> cn = CleanNans()
-    >>> clean_X_train = cn.fit_transform(X_train)
-    >>> clean_X_test = cn.transform(X_test)
-    >>>
-    >>> # get Numeric Features
-    >>> num_columns = list(clean_X_train.select_dtypes('number').columns)
-    >>>
-    >>> nf = DenoisingAutoencoder()
-    >>> new_features_X_train = nf.fit_transform(clean_X_train, num_columns)
-    >>> new_features_X_test = nf.transform(clean_X_test)
-    """
-
-    autoencoder = None
-
-    def __init__(self, verbose: int = 0) -> None:
-        """
-        Parameters
-        ----------
-        verbose : int,
-            print state, by default 0
-        """
-        self.verbose = verbose
-
-    def _get_dae(
-        self,
-        caunt_columns: int,
-        units: Optional[int] = 512,
-    ):
-        # denoising autoencoder
-        inputs = L.Input((caunt_columns,))
-        x = L.Dense(units, activation="relu")(inputs)  # 1500 original
-        x = L.Dense(units, activation="relu")(x)  # 1500 original
-        x = L.Dense(units, activation="relu")(x)  # 1500 original
-        outputs = L.Dense(caunt_columns, activation="relu")(x)
-        model = Model(inputs=inputs, outputs=outputs)
-        model.compile(optimizer="adam", loss="mse")
-        return model
-
-    @logger.catch
-    def fit(self, data: pd.DataFrame, cols: Optional[List[str]] = None) -> None:
-        """
-        Parameters
-        ----------
-        data : pd.DataFrame
-            dataset (pd.DataFrame shape = (n_samples, n_features))
-        cols : Optional[List[str]], optional
-            cols list features, by default None
-
-        Returns
-        -------
-        self
-
-        Raises
-        ------
-        Exception
-            No numerical features
-        """
-        if cols is not None:
-            data = data[cols]
-
-        data = data._get_numeric_data()
-        self.columns = data.columns
-        count_columns = len(self.columns)
-
-        if count_columns < 1:
-            raise ValueError("No numerical features")
-
-        self.scaler = MinMaxScaler().fit(data)
-        s_data = self.scaler.transform(data)
-
-        units = 512
-        if count_columns > 512:
-            units = count_columns
-
-        self.autoencoder = self._get_dae(count_columns, units=units)
-        self.autoencoder.fit(
-            s_data,
-            s_data,
-            epochs=50,
-            batch_size=124,
-            shuffle=True,
-            verbose=self.verbose,
-        )
-        return self
-
-    @logger.catch
-    def transform(
-        self, data: pd.DataFrame, cols: Optional[List[str]] = None
-    ) -> pd.DataFrame:
-        """
-        Transforms the dataset.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            dataset (pd.DataFrame shape = (n_samples, n_features))
-        cols : Optional[List[str]], optional
-            cols list features, by default None
-
-        Returns
-        -------
-        pd.DataFrame
-            The dataset with Transform data
-
-        Raises
-        ------
-        Exception
-            if No fit autoencoder
-        """
-        if self.autoencoder is None:
-            raise Exception("No fit autoencoder")
-
-        if cols is not None:
-            data = data[cols]
-
-        s_data = self.scaler.transform(data[self.columns])
-        encodet_data = self.autoencoder.predict(s_data)
-        encodet_data = pd.DataFrame(encodet_data, columns=self.columns)
-        return encodet_data
-
-    def fit_transform(
-        self, data: pd.DataFrame, cols: Optional[List[str]] = None
-    ) -> pd.DataFrame:
-        """
-        Fit and Transforms the dataset.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            dataset (pd.DataFrame shape = (n_samples, n_features))
-        cols : Optional[List[str]], optional
-            cols list features, by default None
-
-        Returns
-        -------
-        pd.DataFrame
-            The dataset with Transform data
-
-        Raises
-        ------
-        Exception
-            No numerical features
-        """
-        self.fit(data, cols)
-        return self.transform(data)
-
 
 class CleanNans(object):
     """

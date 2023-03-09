@@ -273,7 +273,6 @@ class ModelBase(object):
             clean_and_encod_data=False,
             type_of_estimator=self._type_of_estimator,
             models_names=[self.__name__],
-            target_encoders_names=[],
             feature_selection=False,
             auto_parameters=auto_parameters,
             folds=folds,

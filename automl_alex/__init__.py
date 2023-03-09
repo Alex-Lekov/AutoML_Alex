@@ -6,4 +6,5 @@ from ._encoders import *
 from .cross_validation import *
 from .optimizer import *
 from ._logger import *
-from .__version__ import __version__
+
+__version__ = "2023.3.9"

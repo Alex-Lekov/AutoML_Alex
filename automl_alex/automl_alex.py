@@ -414,11 +414,6 @@ class AutoML(object):
                 "HashingEncoder",
                 "BackwardDifferenceEncoder",
             ],
-            "target_encoders_names": [
-                "TargetEncoder",
-                "JamesSteinEncoder",
-                "CatBoostEncoder",
-            ],
             "clean_outliers": [True, False],
             "num_generator_select_operations": True,
             "num_generator_operations": ["/", "*", "-", "+"],
