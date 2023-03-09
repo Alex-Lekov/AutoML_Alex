@@ -138,7 +138,7 @@ class LightGBM(ModelBase):
                 "lgbm_num_leaves", 2, 100, log=True
             )
             model_param["learning_rate"] = trial.suggest_float(
-                "lgbm_learning_rate", 1e-2, 0.3, log=True
+                "lgbm_learning_rate", 1e-3, 0.3, log=True
             )
 
         ################################# LVL 2 ########################################
@@ -171,11 +171,6 @@ class LightGBM(ModelBase):
             )
 
         ################################# LVL 4 ########################################
-        if opt_lvl == 4:
-            model_param["learning_rate"] = trial.suggest_float(
-                "lgbm_learning_rate", 1e-3, 0.1, log=True
-            )
-
         if opt_lvl >= 4:
             model_param["boosting"] = trial.suggest_categorical(
                 "lgbm_boosting",
@@ -235,9 +230,6 @@ class LightGBM(ModelBase):
             )
             model_param["min_child_weight"] = trial.suggest_float(
                 "lgbm_min_child_weight", 1e-6, 1.0, log=True
-            )
-            model_param["learning_rate"] = trial.suggest_float(
-                "lgbm_learning_rate", 1e-5, 0.1, log=True
             )
             model_param["reg_lambda"] = trial.suggest_float(
                 "lgbm_reg_lambda", 1e-8, 1.0, log=True

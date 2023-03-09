@@ -607,13 +607,12 @@ class DataPrepare(object):
         outliers_method: str = "IQR",  # method : ['IQR', 'z_score',]
         outliers_threshold: int = 2,
         drop_invariant: bool = True,
-        num_generator_features: bool = True,
+        num_generator_features: bool = False,
         num_generator_operations: List[str] = [
             "/",
             "*",
             "-",
         ],
-        num_denoising_autoencoder: bool = False,
         # group_generator_features=False,
         # frequency_enc_num_features=False,
         normalization: bool = False,
@@ -642,8 +641,6 @@ class DataPrepare(object):
             generate num features, by default True
         num_generator_operations : List[str], optional
             operations for generate num features, by default ['/','*','-',]
-        num_denoising_autoencoder : bool, optional
-            generate num denoising autoencoder features, by default False
         normalization : bool, optional
             On or Off, by default True
         reduce_memory : bool, optional
@@ -666,7 +663,6 @@ class DataPrepare(object):
         self._drop_invariant = drop_invariant
         self._outliers_method = outliers_method
         self._num_generator_features = num_generator_features
-        self._num_denoising_autoencoder = num_denoising_autoencoder
         self._num_generator_operations = num_generator_operations
         self._normalization = normalization
         self._reduce_memory = reduce_memory
@@ -799,10 +795,10 @@ class DataPrepare(object):
             logger.info("> Clean Categorical Features")
             self._cat_clean_ord_encoder = OrdinalEncoder()
             self._cat_clean_ord_encoder = self._cat_clean_ord_encoder.fit(
-                data[self.object_features]
+                data[self.object_features].astype(object)
             )
             data[self.object_features] = self._cat_clean_ord_encoder.transform(
-                data[self.object_features]
+                data[self.object_features].astype(object)
             )
 
         if self.cat_features is not None and len(self.cat_encoder_names) > 0:
@@ -826,11 +822,10 @@ class DataPrepare(object):
 
                 self._fit_cat_encoders[cat_encoder_name] = self._fit_cat_encoders[
                     cat_encoder_name
-                ].fit(data[self.cat_features])
+                ].fit(data[self.cat_features].astype(object))
 
                 data_encodet = self._fit_cat_encoders[cat_encoder_name].transform(
-                    data[self.cat_features]
-                )
+                    data[self.cat_features].astype(object))
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + "_")
                 if self._reduce_memory:
                     data_encodet = reduce_mem_usage(data_encodet)
@@ -852,19 +847,6 @@ class DataPrepare(object):
                 )
             else:
                 logger.info("  No nans features")
-
-        # DenoisingAutoencoder
-        if self._num_denoising_autoencoder:
-            if len(self.num_features) > 2:
-                logger.info("> Start fit DenoisingAutoencoder")
-                self._autoencoder = DenoisingAutoencoder(verbose=self.verbose)
-                data_encodet = self._autoencoder.fit_transform(data[self.num_features])
-                data_encodet = data_encodet.add_prefix("DenoisingAutoencoder_")
-                data = pd.concat(
-                    [data.reset_index(drop=True), data_encodet.reset_index(drop=True)],
-                    axis=1,
-                )
-                logger.info("> Add Denoising features")
 
         # CleanOutliers
         if self._clean_outliers:
@@ -993,7 +975,7 @@ class DataPrepare(object):
         if self.object_features is not None:
             logger.info("> Clean Categorical Features")
             data[self.object_features] = self._cat_clean_ord_encoder.transform(
-                data[self.object_features]
+                data[self.object_features].astype(object)
             )
 
         if self.cat_features is not None and len(self.cat_encoder_names) > 0:
@@ -1001,7 +983,7 @@ class DataPrepare(object):
             logger.info("> Transform Categorical Features.")
             for cat_encoder_name in self.cat_encoder_names:
                 data_encodet = self._fit_cat_encoders[cat_encoder_name].transform(
-                    data[self.cat_features]
+                    data[self.cat_features].astype(object)
                 )
                 data_encodet = data_encodet.add_prefix(cat_encoder_name + "_")
                 if self._reduce_memory:
@@ -1018,17 +1000,6 @@ class DataPrepare(object):
         if self._clean_nan_encoder:
             data = self._clean_nan_encoder.transform(data)
             logger.info("> Clean Nans")
-
-        # DenoisingAutoencoder
-        if self._num_denoising_autoencoder:
-            if len(self.num_features) > 2:
-                data_encodet = self._autoencoder.transform(data[self.num_features])
-                data_encodet = data_encodet.add_prefix("DenoisingAutoencoder_")
-                data = pd.concat(
-                    [data.reset_index(drop=True), data_encodet.reset_index(drop=True)],
-                    axis=1,
-                )
-                logger.info("> Add Denoising features")
 
         # CleanOutliers
         if self._clean_outliers:

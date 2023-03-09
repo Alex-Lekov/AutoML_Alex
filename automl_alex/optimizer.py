@@ -91,17 +91,17 @@ class BestSingleModel(object):
     def __init__(
         self,
         clean_and_encod_data: bool = False,
-        models_names: List[str] = ["LinearModel", "LightGBM", "ExtraTrees"],
+        models_names: List[str] = ["LinearModel", "LightGBM", "XGBoost"],
         opt_data_prepare: bool = False,
         cat_encoder_names: List[str] = [
             "HelmertEncoder",
             "OneHotEncoder",
             "CountEncoder",
             "HashingEncoder",
-            "BackwardDifferenceEncoder",
+            #"BackwardDifferenceEncoder",
         ],
         clean_outliers: List[bool] = [True, False],
-        num_generator_select_operations: bool = True,
+        num_generator_select_operations: bool = False,
         num_generator_operations: List[str] = ["/", "*", "-"],
         normalization=False,
         folds: int = 7,
@@ -372,7 +372,7 @@ class BestSingleModel(object):
 
     def _opt_data_prepare_func(self, X: pd.DataFrame, trial):
         self.de_cfg = {
-            "num_generator_features": True,
+            "num_generator_features": False,
             "random_state": self._random_state,
             "verbose": 1,
         }
@@ -486,7 +486,7 @@ class BestSingleModel(object):
                 "clean_outliers": self._clean_outliers,
                 "normalization": self._normalization,
                 "num_generator_operations": self._num_generator_operations,
-                "num_generator_features": True,
+                "num_generator_features": False,
                 "random_state": self._random_state,
                 "verbose": 1,
             }
@@ -601,67 +601,69 @@ class BestSingleModel(object):
 
         possible_iters = timeout // (iter_time)
         logger.info(f" Possible iters ~ {possible_iters}")
-        if possible_iters < 100:
+
+        if possible_iters > 100:
+            logger.info("-" * 50)
+
+            if self._auto_parameters:
+                (
+                    self.early_stoping,
+                    self.folds,
+                    self.score_folds,
+                    self.opt_lvl,
+                    self.cold_start,
+                ) = self.__auto_parameters_calc__(possible_iters)
+
+            # pruners
+            df_tmp = self.study.trials_dataframe()
+            pruned_scor = round((df_tmp.value.median()), self.metric_round)
+
+            if self.direction == "maximize":
+                prun_params = {"lower": pruned_scor}
+            else:
+                prun_params = {"upper": pruned_scor}
+
+            self.study.pruner = optuna.pruners.ThresholdPruner(**prun_params)
+            self.study.set_user_attr(
+                "Pruned Threshold Score",
+                pruned_scor,
+            )
+
+            logger.info(f"  Pruned Threshold Score: {pruned_scor}")
+            logger.info("#" * 50)
+
+            ###############################################################################
+            # Step 2
+            # Full opt with ThresholdPruner
+            logger.info(f"> Step 2: Full opt with Threshold Score Pruner")
+            logger.info("#" * 50)
+            self._print_opt_parameters()
+            logger.info("#" * 50)
+
+            timeout_step2 = timeout - (time.time() - start_opt_time)
+            timeout_step2 = timeout_step2 - (iter_time * self.folds)  # prediction time
+            with tqdm(file=sys.stderr, desc="Optimize: ", disable=disable_tqdm) as pbar:
+                try:
+                    self.study.optimize(
+                        lambda trial: objective(trial, self, step=2, **obj_config),
+                        timeout=timeout_step2,
+                        callbacks=[es_callback],
+                        show_progress_bar=False,
+                    )
+                except _EarlyStoppingExceeded:
+                    pbar.close()
+                    logger.info(
+                        f"\n EarlyStopping Exceeded: Best Score: {self.study.best_value} {self.metric.__name__}"
+                    )
+
+            pbar.close()
+
+        else:
             logger.warning(
                 "! Not enough time to find the optimal parameters. \n \
                     Possible iters < 100. \n \
-                    Please, Increase the 'timeout' parameter for normal optimization."
+                    Please, Increase the 'timeout' parameter for normal optimization and try again. \n "
             )
-        logger.info("-" * 50)
-
-        if self._auto_parameters:
-            (
-                self.early_stoping,
-                self.folds,
-                self.score_folds,
-                self.opt_lvl,
-                self.cold_start,
-            ) = self.__auto_parameters_calc__(possible_iters)
-
-        # pruners
-        df_tmp = self.study.trials_dataframe()
-        pruned_scor = round((df_tmp.value.median()), self.metric_round)
-
-        if self.direction == "maximize":
-            prun_params = {"lower": pruned_scor}
-        else:
-            prun_params = {"upper": pruned_scor}
-
-        self.study.pruner = optuna.pruners.ThresholdPruner(**prun_params)
-        self.study.set_user_attr(
-            "Pruned Threshold Score",
-            pruned_scor,
-        )
-
-        logger.info(f"  Pruned Threshold Score: {pruned_scor}")
-        logger.info("#" * 50)
-
-        ###############################################################################
-        # Step 2
-        # Full opt with ThresholdPruner
-        logger.info(f"> Step 2: Full opt with Threshold Score Pruner")
-        logger.info("#" * 50)
-        self._print_opt_parameters()
-        logger.info("#" * 50)
-
-        timeout_step2 = timeout - (time.time() - start_opt_time)
-        timeout_step2 = timeout_step2 - (iter_time * self.folds)  # prediction time
-        with tqdm(file=sys.stderr, desc="Optimize: ", disable=disable_tqdm) as pbar:
-            try:
-                self.study.optimize(
-                    lambda trial: objective(trial, self, step=2, **obj_config),
-                    timeout=timeout_step2,
-                    callbacks=[es_callback],
-                    show_progress_bar=False,
-                )
-            except _EarlyStoppingExceeded:
-                pbar.close()
-                logger.info(
-                    f"\n EarlyStopping Exceeded: Best Score: {self.study.best_value} {self.metric.__name__}"
-                )
-
-        pbar.close()
-
         ###############################################################################
         # fit CV model
         logger.info(f"> Finish Opt!")

@@ -317,7 +317,7 @@ class AutoML(object):
         score_folds: int = 3,
         opt_lvl: int = 2,
         early_stoping: int = 100,
-        feature_selection: bool = False,
+        feature_selection: bool = True,
         verbose: int = 3,
     ) -> None:
         """
@@ -412,10 +412,9 @@ class AutoML(object):
                 "OneHotEncoder",
                 "CountEncoder",
                 "HashingEncoder",
-                "BackwardDifferenceEncoder",
             ],
             "clean_outliers": [True, False],
-            "num_generator_select_operations": True,
+            "num_generator_select_operations": False,
             "num_generator_operations": ["/", "*", "-", "+"],
             #'iteration_check': False,
         }
@@ -424,15 +423,21 @@ class AutoML(object):
         logger.info(50 * "#")
         logger.info("> Start Fit Models 2")
         logger.info(50 * "#")
+
         # Model 2
-        self.model_2 = automl_alex.BestSingleModel(
-            models_names=[
-                # "LinearModel",
+        if self._type_of_estimator == "classifier":
+            models_names = [
                 "LightGBM",
-                # "ExtraTrees",
-                # "RandomForest",
-                # "MLP",
-            ],
+                "XGBoost",
+                ]
+        elif self._type_of_estimator == "regression":
+            models_names = [
+                "LinearModel",
+                "LightGBM",
+                ]
+
+        self.model_2 = automl_alex.BestSingleModel(
+            models_names=models_names,
             **params,
         )
 

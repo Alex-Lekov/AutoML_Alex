@@ -228,13 +228,13 @@ class ModelBase(object):
         timeout=200,  # optimization time in seconds
         metric=None,
         metric_round=4,
-        combined_score_opt=False,
         cold_start=30,
         auto_parameters=True,
         folds=7,
         score_folds=2,
         opt_lvl=2,
         early_stoping=100,
+        feature_selection=False,
         verbose=1,
     ):
         """
@@ -249,7 +249,7 @@ class ModelBase(object):
             opt_lvl=None (None or int):
             direction=None (None or str):
             early_stoping=100 (int):
-            feature_selection=True (bool):
+            feature_selection=False (bool):
             verbose=1 (int):
 
         Returns:
@@ -273,7 +273,7 @@ class ModelBase(object):
             clean_and_encod_data=False,
             type_of_estimator=self._type_of_estimator,
             models_names=[self.__name__],
-            feature_selection=False,
+            feature_selection=feature_selection,
             auto_parameters=auto_parameters,
             folds=folds,
             score_folds=score_folds,

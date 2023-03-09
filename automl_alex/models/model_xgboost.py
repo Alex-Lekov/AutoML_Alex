@@ -79,34 +79,34 @@ class XGBoost(ModelBase):
 
         ################################# LVL 3 ########################################
         if opt_lvl >= 3:
-            model_param["booster"] = trial.suggest_categorical(
-                "xgb_booster", ["gbtree", "dart", "gblinear"]
-            )
+            # model_param["booster"] = trial.suggest_categorical(
+            #     "xgb_booster", ["gbtree", "dart", "gblinear"]
+            # )
 
-            if model_param["booster"] == "dart" or model_param["booster"] == "gbtree":
-                model_param["min_child_weight"] = trial.suggest_int(
-                    "xgb_min_child_weight", 2, 100
-                )
-                model_param["max_depth"] = trial.suggest_int("xgb_max_depth", 1, 20)
-                model_param["gamma"] = trial.suggest_loguniform("xgb_gamma", 1e-6, 1.0)
-                model_param["grow_policy"] = trial.suggest_categorical(
-                    "xgb_grow_policy", ["depthwise", "lossguide"]
-                )
+            # if model_param["booster"] == "dart" or model_param["booster"] == "gbtree":
+            #     model_param["min_child_weight"] = trial.suggest_int(
+            #         "xgb_min_child_weight", 2, 100
+            #     )
+            #     model_param["max_depth"] = trial.suggest_int("xgb_max_depth", 1, 20)
+            #     model_param["gamma"] = trial.suggest_loguniform("xgb_gamma", 1e-6, 1.0)
+                # model_param["grow_policy"] = trial.suggest_categorical(
+                #     "xgb_grow_policy", ["depthwise", "lossguide"]
+                # )
 
-            if model_param["booster"] == "dart":
-                model_param["early_stopping_rounds"] = 0
-                model_param["sample_type"] = trial.suggest_categorical(
-                    "xgb_sample_type", ["uniform", "weighted"]
-                )
-                model_param["normalize_type"] = trial.suggest_categorical(
-                    "xgb_normalize_type", ["tree", "forest"]
-                )
-                model_param["rate_drop"] = trial.suggest_loguniform(
-                    "xgb_rate_drop", 1e-8, 1.0
-                )
-                model_param["skip_drop"] = trial.suggest_loguniform(
-                    "xgb_skip_drop", 1e-8, 1.0
-                )
+            # if model_param["booster"] == "dart":
+            #     model_param["early_stopping_rounds"] = 0
+            #     model_param["sample_type"] = trial.suggest_categorical(
+            #         "xgb_sample_type", ["uniform", "weighted"]
+            #     )
+            #     model_param["normalize_type"] = trial.suggest_categorical(
+            #         "xgb_normalize_type", ["tree", "forest"]
+            #     )
+            #     model_param["rate_drop"] = trial.suggest_loguniform(
+            #         "xgb_rate_drop", 1e-8, 1.0
+            #     )
+            #     model_param["skip_drop"] = trial.suggest_loguniform(
+            #         "xgb_skip_drop", 1e-8, 1.0
+            #     )
 
             model_param["n_estimators"] = (
                 trial.suggest_int(
