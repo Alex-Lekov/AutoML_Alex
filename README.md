@@ -165,7 +165,7 @@ $ optuna-dashboard sqlite:///db.sqlite3
 
 -   [x] Add opt Pruners
 
--   [x] Docs Site
+-   [ ] Docs Site
 
 -   [ ] DL Encoders
 
