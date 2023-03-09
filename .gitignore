@@ -135,9 +135,8 @@ dmypy.json
 */.DS_Store
 alexautoml/.DS_Store
 .catboost_info
-*.catboost_info/
+**/catboost_info
 catboost_info/*
-*/catboost_info
 *.pkl
 test_de.zip
 .gitignore
@@ -147,3 +146,5 @@ de.zip
 test_save.zip
 examples/prod_sample/catboost_info/*
 result
+.devcontainer
+poetry.lock

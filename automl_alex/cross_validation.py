@@ -72,7 +72,6 @@ class CrossValidation(object):
     def __init__(
         self,
         estimator: Callable,  # model
-        target_encoders_names: List[str] = [],
         folds: int = 7,
         score_folds: int = 5,
         n_repeats: int = 1,
@@ -87,8 +86,6 @@ class CrossValidation(object):
         estimator : Callable
             model object from automl_alex.models
             The object to use to fit model.
-        target_encoders_names : List[str]
-            name encoders (from automl_alex._encoders.target_encoders_names)
         folds : int, optional
             Number of folds., by default 7
         score_folds : int, optional
@@ -113,7 +110,6 @@ class CrossValidation(object):
         self.n_repeats = n_repeats
         self.print_metric = print_metric
         self.metric_round = metric_round
-        self.target_encoders_names = target_encoders_names
 
         if metric is None:
             if estimator._type_of_estimator == "classifier":
@@ -173,30 +169,6 @@ class CrossValidation(object):
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                train_x_copy = train_x[self.cat_features].copy()
-                for target_enc_name in self.target_encoders_names:
-                    self._fit_target_enc[
-                        f"{target_enc_name} _fold_{i}"
-                    ] = copy.deepcopy(
-                        target_encoders_names[target_enc_name](drop_invariant=True)
-                    )
-
-                    self._fit_target_enc[
-                        f"{target_enc_name} _fold_{i}"
-                    ] = self._fit_target_enc[f"{target_enc_name} _fold_{i}"].fit(
-                        train_x_copy, train_y
-                    )
-
-                    data_encodet = self._fit_target_enc[
-                        f"{target_enc_name} _fold_{i}"
-                    ].transform(train_x_copy)
-                    data_encodet = data_encodet.add_prefix(target_enc_name + "_")
-
-                    train_x = train_x.join(data_encodet.reset_index(drop=True))
-                train_x_copy = None
-                train_x.fillna(0, inplace=True)
 
             # Fit
             self.estimator.fit(X_train=train_x, y_train=train_y)
@@ -214,17 +186,6 @@ class CrossValidation(object):
 
         for i in range(self.folds * self.n_repeats):
             X_test_tmp = X_test.copy()
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                X_cat_features = X_test_tmp[self.cat_features].copy()
-                for target_enc_name in self.target_encoders_names:
-                    data_encodet = self._fit_target_enc[
-                        f"{target_enc_name} _fold_{i}"
-                    ].transform(X_cat_features)
-                    data_encodet = data_encodet.add_prefix(target_enc_name + "_")
-
-                    X_test_tmp = X_test_tmp.join(data_encodet.reset_index(drop=True))
-                X_test_tmp.fillna(0, inplace=True)
             # Predict
             y_pred_test = self.fited_models[
                 f"model_{self.estimator.__name__}_fold_{i}"
@@ -242,18 +203,6 @@ class CrossValidation(object):
 
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             val_x = X.iloc[valid_idx]
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                val_x_copy = val_x[self.cat_features].copy()
-                for target_enc_name in self.target_encoders_names:
-                    data_encodet = self._fit_target_enc[
-                        f"{target_enc_name} _fold_{i}"
-                    ].transform(val_x_copy)
-                    data_encodet = data_encodet.add_prefix(target_enc_name + "_")
-                    val_x = val_x.join(data_encodet.reset_index(drop=True))
-                val_x_copy = None
-                val_x.fillna(0, inplace=True)
-
             y_pred = self.fited_models[
                 f"model_{self.estimator.__name__}_fold_{i}"
             ].predict_or_predict_proba(val_x)
@@ -274,16 +223,6 @@ class CrossValidation(object):
 
         for i in range(self.folds * self.n_repeats):
             X_tmp = X.copy()
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                X_cat_features = X[self.cat_features].copy()
-                for target_enc_name in self.target_encoders_names:
-                    data_encodet = self._fit_target_enc[
-                        f"{target_enc_name} _fold_{i}"
-                    ].transform(X_cat_features)
-                    data_encodet = data_encodet.add_prefix(target_enc_name + "_")
-
-                    X_tmp = X_tmp.join(data_encodet.reset_index(drop=True))
             X_tmp.fillna(0, inplace=True)
             # Get feature_importance
             if i == 0:
@@ -321,30 +260,6 @@ class CrossValidation(object):
         for i, (train_idx, valid_idx) in enumerate(self.cv_split_idx):
             train_x, train_y = X.iloc[train_idx], y.iloc[train_idx]
             val_x, val_y = X.iloc[valid_idx], y.iloc[valid_idx]
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                val_x_copy = val_x[cat_features].copy()
-                train_x_copy = train_x[cat_features].copy()
-                for target_enc_name in self.target_encoders_names:
-                    target_enc = target_encoders_names[target_enc_name](
-                        drop_invariant=True
-                    )
-
-                    data_encodet = target_enc.fit_transform(train_x_copy, train_y)
-                    data_encodet = data_encodet.add_prefix(target_enc_name + "_")
-                    train_x = train_x.join(data_encodet.reset_index(drop=True))
-                    data_encodet = None
-
-                    val_x_data_encodet = target_enc.transform(val_x_copy)
-                    val_x_data_encodet = val_x_data_encodet.add_prefix(
-                        target_enc_name + "_"
-                    )
-                    val_x = val_x.join(val_x_data_encodet.reset_index(drop=True))
-                    val_x_data_encodet = None
-                val_x_copy = None
-                train_x_copy = None
-                train_x.fillna(0, inplace=True)
-                val_x.fillna(0, inplace=True)
 
             # Fit
 
@@ -397,13 +312,6 @@ class CrossValidation(object):
         self._clean_temp_folder()
 
         for i in range(self.folds * self.n_repeats):
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                for target_enc_name in self.target_encoders_names:
-                    joblib.dump(
-                        self._fit_target_enc[f"{target_enc_name} _fold_{i}"],
-                        f"{dir_tmp}{target_enc_name} _fold_{i}.pkl",
-                    )
             # Models
             self.fited_models[f"model_{self.estimator.__name__}_fold_{i}"].save(
                 f"{dir_tmp}model_{self.estimator.__name__}_fold_{i}", verbose=0
@@ -426,12 +334,6 @@ class CrossValidation(object):
         cv = joblib.load(dir_tmp + "CV" + ".pkl")
 
         for i in range(cv.folds * cv.n_repeats):
-            # Target Encoder
-            if len(self.target_encoders_names) > 0:
-                for target_enc_name in self.target_encoders_names:
-                    self._fit_target_enc[f"{target_enc_name} _fold_{i}"] = joblib.load(
-                        f"{dir_tmp}{target_enc_name} _fold_{i}.pkl"
-                    )
             # Models
             cv.fited_models[
                 f"model_{self.estimator.__name__}_fold_{i}"
